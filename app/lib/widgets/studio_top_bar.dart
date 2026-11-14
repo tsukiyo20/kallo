@@ -29,6 +29,7 @@ class StudioTopBar extends StatelessWidget {
     this.trailing,
     this.center,
     this.onDragWindow,
+    this.onToggleMaximize,
     this.height = 56,
     this.rightInset = 0,
   });
@@ -58,6 +59,12 @@ class StudioTopBar extends StatelessWidget {
   final Widget? center;
 
   final VoidCallback? onDragWindow;
+
+  /// What a double click on the band does, where the app owns the frame. On
+  /// Windows that is the title bar's oldest gesture: a caption is a place you
+  /// drag, and the same place is the one you double click to fill the screen.
+  final VoidCallback? onToggleMaximize;
+
   final double height;
 
   /// The width the inspector takes. The capsule centres over the bench, not
@@ -80,6 +87,7 @@ class StudioTopBar extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onPanStart: onDragWindow == null ? null : (_) => onDragWindow!(),
+        onDoubleTap: onToggleMaximize,
         child: Stack(
           children: <Widget>[
             if (center != null)

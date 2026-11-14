@@ -38,6 +38,7 @@ import 'views/steps.dart';
 import 'views/studio.dart';
 import 'widgets/folder_move_sheet.dart';
 import 'widgets/import_progress_sheet.dart';
+import 'widgets/window_controls.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +91,10 @@ Future<void> main() async {
           ? WindowChrome.windows
           : WindowChrome.plain,
       onDragWindow: desktop ? windowManager.startDragging : null,
+      // Only Windows lost a title bar the system would have double-clicked.
+      // On the Mac the band is the drag handle and the zoom belongs to the
+      // system's own title bar, which is still there.
+      onToggleMaximize: Platform.isWindows ? toggleWindowMaximize : null,
     ),
   );
 }
@@ -116,6 +121,7 @@ class KalloApp extends StatefulWidget {
     this.initialStep = DarkroomStep.select,
     this.chrome = WindowChrome.plain,
     this.onDragWindow,
+    this.onToggleMaximize,
   });
 
   /// What the window looks like around the app.
@@ -123,6 +129,10 @@ class KalloApp extends StatefulWidget {
 
   /// Moves the window, when the chrome has no title bar of its own.
   final VoidCallback? onDragWindow;
+
+  /// Fills the screen and puts the window back, for a double click on the band
+  /// that stands where a title bar would have been.
+  final VoidCallback? onToggleMaximize;
 
   /// A strip to open directly. The tests pass one; the app reads the strip on
   /// disk, which is the one in the darkroom.
@@ -1083,6 +1093,7 @@ class _KalloAppState extends State<KalloApp> {
               initialStep: widget.initialStep,
               chrome: widget.chrome,
               onDragWindow: widget.onDragWindow,
+              onToggleMaximize: widget.onToggleMaximize,
             ),
     );
   }

@@ -5,6 +5,22 @@ import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
 
+/// Maximize the window, or put it back.
+///
+/// Shared by the control at the right and by the double click on the top band,
+/// so the two can never disagree about what the next state is.
+Future<void> toggleWindowMaximize() async {
+  try {
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  } on Object catch (_) {
+    // No window behind the call; there is nothing to maximize.
+  }
+}
+
 /// The way out of a window whose frame the app has hidden.
 ///
 /// On the Mac the traffic lights are the system's and this is never built. On
@@ -68,17 +84,7 @@ class _WindowControlsState extends State<WindowControls> with WindowListener {
     }
   }
 
-  Future<void> _toggle() async {
-    try {
-      if (await windowManager.isMaximized()) {
-        await windowManager.unmaximize();
-      } else {
-        await windowManager.maximize();
-      }
-    } on Object catch (_) {
-      // Nothing to maximize.
-    }
-  }
+  Future<void> _toggle() => toggleWindowMaximize();
 
   @override
   Widget build(BuildContext context) {

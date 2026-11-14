@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kallo/design/chrome.dart';
 import 'package:kallo/design/scope.dart';
 import 'package:kallo/design/strings.dart';
 import 'package:kallo/design/tokens.dart';
@@ -23,6 +24,7 @@ import 'package:kallo/widgets/print_image.dart';
 import 'package:kallo/widgets/print_viewer.dart';
 import 'package:kallo/widgets/studio_sidebar.dart';
 import 'package:kallo/widgets/wall.dart';
+import 'package:kallo/widgets/window_controls.dart';
 
 Future<ui.Image> _card({int width = 600, int height = 400}) async {
   final ui.PictureRecorder recorder = ui.PictureRecorder();
@@ -81,6 +83,92 @@ void main() {
     expect(find.text('晾片架'), findsOneWidget);
     expect(find.text('观景台'), findsOneWidget);
     expect(find.text('原片'), findsOneWidget);
+  });
+
+  testWidgets('a double click on the band fills the screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int asked = 0;
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+        chrome: WindowChrome.windows,
+        onToggleMaximize: () => asked++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The band is this window's caption. The sidebar holds its left end and
+    // the step capsule its middle, so the stretch between them is where a
+    // person grabs a title bar and where they double click one.
+    const Offset band = Offset(320, 28);
+    await tester.tapAt(band);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(band);
+    await tester.pumpAndSettle();
+
+    expect(asked, 1);
+  });
+
+  testWidgets('a single click on the band does not fill the screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int asked = 0;
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+        chrome: WindowChrome.windows,
+        onToggleMaximize: () => asked++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(320, 28));
+    await tester.pumpAndSettle();
+
+    expect(asked, 0);
+  });
+
+  testWidgets('the band is not a caption where the system draws one', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // No hidden frame, so no band to fill the screen from: the system's title
+    // bar is two rows above this one and has the gesture already.
+    expect(find.byType(WindowControls), findsNothing);
   });
 
   testWidgets('a phone gets one column and a bottom bar', (

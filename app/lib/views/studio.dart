@@ -64,6 +64,7 @@ class Studio extends StatefulWidget {
     this.initialStep = DarkroomStep.select,
     this.chrome = WindowChrome.plain,
     this.onDragWindow,
+    this.onToggleMaximize,
   });
 
   final TestStrip strip;
@@ -98,6 +99,7 @@ class Studio extends StatefulWidget {
   final DarkroomStep initialStep;
   final WindowChrome chrome;
   final VoidCallback? onDragWindow;
+  final VoidCallback? onToggleMaximize;
 
   @override
   State<Studio> createState() => _StudioState();
@@ -471,6 +473,7 @@ class _StudioState extends State<Studio> {
           : null,
       center: center,
       onDragWindow: widget.onDragWindow,
+      onToggleMaximize: widget.onToggleMaximize,
       height: _topBarHeight,
       rightInset: _hasInspector && _inspector ? 304 : 0,
     );
