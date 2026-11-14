@@ -20,6 +20,7 @@ import '../widgets/stage_tabs.dart';
 import '../widgets/switch.dart';
 import '../widgets/studio_top_bar.dart';
 import '../widgets/studio_sidebar.dart';
+import '../widgets/window_grips.dart';
 import 'chambers.dart';
 import 'develop_stage.dart';
 import 'drawer.dart';
@@ -310,6 +311,10 @@ class _StudioState extends State<Studio> {
                   ),
           ),
         ),
+        // Last, so the grips are over the scrim as well: a window resizes on
+        // its border even with a sheet open over it.
+        if (widget.chrome == WindowChrome.windows)
+          const Positioned.fill(child: WindowGrips()),
       ],
     );
     if (!compact) {

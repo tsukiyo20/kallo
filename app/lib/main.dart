@@ -69,12 +69,11 @@ Future<void> main() async {
       center: true,
       title: 'Kallo',
       // The Mac keeps its traffic lights and loses its bar; Windows loses its
-      // bar and draws its own three, in the top band, where a person looks for
-      // them. Linux still keeps its frame: a window with no way to close it is
-      // a bug, not a style, and that platform has had no pass yet.
-      titleBarStyle: Platform.isLinux
-          ? TitleBarStyle.normal
-          : TitleBarStyle.hidden,
+      // bar too, but draws the frame itself in `windows/runner`, so
+      // window_manager is told nothing and left out of the window's frame
+      // entirely. Leaving a style unset is not a default: it is Windows'
+      // frame staying away from a frame the runner already owns.
+      titleBarStyle: Platform.isMacOS ? TitleBarStyle.hidden : null,
     );
     unawaited(
       windowManager.waitUntilReadyToShow(options, () async {

@@ -51,6 +51,27 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // The window has no frame for Windows to measure, so the rectangle it hands a
+  // maximized window can be the work area with a frame's worth added on every
+  // side and taken back off the position: eleven pixels of the app off the left
+  // and right edges of the screen at 150 %, and eleven more under the bar at
+  // the top. The size is asked for here, and `Win32Window` puts the window back
+  // on the work area afterwards if Windows added the frame anyway.
+  //
+  // This has to be answered before the plugins: window_manager fills in the
+  // track sizes of this same message and returns 0, which would stop it here.
+  if (message == WM_GETMINMAXINFO) {
+    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO info{sizeof(MONITORINFO)};
+    if (monitor != nullptr && ::GetMonitorInfo(monitor, &info)) {
+      MINMAXINFO* minmax = reinterpret_cast<MINMAXINFO*>(lparam);
+      minmax->ptMaxPosition.x = info.rcWork.left - info.rcMonitor.left;
+      minmax->ptMaxPosition.y = info.rcWork.top - info.rcMonitor.top;
+      minmax->ptMaxSize.x = info.rcWork.right - info.rcWork.left;
+      minmax->ptMaxSize.y = info.rcWork.bottom - info.rcWork.top;
+    }
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

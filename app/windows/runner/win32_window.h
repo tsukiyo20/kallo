@@ -92,6 +92,11 @@ class Win32Window {
 
   bool quit_on_close_ = false;
 
+  // The window's DPI scale, kept up to date so the frame can be measured in
+  // device pixels: the app draws the frame, so nothing else knows how thick a
+  // resize edge is on this display.
+  double scale_factor_ = 1.0;
+
   // window handle for top level window.
   HWND window_handle_ = nullptr;
 
