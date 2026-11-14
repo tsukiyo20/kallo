@@ -224,7 +224,10 @@ class _StudioState extends State<Studio> {
             ),
           ],
         ),
-        if (widget.chrome == WindowChrome.mac &&
+        // The strip over the sidebar's own top edge drags the window. The Mac
+        // needs it around the traffic lights; Windows needs it because the
+        // sidebar runs to the window's corner and there is no bar above it.
+        if (widget.chrome != WindowChrome.plain &&
             widget.onDragWindow != null &&
             _sidebar)
           Positioned(
@@ -438,8 +441,7 @@ class _StudioState extends State<Studio> {
       sidebarOpen: _sidebar,
       showSidebar: !_compact,
       onSidebar: () => setState(() => _sidebar = !_sidebar),
-      mac: widget.chrome == WindowChrome.mac,
-      inspectorOpen: _hasInspector ? _inspector : null,
+      chrome: widget.chrome,      inspectorOpen: _hasInspector ? _inspector : null,
       onInspector: _hasInspector
           ? () => setState(() => _inspector = !_inspector)
           : null,

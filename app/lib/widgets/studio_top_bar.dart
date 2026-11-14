@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
 
+import '../design/chrome.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
 import 'pane_button.dart';
+import 'window_controls.dart';
 
 /// The window's one piece of chrome.
 ///
@@ -12,12 +14,15 @@ import 'pane_button.dart';
 /// on whatever is underneath — a white bench, a black wall, a photograph. The
 /// sidebar's switch lives with the sidebar while it is open, so only the
 /// inspector's remains here at that edge.
+///
+/// With the frame hidden, this band is also the window's drag handle, and on
+/// Windows it carries the three controls the system bar would have had.
 class StudioTopBar extends StatelessWidget {
   const StudioTopBar({
     super.key,
     required this.sidebarOpen,
     required this.onSidebar,
-    required this.mac,
+    required this.chrome,
     this.showSidebar = true,
     this.inspectorOpen,
     this.onInspector,
@@ -35,8 +40,10 @@ class StudioTopBar extends StatelessWidget {
   /// bottom bar, so the pane switch would have nothing to put away.
   final bool showSidebar;
 
-  /// Whether the window has traffic lights over its top-left corner.
-  final bool mac;
+  /// Who draws the window's frame. The Mac leaves traffic lights over the
+  /// top-left corner; Windows has no system bar at all, so the app draws the
+  /// controls at the right and this band reserves their width.
+  final WindowChrome chrome;
 
   /// The inspector, when the room has one.
   final bool? inspectorOpen;
@@ -63,7 +70,11 @@ class StudioTopBar extends StatelessWidget {
     // The open sidebar carries its own switch. With it shut, the content
     // starts at the window's edge, where the traffic lights live: the one
     // control steps over them rather than sitting underneath.
-    final double left = mac ? 84 : 16;
+    final double left = chrome == WindowChrome.mac ? 84 : 16;
+    final bool controls = chrome == WindowChrome.windows;
+    // The window's three controls take the corner, so whatever else lives at
+    // this edge stands clear of them.
+    final double edge = controls ? 8 + WindowControls.width + 12 : 16;
     return SizedBox(
       height: height,
       child: GestureDetector(
@@ -101,10 +112,10 @@ class StudioTopBar extends StatelessWidget {
                 ),
               ),
             if (trailing != null)
-              Positioned(right: 16, top: (height - 30) / 2, child: trailing!)
+              Positioned(right: edge, top: (height - 30) / 2, child: trailing!)
             else if (onInspector != null)
               Positioned(
-                right: 16,
+                right: edge,
                 top: (height - 34) / 2,
                 child: PaneButton(
                   key: const Key('inspector-toggle'),
@@ -116,9 +127,16 @@ class StudioTopBar extends StatelessWidget {
                   onTap: onInspector!,
                 ),
               ),
+            if (controls)
+              Positioned(
+                right: 8,
+                top: (height - 34) / 2,
+                child: const WindowControls(),
+              ),
           ],
         ),
       ),
     );
   }
 }
+

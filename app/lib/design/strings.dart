@@ -56,6 +56,12 @@ class KalloStrings {
   String get hideSidebar => zh ? '隐藏侧边栏' : 'Hide sidebar';
   String get showInspector => zh ? '显示面板' : 'Show inspector';
   String get hideInspector => zh ? '隐藏面板' : 'Hide inspector';
+  // The window's own three, where the app draws the frame. A screen reader
+  // reads them, so they say what they do and not what they look like.
+  String get minimizeWindow => zh ? '最小化' : 'Minimize';
+  String get maximizeWindow => zh ? '最大化' : 'Maximize';
+  String get restoreWindow => zh ? '还原' : 'Restore';
+  String get closeWindow => zh ? '关闭窗口' : 'Close window';
   String get noPhotographChosen => zh ? '还没选片' : 'nothing chosen';
   String get choosePhotoNote => zh
       ? '选一张照片。胶片和相纸随后决定。'

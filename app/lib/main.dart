@@ -67,12 +67,13 @@ Future<void> main() async {
       minimumSize: Size(960, 600),
       center: true,
       title: 'Kallo',
-      // The Mac keeps its traffic lights and loses its bar; the other two keep
-      // their frames until they have controls of their own, because a window
-      // with no way to close it is a bug, not a style.
-      titleBarStyle: Platform.isMacOS
-          ? TitleBarStyle.hidden
-          : TitleBarStyle.normal,
+      // The Mac keeps its traffic lights and loses its bar; Windows loses its
+      // bar and draws its own three, in the top band, where a person looks for
+      // them. Linux still keeps its frame: a window with no way to close it is
+      // a bug, not a style, and that platform has had no pass yet.
+      titleBarStyle: Platform.isLinux
+          ? TitleBarStyle.normal
+          : TitleBarStyle.hidden,
     );
     unawaited(
       windowManager.waitUntilReadyToShow(options, () async {
@@ -83,7 +84,11 @@ Future<void> main() async {
   }
   runApp(
     KalloApp(
-      chrome: Platform.isMacOS ? WindowChrome.mac : WindowChrome.plain,
+      chrome: Platform.isMacOS
+          ? WindowChrome.mac
+          : Platform.isWindows
+          ? WindowChrome.windows
+          : WindowChrome.plain,
       onDragWindow: desktop ? windowManager.startDragging : null,
     ),
   );
