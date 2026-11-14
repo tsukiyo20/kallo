@@ -18,6 +18,7 @@ import 'lab/folder_print_library.dart';
 import 'lab/ffi_model.dart';
 import 'lab/image_file.dart';
 import 'lab/model.dart';
+import 'lab/path_name.dart';
 import 'lab/print.dart';
 import 'lab/print_library.dart';
 import 'lab/open_print_library.dart';
@@ -973,16 +974,9 @@ class _KalloAppState extends State<KalloApp> {
     return candidate.path;
   }
 
-  static String _basename(String path) {
-    final int slash = path.lastIndexOf(Platform.pathSeparator);
-    return slash < 0 ? path : path.substring(slash + 1);
-  }
+  static String _basename(String path) => baseName(path);
 
-  static String _stem(String path) {
-    final String base = _basename(path);
-    final int dot = base.lastIndexOf('.');
-    return dot <= 0 ? base : base.substring(0, dot);
-  }
+  static String _stem(String path) => stemOf(path);
 
   /// Android's system picker returns a media id, not the name of the file the
   /// person chose. A wall label of `1000043857` is not a title; the day the

@@ -1,4 +1,3 @@
-import 'dart:io' as io;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:ui' show Color;
@@ -6,6 +5,7 @@ import 'dart:ui' show Color;
 import '../film/strip_data.dart';
 import 'clock.dart';
 import 'contact.dart';
+import 'path_name.dart';
 import 'stock.dart';
 
 /// A roll: the thing you are carrying.
@@ -46,9 +46,7 @@ class Roll {
     if (photo == null) {
       return null;
     }
-    final String file = photo.split(io.Platform.pathSeparator).last;
-    final int dot = file.lastIndexOf('.');
-    return dot <= 0 ? file : file.substring(0, dot);
+    return stemOf(photo);
   }
 
   /// The paper the frames were printed on, when the shelf chose one. A roll

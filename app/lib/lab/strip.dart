@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'chart.dart';
 import 'clock.dart';
+import 'path_name.dart';
 import 'stock.dart';
 
 /// One print on the test strip: one development, printed on the strip's own
@@ -121,9 +122,7 @@ class TestStrip {
     if (photo == null) {
       return null;
     }
-    final String file = photo.split(io.Platform.pathSeparator).last;
-    final int dot = file.lastIndexOf('.');
-    return dot <= 0 ? file : file.substring(0, dot);
+    return stemOf(photo);
   }
 
   bool get hasPrints => prints.isNotEmpty;
