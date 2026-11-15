@@ -4,7 +4,7 @@
 /// room, reached through one small capsule at the top of the bench. The
 /// two-letter marks are the film's own vocabulary and do not translate — an
 /// edge code is an edge code in every language. Drying is not a step: a print
-/// is finished when it leaves the enlarger, and the rack is a place beside the
+/// is finished when it leaves the enlarger, and the wall is a place beside the
 /// darkroom, not another page of it.
 ///
 /// The photograph used to have a page of its own, before the developer. It

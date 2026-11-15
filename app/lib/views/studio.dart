@@ -13,7 +13,6 @@ import '../design/tokens.dart';
 import '../lab/exports.dart';
 import '../lab/print.dart';
 import '../lab/render_mode.dart';
-import '../lab/print_out.dart';
 import '../lab/print_request.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
@@ -31,17 +30,15 @@ import 'develop_stage.dart';
 import 'drawer.dart';
 import 'mobile/mobile_settings.dart';
 import 'gallery.dart';
-import 'rack.dart';
 import 'print_stage.dart';
 import 'steps.dart';
 
-/// The window: two rooms, a rack between them, and the steps of the room that
-/// makes the work.
+/// The window: two places, and the steps of the one that makes the work.
 ///
-/// The sidebar is a place. The darkroom has three steps, and they sit on the
-/// top edge of the work as edge codes rather than in a second navigation: the
-/// bench does not move, it changes what is on it. The rack and the gallery have
-/// no steps — a line is hung, a wall is looked at, neither is operated.
+/// The sidebar is a place. The darkroom has two steps, and they sit on the top
+/// edge of the work as edge codes rather than in a second navigation: the bench
+/// does not move, it changes what is on it. The gallery has no steps — a wall
+/// is looked at, not operated.
 class Studio extends StatefulWidget {
   const Studio({
     super.key,
@@ -50,7 +47,6 @@ class Studio extends StatefulWidget {
     required this.catalogue,
     required this.prints,
     required this.exports,
-    required this.jobs,
     required this.onChoosePhoto,
     required this.onFilm,
     required this.onPaper,
@@ -88,7 +84,6 @@ class Studio extends StatefulWidget {
   final Catalogue catalogue;
   final List<Print> prints;
   final Directory? exports;
-  final List<PrintJob> jobs;
 
   final VoidCallback onChoosePhoto;
   final ValueChanged<Stock> onFilm;
@@ -159,7 +154,6 @@ class _StudioState extends State<Studio> {
   /// Whether one print has left the wall to fill the window. The loupe is a
   /// wall tool, so its switch goes with the wall.
   bool _galleryNear = false;
-  bool _rackNear = false;
 
   void _room(Chamber chamber) {
     HapticFeedback.selectionClick();
@@ -168,9 +162,6 @@ class _StudioState extends State<Studio> {
       _open = false;
       if (chamber != Chamber.gallery) {
         _galleryNear = false;
-      }
-      if (chamber != Chamber.rack) {
-        _rackNear = false;
       }
     });
     if (chamber != Chamber.darkroom) {
@@ -205,8 +196,6 @@ class _StudioState extends State<Studio> {
         },
         const SingleActivator(LogicalKeyboardKey.keyD): () =>
             _room(Chamber.darkroom),
-        const SingleActivator(LogicalKeyboardKey.keyR): () =>
-            _room(Chamber.rack),
         const SingleActivator(LogicalKeyboardKey.keyG): () =>
             _room(Chamber.gallery),
         if (_chamber == Chamber.gallery)
@@ -425,7 +414,6 @@ class _StudioState extends State<Studio> {
             _chamber == Chamber.darkroom,
             () => _room(Chamber.darkroom),
           ),
-          item(s.rack, _chamber == Chamber.rack, () => _room(Chamber.rack)),
           item(
             s.galleryRoom,
             _chamber == Chamber.gallery,
@@ -437,16 +425,14 @@ class _StudioState extends State<Studio> {
     );
   }
 
-  /// The phone: three places, three steps, and sheets. Nothing from the
-  /// desktop's two-pane furniture survives here except the stages' state.
+  /// The phone: two places, two steps, and sheets. Nothing from the desktop's
+  /// two-pane furniture survives here except the stages' state.
   Widget _compactShell() {
     final KalloColors colors = KalloScope.colorsOf(context);
     final KalloStrings s = KalloStrings.of(context);
     final double top = MediaQuery.paddingOf(context).top;
     final bool dark = colors.brightness == Brightness.dark;
-    final bool viewerOpen =
-        (_chamber == Chamber.gallery && _galleryNear) ||
-        (_chamber == Chamber.rack && _rackNear);
+    final bool viewerOpen = _chamber == Chamber.gallery && _galleryNear;
     final Widget header = _chamber == Chamber.darkroom
         ? KalloMobileDarkroomBar(
             current: _step,
@@ -454,7 +440,7 @@ class _StudioState extends State<Studio> {
             onSettings: () => setState(() => _open = true),
           )
         : KalloMobileRoomHeader(
-            title: _chamber == Chamber.rack ? s.rack : s.galleryRoom,
+            title: s.galleryRoom,
             subtitle: s.printCount(widget.prints.length),
             onSettings: () => setState(() => _open = true),
             trailing: _chamber == Chamber.gallery
@@ -559,8 +545,8 @@ class _StudioState extends State<Studio> {
         duration: _lit ? KalloMotion.settle : KalloMotion.slow,
         curve: _lit ? KalloMotion.enter : KalloMotion.settleCurve,
         builder: (BuildContext context, double light, Widget? child) => Gallery(
-          // A wall reads newest first, like the rack: the print just made is
-          // the one worth seeing.
+          // A wall reads newest first: the print just made is the one worth
+          // seeing.
           prints: widget.prints.reversed.toList(growable: false),
           hanging: widget.hanging,
           onHang: widget.onHang,
@@ -575,21 +561,6 @@ class _StudioState extends State<Studio> {
           topInset: _compact ? 0 : _topBarHeight,
           onOpenDarkroom: _compact ? () => _room(Chamber.darkroom) : null,
         ),
-      );
-    }
-    if (_chamber == Chamber.rack) {
-      return Rack(
-        prints: widget.prints,
-        jobs: widget.jobs,
-        topInset: _compact ? 0 : _topBarHeight,
-        onOpenDarkroom: _compact ? () => _room(Chamber.darkroom) : null,
-        onViewerChanged: _compact
-            ? (bool open) {
-                if (_rackNear != open) {
-                  setState(() => _rackNear = open);
-                }
-              }
-            : null,
       );
     }
     return _darkroom();
@@ -612,12 +583,7 @@ class _StudioState extends State<Studio> {
     final KalloStrings s = KalloStrings.of(context);
     final Widget center = _chamber == Chamber.darkroom
         ? StageTabs(current: _step, onSelect: _stage)
-        : _RoomPill(
-            label: _chamber == Chamber.rack ? s.rack : s.galleryRoom,
-            trailing: _chamber == Chamber.rack && widget.prints.isNotEmpty
-                ? '${widget.prints.length}'
-                : null,
-          );
+        : _RoomPill(label: s.galleryRoom);
     final KalloColors colors = KalloScope.colorsOf(context);
     return StudioTopBar(
       sidebarOpen: _sidebar,
@@ -702,7 +668,7 @@ class _StudioState extends State<Studio> {
             widget.strip.stockLabel,
         filmProcess: widget.catalogue.film(widget.strip.stockId)?.process,
         onGoDevelop: () => _stage(DarkroomStep.develop),
-        onGoRack: () => _room(Chamber.rack),
+        onGoGallery: () => _room(Chamber.gallery),
         showInspector: _inspector && !_compact,
         topInset: _compact ? 0 : _topBarHeight,
       ),
@@ -712,10 +678,9 @@ class _StudioState extends State<Studio> {
 
 /// A room's name in the top bar, when the room has no steps.
 class _RoomPill extends StatelessWidget {
-  const _RoomPill({required this.label, this.trailing});
+  const _RoomPill({required this.label});
 
   final String label;
-  final String? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -738,13 +703,6 @@ class _RoomPill extends StatelessWidget {
               fontSize: 12.5,
             ),
           ),
-          if (trailing != null) ...<Widget>[
-            const SizedBox(width: KalloSpace.step2),
-            Text(
-              trailing!,
-              style: KalloType.folio.copyWith(color: colors.inkFaint),
-            ),
-          ],
         ],
       ),
     );

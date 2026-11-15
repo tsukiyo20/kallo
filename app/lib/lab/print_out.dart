@@ -7,20 +7,6 @@ import 'roll.dart';
 import 'roll_store.dart';
 import 'stock.dart';
 
-/// A print being made.
-///
-/// The print is a render and not a copy, so it takes time, and this is what the
-/// line shows while it does. It carries the frame, because the only picture of
-/// a print that does not exist yet is the frame it will be made from.
-class PrintJob {
-  const PrintJob({required this.frame, required this.exports});
-
-  final Frame frame;
-
-  /// Where it is going, so that the line can say it without being told twice.
-  final Directory exports;
-}
-
 /// Print a frame: render it at the size a print is, and put the paper where the
 /// gallery looks.
 ///
@@ -47,7 +33,8 @@ Future<File> printFrame({
 
   // The frame it came from, and the minutes: the two facts that tell one print
   // of a ladder from the next, in a name a person can read in a folder.
-  final String name = 'print-${frame.number.toString().padLeft(2, '0')}'
+  final String name =
+      'print-${frame.number.toString().padLeft(2, '0')}'
       '-${frame.minutes.toStringAsFixed(frame.minutes == frame.minutes.roundToDouble() ? 0 : 1)}min';
   final File image = File('${exports.path}${Platform.pathSeparator}$name.png');
 
@@ -79,7 +66,9 @@ Future<File> printFrame({
     await RollStore.frameFile(source, frame.number).copy(image.path);
   }
 
-  final File record = File('${exports.path}${Platform.pathSeparator}$name.json');
+  final File record = File(
+    '${exports.path}${Platform.pathSeparator}$name.json',
+  );
   await record.writeAsString(
     const JsonEncoder.withIndent('  ').convert(<String, Object?>{
       'frame': frame.number,
@@ -101,10 +90,12 @@ const int _largest = 6000;
 
 /// A file's width, read from its header rather than by decoding it.
 Future<int> _width(File file) async {
-  final ui.ImmutableBuffer buffer =
-      await ui.ImmutableBuffer.fromUint8List(await file.readAsBytes());
-  final ui.ImageDescriptor descriptor =
-      await ui.ImageDescriptor.encoded(buffer);
+  final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(
+    await file.readAsBytes(),
+  );
+  final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(
+    buffer,
+  );
   final int width = descriptor.width;
   descriptor.dispose();
   buffer.dispose();

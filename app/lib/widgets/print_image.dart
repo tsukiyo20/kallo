@@ -13,7 +13,7 @@ import '../lab/thumbnails.dart';
 /// printing around it. The film's edge is a choice made when the print is made
 /// (`lab/edge_print.dart`), not a layer the wall draws over the paper.
 ///
-/// The rack and the gallery hold metadata, not textures. This widget asks the
+/// The wall and the close view hold metadata, not textures. This widget asks the
 /// thumbnail cache for the one picture it needs and lets it go when it leaves
 /// the tree, which is what makes a wall of a thousand prints a wall and not a
 /// decoded copy of the folder.

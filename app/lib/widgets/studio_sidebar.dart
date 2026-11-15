@@ -81,12 +81,6 @@ class StudioSidebar extends StatelessWidget {
             onTap: () => onChamber(Chamber.darkroom),
           ),
           _Room(
-            label: s.rack,
-            mark: _RackMark(),
-            selected: chamber == Chamber.rack,
-            onTap: () => onChamber(Chamber.rack),
-          ),
-          _Room(
             label: s.galleryRoom,
             mark: _GalleryMark(),
             selected: chamber == Chamber.gallery,
@@ -289,45 +283,7 @@ class _DarkroomPainter extends CustomPainter {
   bool shouldRepaint(_DarkroomPainter old) => old.colour != colour;
 }
 
-/// The rack's mark: a line, two pegs, two sheets.
-class _RackMark extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: const Size(16, 16),
-    painter: _RackPainter(KalloScope.colorsOf(context).inkMuted),
-  );
-}
-
-class _RackPainter extends CustomPainter {
-  const _RackPainter(this.colour);
-
-  final Color colour;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint stroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.3
-      ..strokeCap = StrokeCap.round
-      ..color = colour;
-    canvas.drawLine(const Offset(1.5, 4), const Offset(14.5, 4), stroke);
-    for (final double x in <double>[4.5, 11.5]) {
-      canvas.drawLine(Offset(x, 4), Offset(x, 6), stroke);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x - 2, 6, 4, 6),
-          const Radius.circular(0.8),
-        ),
-        stroke,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_RackPainter old) => old.colour != colour;
-}
-
-/// The gallery's mark: a print on a wire.
+/// The gallery's mark: a print on a wall.
 class _GalleryMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) => CustomPaint(

@@ -11,6 +11,7 @@ import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/edge_print.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
+import 'package:kallo/widgets/wall.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/steps.dart';
 import 'package:kallo/widgets/border_tray.dart';
@@ -104,7 +105,7 @@ void main() {
     settingsFolder.deleteSync(recursive: true);
   });
 
-  testWidgets('the compact shell is three places and a gear', (
+  testWidgets('the compact shell is two places and a gear', (
     WidgetTester tester,
   ) async {
     _phone(tester);
@@ -112,7 +113,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('mobile-tab-darkroom')), findsOneWidget);
-    expect(find.byKey(const Key('mobile-tab-rack')), findsOneWidget);
     expect(find.byKey(const Key('mobile-tab-gallery')), findsOneWidget);
     expect(find.byKey(const Key('mobile-settings')), findsOneWidget);
     expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
@@ -165,7 +165,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the phone shows two columns in both rooms', (
+  testWidgets('the phone wall is a wall, not a list', (
     WidgetTester tester,
   ) async {
     _phone(tester);
@@ -176,18 +176,14 @@ void main() {
       _print(card, 4),
     ];
     await tester.pumpWidget(
-      _app(card: card, chamber: Chamber.rack, prints: prints),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Drying rack'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.pumpWidget(
       _app(card: card, chamber: Chamber.gallery, prints: prints),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Gallery'), findsOneWidget);
+    // The room's name is the header's and the tab bar's; both are the same
+    // place.
+    expect(find.text('Gallery'), findsWidgets);
     expect(find.text('4 prints'), findsOneWidget);
+    expect(find.byType(PrintSheet), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

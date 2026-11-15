@@ -50,7 +50,7 @@ class PrintStage extends StatefulWidget {
     this.filmName = '',
     this.filmProcess,
     required this.onGoDevelop,
-    required this.onGoRack,
+    required this.onGoGallery,
     this.showInspector = true,
     this.topInset = 0,
   });
@@ -66,7 +66,7 @@ class PrintStage extends StatefulWidget {
   final FilmProcess? filmProcess;
   final Future<void> Function(PrintRequest request) onPrint;
   final VoidCallback onGoDevelop;
-  final VoidCallback onGoRack;
+  final VoidCallback onGoGallery;
 
   /// Whether the instrument panel is open.
   final bool showInspector;
@@ -485,7 +485,7 @@ class _PrintStageState extends State<PrintStage> {
               child: _PhoneToast(
                 label: s.printedToast,
                 action: s.view,
-                onAction: widget.onGoRack,
+                onAction: widget.onGoGallery,
                 onClose: () => setState(() => _toast = false),
               ),
             ),
@@ -1339,8 +1339,8 @@ class _PrintStageState extends State<PrintStage> {
                   ),
                   const SizedBox(height: KalloSpace.step2),
                   KalloButton(
-                    label: s.goRack,
-                    onTap: widget.onGoRack,
+                    label: s.goGallery,
+                    onTap: widget.onGoGallery,
                     height: 30,
                   ),
                 ],

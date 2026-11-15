@@ -14,13 +14,11 @@ import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/develop_stage.dart';
-import 'package:kallo/views/rack.dart';
 import 'package:kallo/views/steps.dart';
 import 'package:kallo/widgets/chip.dart';
 import 'package:kallo/widgets/stage_tabs.dart';
 import 'package:kallo/widgets/stepper.dart';
 import 'package:kallo/widgets/print_image.dart';
-import 'package:kallo/widgets/print_viewer.dart';
 import 'package:kallo/widgets/studio_sidebar.dart';
 import 'package:kallo/widgets/studio_top_bar.dart';
 import 'package:kallo/widgets/wall.dart';
@@ -80,7 +78,6 @@ void main() {
     expect(find.byType(StageTabs), findsOneWidget);
     expect(find.byType(DevelopStage), findsOneWidget);
     expect(find.text('暗房'), findsOneWidget);
-    expect(find.text('晾片架'), findsOneWidget);
     expect(find.text('观景台'), findsOneWidget);
     expect(find.text('原片'), findsOneWidget);
     expect(find.text('换一张'), findsOneWidget);
@@ -382,7 +379,6 @@ void main() {
     expect(find.byType(StageTabs), findsNothing);
     expect(find.byType(DevelopStage), findsOneWidget);
     expect(find.text('暗房'), findsOneWidget);
-    expect(find.text('晾片'), findsOneWidget);
     expect(find.text('观景'), findsOneWidget);
     expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
 
@@ -524,9 +520,7 @@ void main() {
     expect(find.byKey(const Key('materials-card')), findsOneWidget);
     expect(
       tester
-          .widget<KalloChip>(
-            find.widgetWithText(KalloChip, 'VISION3 500T'),
-          )
+          .widget<KalloChip>(find.widgetWithText(KalloChip, 'VISION3 500T'))
           .selected,
       isTrue,
     );
@@ -571,7 +565,9 @@ void main() {
     expect(find.text('原片'), findsNWidgets(2));
 
     // The wipe follows the pointer inside the picture, with no divider to grab.
-    final Offset centre = tester.getCenter(find.byKey(const Key('bench-print')));
+    final Offset centre = tester.getCenter(
+      find.byKey(const Key('bench-print')),
+    );
     final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
     await tester.sendEventToBinding(pointer.hover(centre));
     await tester.pump();
@@ -745,99 +741,7 @@ void main() {
     expect(find.textContaining('核'), findsWidgets);
   });
 
-  testWidgets('the rack opens a print in the room, not over the window', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(1280, 820);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    final List<Print> prints = <Print>[
-      for (int i = 0; i < 6; i++)
-        Print(
-          image: card,
-          name: 'uji-$i',
-          printNumber: 1,
-          film: 'ULTRA MAX 400',
-          paper: 'PORTRA ENDURA',
-          minutes: 6 + i.toDouble(),
-          tempC: 20,
-        ),
-    ];
-    await tester.pumpWidget(
-      KalloApp(
-        catalogue: Catalogue.carried,
-        strip: const TestStrip(photo: '/photographs/uji.jpg'),
-        photograph: card,
-        prints: prints,
-        initialChamber: Chamber.rack,
-        locale: const Locale('zh'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final Scrollable scroll = tester.widget<Scrollable>(
-      find.descendant(
-        of: find.byKey(const Key('rack-scroll')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    expect(scroll.axisDirection, AxisDirection.down);
-    expect(find.byKey(const ValueKey<String>('rack-line-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('rack-line-1')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey<String>('rack-print-0')));
-    await tester.pumpAndSettle();
-    expect(find.byType(PrintViewer), findsOneWidget);
-    expect(find.byKey(const Key('print-viewer-close')), findsOneWidget);
-    expect(find.byType(StudioSidebar), findsOneWidget);
-
-    // The sidebar's switch still owns the sidebar while a print is open. The
-    // viewer is inside the room and must not make that decision for it.
-    await tester.tap(find.byKey(const Key('sidebar-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.byType(StudioSidebar), findsNothing);
-    expect(find.byType(PrintViewer), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('print-viewer-close')));
-    await tester.pumpAndSettle();
-    expect(find.byType(PrintViewer), findsNothing);
-  });
-
-  testWidgets('the rack is beside the darkroom', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1280, 820);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    final Print print = Print(
-      image: card,
-      name: 'uji',
-      printNumber: 1,
-      film: 'ULTRA MAX 400',
-      paper: 'PORTRA ENDURA',
-      minutes: 9,
-      tempC: 20,
-    );
-    await tester.pumpWidget(
-      KalloApp(
-        catalogue: Catalogue.carried,
-        strip: const TestStrip(photo: '/photographs/uji.jpg'),
-        photograph: card,
-        prints: <Print>[print],
-        initialChamber: Chamber.rack,
-        locale: const Locale('zh'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(StudioSidebar), findsOneWidget);
-    expect(find.byType(Rack), findsOneWidget);
-    expect(find.byType(StageTabs), findsNothing);
-    expect(find.text('晾片架'), findsNWidgets(2));
-    expect(find.text('01   ·   9:00'), findsOneWidget);
-  });
-
-  testWidgets('the gallery is the other room, and it hangs paper', (
+  testWidgets('the gallery is the other place, and it hangs paper', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 820);
@@ -871,45 +775,6 @@ void main() {
     expect(find.byType(PrintImage), findsOneWidget);
     expect(find.text('放大镜'), findsOneWidget);
     expect(find.text('灯'), findsOneWidget);
-  });
-
-  testWidgets('a thousand prints do not build a thousand cards', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(1280, 820);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    final List<Print> prints = <Print>[
-      for (int i = 0; i < 1000; i++)
-        Print(
-          image: card,
-          name: 'uji-$i',
-          pixels: const Size(1200, 800),
-          printNumber: 1,
-          film: 'ULTRA MAX 400',
-          paper: 'PORTRA ENDURA',
-          minutes: 9,
-          tempC: 20,
-        ),
-    ];
-    await tester.pumpWidget(
-      KalloApp(
-        catalogue: Catalogue.carried,
-        strip: const TestStrip(photo: '/photographs/uji.jpg'),
-        photograph: card,
-        prints: prints,
-        initialChamber: Chamber.rack,
-        locale: const Locale('zh'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final int built = find.byType(PrintImage).evaluate().length;
-    expect(built, greaterThan(0));
-    expect(built, lessThan(100));
-    expect(find.byKey(const ValueKey<String>('rack-line-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('rack-line-40')), findsNothing);
   });
 
   testWidgets('a thousand prints do not build a thousand sheets', (
