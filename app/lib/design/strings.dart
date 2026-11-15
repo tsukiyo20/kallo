@@ -32,7 +32,6 @@ class KalloStrings {
     'table' => zh ? '台面' : 'Table',
     'workbench' => zh ? '工作台' : 'Workbench',
     'binder' => zh ? '活页夹' : 'Binder',
-    'rack' => zh ? '晾片架' : 'Drying rack',
     _ => zh ? '观景台' : 'Gallery',
   };
 
@@ -40,19 +39,16 @@ class KalloStrings {
 
   // -- the studio -----------------------------------------------------------
 
-  /// The two rooms, and the rack between them. The darkroom is where the work
-  /// is made; the gallery is where it is looked at; the rack is where the paper
-  /// goes when it comes out.
+  /// The two places. The darkroom is where the work is made; the gallery is
+  /// where the prints live.
   String get darkroom => zh ? '暗房' : 'Darkroom';
-  String get rack => zh ? '晾片架' : 'Drying rack';
   String get galleryRoom => zh ? '观景台' : 'Gallery';
 
-  /// The short names the phone's tab bar has room for. The rooms are the same;
-  /// only the label is shortened so three of them fit under a thumb.
-  String get rackTab => zh ? '晾片' : 'Rack';
+  /// The short names the phone's tab bar has room for. The places are the
+  /// same; only the label is shortened so both fit under a thumb.
   String get galleryTab => zh ? '观景' : 'Gallery';
 
-  /// The three steps of the darkroom, in the order the work goes.
+  /// The two steps of the darkroom, in the order the work goes.
   String get developStep => zh ? '显影' : 'Develop';
   String get printStep => zh ? '印相' : 'Print';
 
@@ -181,9 +177,8 @@ class KalloStrings {
   String get chooseFirstPrint => zh
       ? '先冲一张试片，再印成品。'
       : 'Develop a test print first; the finished print follows.';
-  String get printQueued =>
-      zh ? '已印。去晾片架看看。' : 'Printed. Look at the drying rack.';
-  String get goRack => zh ? '去晾片架' : 'To the drying rack';
+  String get printQueued => zh ? '已印。去观景台看看。' : 'Printed. It is on the wall.';
+  String get goGallery => zh ? '去观景台' : 'To the gallery';
 
   /// What a roll is called on the pages that name it.
   ///
@@ -315,15 +310,11 @@ class KalloStrings {
   String get proof => zh ? '打样' : 'Proof';
   String get printedOut => zh ? '印好了' : 'printed';
   String get printing => zh ? '正在印…' : 'Printing…';
-  String get onTheRack => zh ? '已进晾片架' : 'on the rack';
 
-  // -- the drying rack ------------------------------------------------------
+  // -- the gallery ----------------------------------------------------------
 
   String printCount(int count) =>
       zh ? '$count 张' : '$count print${count == 1 ? '' : 's'}';
-  String get rackEmpty => zh ? '晾片架是空的' : 'Nothing on the rack';
-  String get rackEmptyNote =>
-      zh ? '在印相步骤印一张，成品会挂到这里。' : 'Make a print in the darkroom; it hangs here.';
 
   // -- the binder -----------------------------------------------------------
 

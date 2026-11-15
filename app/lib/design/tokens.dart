@@ -281,55 +281,6 @@ class KalloWall {
   static const double darkAdaptation = 0.10;
 }
 
-/// The drying rack: a room that is not the gallery's wall.
-///
-/// A rack is a working surface with wires across it, not a neutral plane. Its
-/// ground is still one of the window's neutrals; the wire and the clip are the
-/// only things that are metal, and they are stated here once.
-class KalloRack {
-  const KalloRack({
-    required this.top,
-    required this.base,
-    required this.wire,
-    required this.clip,
-    required this.label,
-  });
-
-  /// The end of the room the window is on.
-  final Color top;
-
-  /// The end the floor is on.
-  final Color base;
-
-  /// The line a print hangs from.
-  final Color wire;
-
-  /// The clip holding it there.
-  final Color clip;
-
-  /// The graphite under a print.
-  final Color label;
-
-  static const KalloRack light = KalloRack(
-    top: Color(0xFFF4F4F7),
-    base: Color(0xFFE3E3E8),
-    wire: Color(0xFFADADB5),
-    clip: Color(0xFF7A7A80),
-    label: Color(0xFF5F5F64),
-  );
-
-  static const KalloRack dark = KalloRack(
-    top: Color(0xFF151517),
-    base: Color(0xFF040405),
-    wire: Color(0xFF5A5A5F),
-    clip: Color(0xFFB8B8BE),
-    label: Color(0xFFB0B0B5),
-  );
-
-  static KalloRack of(Brightness brightness) =>
-      brightness == Brightness.dark ? dark : light;
-}
-
 /// The spacing ramp. Six steps, and the gaps are the point.
 abstract final class KalloSpace {
   static const double step0 = 2;

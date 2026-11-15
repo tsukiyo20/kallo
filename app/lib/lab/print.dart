@@ -262,7 +262,7 @@ class Print {
 
   /// The print at its own size, for the loupe.
   ///
-  /// The rack and the wall hold a 512-pixel copy, because the difference
+  /// The wall holds a 512-pixel copy, because the difference
   /// between that and a 26-megapixel file is a hundred megabytes per paper.
   /// The loupe is the one place the difference is the point: it shows the
   /// file's own pixels, so what you see at 1:1 is what the model wrote.

@@ -149,7 +149,7 @@ class KalloMobileRoomHeader extends StatelessWidget {
   }
 }
 
-/// Three places, never four. Settings is a gear, not a room.
+/// Two places, never three. Settings is a gear, not a room.
 class KalloMobileTabBar extends StatelessWidget {
   const KalloMobileTabBar({
     super.key,
@@ -181,13 +181,6 @@ class KalloMobileTabBar extends StatelessWidget {
               label: s.darkroom,
               selected: current == Chamber.darkroom,
               onTap: () => onChamber(Chamber.darkroom),
-            ),
-            _Tab(
-              key: const Key('mobile-tab-rack'),
-              glyph: KalloGlyph.rack,
-              label: s.rackTab,
-              selected: current == Chamber.rack,
-              onTap: () => onChamber(Chamber.rack),
             ),
             _Tab(
               key: const Key('mobile-tab-gallery'),

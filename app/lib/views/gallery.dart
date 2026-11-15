@@ -67,7 +67,8 @@ class Gallery extends StatefulWidget {
     this.onOpenDarkroom,
   });
 
-  /// Everything exported, newest first: the wall reads the way the rack does.
+  /// Everything exported, newest first: the print just made is the one worth
+  /// seeing.
   final List<Print> prints;
 
   /// Where the wall hangs each print, by the print's id.

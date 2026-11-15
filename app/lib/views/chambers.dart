@@ -1,8 +1,8 @@
-/// The two rooms of the app, and the rack between them.
+/// The two places of the app.
 ///
 /// The darkroom is where a photograph is made into prints; the gallery is where
-/// the prints are looked at as film; the drying rack is where the paper goes
-/// when it comes out of the darkroom. A rack is not a room — it has no bench,
-/// no steps and no lamp — but it is a place a person goes, and the sidebar names
-/// it.
-enum Chamber { darkroom, rack, gallery }
+/// the prints live, as paper on a wall that can be walked. There used to be a
+/// drying rack between them, but it held the same files the wall holds, with a
+/// second viewer over them: a third place that repeats the second is not a
+/// place, and it is gone.
+enum Chamber { darkroom, gallery }

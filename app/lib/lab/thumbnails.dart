@@ -39,7 +39,7 @@ class PrintThumbnail {
 
 /// A bounded cache of decoded wall-sized prints.
 ///
-/// The gallery and the rack want 512-pixel paper, not a 26-megapixel file. The
+/// The gallery wants 512-pixel paper, not a 26-megapixel file. The
 /// first visit decodes the visible prints once and writes the result beside
 /// the app; the next visit reads the small file, and the decoded image is kept
 /// only while some room is looking at it.
@@ -56,8 +56,8 @@ class PrintThumbnailCache {
     _folderChecked = true;
   }
 
-  /// The width of the paper the rooms hang. The rack's cards are around 260
-  /// points; the gallery's are larger, and the near view reads the file again.
+  /// The width of the paper the wall hangs. A sheet is around 300 points wide;
+  /// the close view reads the file again.
   static const int thumbnailWidth = 512;
 
   /// The smallest width of the copy a print viewer opens. The viewer asks for
