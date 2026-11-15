@@ -11,6 +11,7 @@ import '../design/strings.dart';
 import '../design/tokens.dart';
 import '../lab/chart.dart';
 import '../lab/clock.dart';
+import '../lab/edge_print.dart';
 import '../lab/export_format.dart';
 import '../lab/model.dart';
 import '../lab/preview_bench.dart';
@@ -44,6 +45,8 @@ class PrintStage extends StatefulWidget {
     required this.paperName,
     required this.exports,
     required this.onPrint,
+    this.filmName = '',
+    this.filmProcess,
     required this.onGoDevelop,
     required this.onGoRack,
     this.showInspector = true,
@@ -53,6 +56,12 @@ class PrintStage extends StatefulWidget {
   final TestStrip strip;
   final String paperName;
   final Directory? exports;
+
+  /// The film's own name, as its edge prints it: the stock the print came from.
+  final String filmName;
+
+  /// The chemistry the film is, which the edge's process mark names.
+  final FilmProcess? filmProcess;
   final Future<void> Function(PrintRequest request) onPrint;
   final VoidCallback onGoDevelop;
   final VoidCallback onGoRack;
@@ -81,6 +90,10 @@ class _PrintStageState extends State<PrintStage> {
   bool _busy = false;
   bool _printed = false;
   String? _error;
+
+  /// The edge printed into the print. A print without one is cropped to the
+  /// frame; the templates are readings of the same film edge.
+  BorderTemplate _border = BorderTemplate.none;
 
   Timer? _timer;
   Timer? _toastTimer;
@@ -351,6 +364,7 @@ class _PrintStageState extends State<PrintStage> {
           heatGlass: _glass,
           width: options.size,
           format: options.format,
+          border: _border,
         ),
       );
       if (mounted) {
@@ -467,7 +481,7 @@ class _PrintStageState extends State<PrintStage> {
 
   Widget _phoneStage(KalloColors colors, KalloStrings s) {
     final ui.Image? image = _preview;
-    final double aspect = image == null ? 1.5 : image.width / image.height;
+    final double aspect = image == null ? 1.5 : _aspectOf(image);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints room) {
         final double width = math.min(
@@ -507,11 +521,7 @@ class _PrintStageState extends State<PrintStage> {
                                 ),
                               ),
                             )
-                          : RawImage(
-                              image: image,
-                              fit: BoxFit.cover,
-                              filterQuality: FilterQuality.high,
-                            ),
+                          : _picture(image),
                     ),
                   ),
                 ),
@@ -599,6 +609,12 @@ class _PrintStageState extends State<PrintStage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: KalloMobileSpace.step2),
+          _PhoneControl(
+            label: s.border,
+            value: _borderLabel(s, _border),
+            onTap: _showBorderPhone,
           ),
           if (_error != null) ...<Widget>[
             const SizedBox(height: KalloMobileSpace.step2),
@@ -842,6 +858,33 @@ class _PrintStageState extends State<PrintStage> {
     _changed();
   }
 
+  Future<void> _showBorderPhone() async {
+    final KalloStrings s = KalloStrings.of(context);
+    final String? choice = await showKalloMobileChoices(
+      context,
+      title: s.border,
+      choices: <KalloMobileChoice>[
+        for (final BorderTemplate template in BorderTemplate.values)
+          KalloMobileChoice(
+            value: template.name,
+            label: _borderLabel(s, template),
+            selected: _border == template,
+          ),
+      ],
+    );
+    if (choice == null || !mounted) {
+      return;
+    }
+    final BorderTemplate next = BorderTemplate.values.firstWhere(
+      (BorderTemplate template) => template.name == choice,
+      orElse: () => BorderTemplate.none,
+    );
+    if (next == _border) {
+      return;
+    }
+    setState(() => _border = next);
+  }
+
   Future<void> _choosePrintPhone() async {
     if (_busy || widget.exports == null || !widget.strip.hasPrints) {
       return;
@@ -865,9 +908,57 @@ class _PrintStageState extends State<PrintStage> {
     await _print(options);
   }
 
+  /// The shape the print has on the bench: the picture's, or the picture with
+  /// the chosen edge around it.
+  double _aspectOf(ui.Image image) {
+    final double aspect = image.width / image.height;
+    if (_border == BorderTemplate.none) {
+      return aspect;
+    }
+    return EdgePrintMetrics.fromImageWidth(
+      image.width.toDouble(),
+      aspect: aspect,
+    ).aspect;
+  }
+
+  /// The print as it will be written: the picture, and the edge when one is
+  /// chosen.
+  Widget _picture(ui.Image image) {
+    if (_border == BorderTemplate.none) {
+      return RawImage(
+        image: image,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+      );
+    }
+    return CustomPaint(
+      painter: EdgePrintPainter(
+        image: image,
+        source: Rect.fromLTWH(
+          0,
+          0,
+          image.width.toDouble(),
+          image.height.toDouble(),
+        ),
+        film: widget.filmName,
+        process: widget.filmProcess,
+        template: _border,
+      ),
+    );
+  }
+
+  /// The template's name, in the interface's language.
+  String _borderLabel(KalloStrings s, BorderTemplate template) =>
+      switch (template) {
+        BorderTemplate.none => s.borderNothing,
+        BorderTemplate.warm => s.borderWarm,
+        BorderTemplate.neutral => s.borderNeutral,
+        BorderTemplate.white => s.borderWhite,
+      };
+
   Widget _bench(KalloColors colors, KalloStrings s) {
     final ui.Image? image = _preview;
-    final double aspect = image == null ? 1.5 : image.width / image.height;
+    final double aspect = image == null ? 1.5 : _aspectOf(image);
     return ColoredBox(
       color: colors.content,
       child: Padding(
@@ -903,11 +994,7 @@ class _PrintStageState extends State<PrintStage> {
                                 ),
                               ),
                             )
-                          : RawImage(
-                              image: image,
-                              fit: BoxFit.cover,
-                              filterQuality: FilterQuality.high,
-                            ),
+                          : _picture(image),
                     ),
                   ),
                 ),
@@ -1077,6 +1164,35 @@ class _PrintStageState extends State<PrintStage> {
                           },
                         ),
                     ],
+                  ),
+                  const SizedBox(height: KalloSpace.step4),
+                  Text(
+                    s.border,
+                    style: KalloType.caption.copyWith(
+                      color: colors.inkFaint,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: KalloSpace.step2),
+                  Wrap(
+                    spacing: KalloSpace.step1 + 2,
+                    runSpacing: KalloSpace.step1 + 2,
+                    children: <Widget>[
+                      for (final BorderTemplate template
+                          in BorderTemplate.values)
+                        KalloChip(
+                          key: Key('border-${template.name}'),
+                          label: _borderLabel(s, template),
+                          selected: _border == template,
+                          compact: true,
+                          onTap: () => setState(() => _border = template),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: KalloSpace.step2),
+                  Text(
+                    s.borderNote,
+                    style: KalloType.small.copyWith(color: colors.inkFaint),
                   ),
                   const SizedBox(height: KalloSpace.step5),
                   Container(height: 1, color: colors.hairline),

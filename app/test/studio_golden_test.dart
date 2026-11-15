@@ -16,7 +16,7 @@ import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/steps.dart';
-import 'package:kallo/widgets/film_frame.dart';
+import 'package:kallo/widgets/wall.dart';
 
 /// The studio's pictures.
 ///
@@ -554,7 +554,7 @@ void main() {
       );
     });
 
-    testWidgets('a portrait frame', (WidgetTester tester) async {
+    testWidgets('a portrait print', (WidgetTester tester) async {
       _window(tester);
       final ui.Image portrait = await _card(width: 800, height: 1200);
       addTearDown(portrait.dispose);
@@ -588,7 +588,7 @@ void main() {
       );
     });
 
-    testWidgets('the lens on a frame', (WidgetTester tester) async {
+    testWidgets('the lens on a print', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
         KalloApp(
@@ -609,9 +609,9 @@ void main() {
       );
       addTearDown(mouse.removePointer);
       await mouse.addPointer(location: Offset.zero);
-      final Finder frame = find.byType(FilmFrame).first;
-      final Offset origin = tester.getTopLeft(frame);
-      final Size size = tester.getSize(frame);
+      final Finder sheet = find.byType(PrintSheet).first;
+      final Offset origin = tester.getTopLeft(sheet);
+      final Size size = tester.getSize(sheet);
       await mouse.moveTo(
         origin + Offset(size.width * 0.50, size.height * 0.40),
       );
@@ -622,7 +622,7 @@ void main() {
       );
     });
 
-    testWidgets('a frame under the loupe', (WidgetTester tester) async {
+    testWidgets('a print under the loupe', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
         KalloApp(
@@ -636,7 +636,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(FilmFrame).first);
+      await tester.tap(find.byType(PrintSheet).first);
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(KalloApp),

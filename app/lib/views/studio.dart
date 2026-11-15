@@ -665,6 +665,10 @@ class _StudioState extends State<Studio> {
             '',
         exports: widget.exports,
         onPrint: widget.onPrint,
+        filmName:
+            widget.catalogue.film(widget.strip.stockId)?.displayName ??
+            widget.strip.stockLabel,
+        filmProcess: widget.catalogue.film(widget.strip.stockId)?.process,
         onGoDevelop: () => _stage(DarkroomStep.develop),
         onGoRack: () => _room(Chamber.rack),
         showInspector: _inspector && !_compact,

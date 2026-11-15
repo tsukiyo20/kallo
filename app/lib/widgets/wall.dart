@@ -83,7 +83,22 @@ class PrintSheet extends StatelessWidget {
   final double aspect;
 
   /// The margin, as a fraction of the sheet's width.
-  static const double _border = 0.030;
+  ///
+  /// The bottom margin is more than this one: a print is held at the bottom,
+  /// so the paper under it is deeper than the paper around it.
+  static const double borderRatio = 0.030;
+
+  /// The picture's box inside a sheet [width] wide, in the sheet's own
+  /// coordinates.
+  ///
+  /// Somebody has to know it before the sheet is built — the loupe, which
+  /// magnifies the picture while the paper and its margin hold still — so the
+  /// arithmetic is here once rather than at each caller.
+  static Rect pictureOf(double width, {double aspect = 1.5}) {
+    final double edge = width * borderRatio;
+    final double image = width - edge * 2;
+    return Rect.fromLTWH(edge, edge, image, image / aspect);
+  }
 
   /// The sheet's height for a width of it: the picture, the margin and the
   /// deeper one at the bottom.
@@ -92,7 +107,7 @@ class PrintSheet extends StatelessWidget {
   /// sheet at another size, and the room, which has to fit one — so the
   /// arithmetic is here once rather than at each of them.
   static double heightPerWidth({double aspect = 1.5}) =>
-      (1 - _border * 2) / aspect + _border * 3.2;
+      (1 - borderRatio * 2) / aspect + borderRatio * 3.2;
 
   /// The sheet's height for a width.
   static double heightOf(double width, {double aspect = 1.5}) =>
@@ -100,7 +115,7 @@ class PrintSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double edge = width * _border;
+    final double edge = width * borderRatio;
     final double image = width - edge * 2;
     final Widget printed = SizedBox(
       width: image,

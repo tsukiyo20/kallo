@@ -16,7 +16,6 @@ import 'package:kallo/views/develop_stage.dart';
 import 'package:kallo/views/rack.dart';
 import 'package:kallo/views/select_stage.dart';
 import 'package:kallo/views/steps.dart';
-import 'package:kallo/widgets/film_frame.dart';
 import 'package:kallo/widgets/stage_tabs.dart';
 import 'package:kallo/widgets/stepper.dart';
 import 'package:kallo/widgets/print_image.dart';
@@ -728,7 +727,7 @@ void main() {
     expect(find.text('01   ·   9:00'), findsOneWidget);
   });
 
-  testWidgets('the gallery is the other room, and it shows film', (
+  testWidgets('the gallery is the other room, and it hangs paper', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 820);
@@ -758,7 +757,8 @@ void main() {
 
     expect(find.byType(StudioSidebar), findsOneWidget);
     expect(find.byType(StageTabs), findsNothing);
-    expect(find.byType(FilmFrame), findsOneWidget);
+    expect(find.byType(PrintSheet), findsOneWidget);
+    expect(find.byType(PrintImage), findsOneWidget);
     expect(find.text('放大镜'), findsOneWidget);
     expect(find.text('灯'), findsOneWidget);
   });
@@ -802,7 +802,7 @@ void main() {
     expect(find.byKey(const ValueKey<String>('rack-line-40')), findsNothing);
   });
 
-  testWidgets('a thousand prints do not build a thousand frames', (
+  testWidgets('a thousand prints do not build a thousand sheets', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 820);
@@ -834,7 +834,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final int built = find.byType(PrintFilmFrame).evaluate().length;
+    // The wall's cards are paper: the sheet is what a print hangs as.
+    final int built = find.byType(PrintSheet).evaluate().length;
     expect(built, greaterThan(0));
     expect(built, lessThan(100));
   });

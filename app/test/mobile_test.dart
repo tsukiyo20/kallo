@@ -221,7 +221,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the print step shows four values', (WidgetTester tester) async {
+  testWidgets('the print step shows its values and the edge control', (
+    WidgetTester tester,
+  ) async {
     _phone(tester);
     final TestStrip strip = const TestStrip(photo: '/photographs/uji.jpg')
         .withPrint(
@@ -237,6 +239,20 @@ void main() {
     expect(find.text('BALANCE'), findsOneWidget);
     expect(find.text('HEAT GLASS'), findsOneWidget);
     expect(find.byKey(const Key('phone-print')), findsOneWidget);
+
+    // The border is a printing choice on the phone too: one row in the deck
+    // that opens the templates, and the print is cropped until one is chosen.
+    expect(find.text('BORDER'), findsOneWidget);
+    expect(find.text('None'), findsOneWidget);
+    await tester.tap(find.text('BORDER'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edge · warm'), findsOneWidget);
+    expect(find.text('Edge · neutral'), findsOneWidget);
+    expect(find.text('Edge · white'), findsOneWidget);
+    await tester.tap(find.text('Edge · warm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edge · warm'), findsOneWidget);
+
     expect(tester.takeException(), isNull);
   });
 

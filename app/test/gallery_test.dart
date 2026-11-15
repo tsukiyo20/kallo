@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/lab/print.dart';
@@ -10,8 +10,10 @@ import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
-import 'package:kallo/widgets/film_frame.dart';
+import 'package:kallo/widgets/glass_print.dart';
+import 'package:kallo/widgets/print_image.dart';
 import 'package:kallo/widgets/switch.dart';
+import 'package:kallo/widgets/wall.dart';
 
 Future<ui.Image> _card({int width = 1600, int height = 1067}) async {
   final ui.PictureRecorder recorder = ui.PictureRecorder();
@@ -36,7 +38,7 @@ Future<ui.Image> _card({int width = 1600, int height = 1067}) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('the loupe switch is glass on the wall, and the wall is flat', (
+  testWidgets('the loupe switch is glass on paper, and the paper is flat', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 820);
@@ -55,8 +57,21 @@ void main() {
         format: ui.ImageByteFormat.png,
       );
       await file.writeAsBytes(png!.buffer.asUint8List(), flush: true);
-      final Print? print = await Print.read(file, width: 1600);
-      shot = print!;
+      // A wall hangs the print's paper, not the film: the record is what the
+      // label has to say, and the file is what the loupe decodes.
+      shot = Print(
+        image: card,
+        name: 'print-01',
+        path: file.path,
+        pixels: const Size(1600, 1067),
+        printNumber: 1,
+        process: FilmProcess.negative,
+        film: 'ULTRA MAX 400',
+        paper: 'PORTRA ENDURA',
+        minutes: 9,
+        tempC: 20,
+        printed: DateTime(2026, 11, 13, 21, 30),
+      );
       return folder;
     }))!;
     card = shot.image!;
@@ -80,7 +95,13 @@ void main() {
     expect(loupe, findsOneWidget);
     expect(tester.widget<KalloSwitch>(loupe).on, isFalse);
 
-    final Offset wallCentre = tester.getCenter(find.byType(FilmFrame).first);
+    // The wall hangs one print as one sheet of paper: the picture, the paper's
+    // margin and the label. There is no film frame anywhere on it.
+    expect(find.byType(PrintSheet), findsOneWidget);
+    expect(find.byType(PrintImage), findsOneWidget);
+    expect(find.textContaining('ULTRA MAX 400'), findsOneWidget);
+
+    final Offset wallCentre = tester.getCenter(find.byType(PrintSheet).first);
     final TestGesture mouse = await tester.createGesture(
       kind: PointerDeviceKind.mouse,
     );
@@ -99,12 +120,15 @@ void main() {
     expect(tester.widget<KalloSwitch>(loupe).on, isTrue);
     await mouse.moveTo(wallCentre);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('lens')), findsOneWidget);
-    final FilmFrame glass = tester.widget<FilmFrame>(
-      find.descendant(
-        of: find.byKey(const Key('lens')),
-        matching: find.byType(FilmFrame),
-      ),
+    final Finder lens = find.byKey(const Key('lens'));
+    expect(lens, findsOneWidget);
+    expect(
+      find.descendant(of: lens, matching: find.byType(PrintSheet)),
+      findsOneWidget,
+      reason: 'the glass magnifies the picture; the paper stays paper',
+    );
+    final GlassPrint glass = tester.widget<GlassPrint>(
+      find.descendant(of: lens, matching: find.byType(GlassPrint)),
     );
     expect(
       glass.barrel,
@@ -119,18 +143,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('lens')), findsNothing);
 
-    await tester.tap(find.byType(FilmFrame).first);
+    await tester.tap(find.byType(PrintSheet).first);
     await tester.pumpAndSettle();
-    expect(find.byType(FilmFrame), findsOneWidget);
+    expect(find.byType(PrintSheet), findsOneWidget);
     expect(
       find.byKey(const Key('loupe')),
       findsNothing,
       reason: 'the glass belongs to the wall, not to the print in hand',
     );
-    expect(tester.widget<FilmFrame>(find.byType(FilmFrame)).barrel, 0);
-    expect(find.text('导出胶片边框'), findsOneWidget);
+    expect(find.byKey(const Key('lens')), findsNothing);
+    expect(
+      find.byKey(const Key('export')),
+      findsNothing,
+      reason:
+          'the print was written when it was made, not when it is looked at',
+    );
+    expect(tester.widget<GlassPrint>(find.byType(GlassPrint)).barrel, 0);
+    expect(
+      find.textContaining('ULTRA MAX 400'),
+      findsOneWidget,
+      reason: 'the label follows the print it names',
+    );
 
-    final Offset centre = tester.getCenter(find.byType(FilmFrame));
+    final String before = tester.widget<Text>(find.textContaining('像素')).data!;
+    expect(before, contains('1600 × 1067'));
+
+    final Offset centre = tester.getCenter(find.byType(GlassPrint));
     await tester.sendEventToBinding(
       PointerScrollEvent(
         position: centre,
@@ -139,29 +177,32 @@ void main() {
       ),
     );
     await tester.pump();
+    final String after = tester.widget<Text>(find.textContaining('像素')).data!;
     expect(
-      tester.widget<FilmFrame>(find.byType(FilmFrame)).barrel,
+      after,
+      isNot(before),
+      reason: 'the readout says how far it was walked',
+    );
+    expect(
+      tester.widget<GlassPrint>(find.byType(GlassPrint)).barrel,
       0,
-      reason: 'walking up to a frame does not bend the film',
+      reason: 'walking up to a print does not bend the paper',
     );
 
-    await tester.tap(find.byKey(const Key('export')));
+    // Escape is the way back: it closes the print, not the room.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('export-confirm')), findsOneWidget);
-    expect(find.text('原尺寸'), findsOneWidget);
-    expect(find.text('4096 px'), findsOneWidget);
-    expect(find.text('JPEG'), findsOneWidget);
-    expect(find.text('PNG'), findsOneWidget);
-    expect(find.text('TIFF'), findsOneWidget);
+    expect(find.byKey(const Key('back')), findsNothing);
+    expect(find.byKey(const Key('loupe')), findsOneWidget);
+    expect(find.textContaining('像素'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('export-cancel')));
+    await tester.tap(find.byType(PrintSheet).first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('export-confirm')), findsNothing);
-
+    expect(find.byKey(const Key('back')), findsOneWidget);
     await tester.tap(find.byKey(const Key('back')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('back')), findsNothing);
     expect(find.byKey(const Key('loupe')), findsOneWidget);
-    expect(find.text('导出胶片边框'), findsNothing);
+    expect(find.byType(PrintSheet), findsOneWidget);
   }, timeout: const Timeout(Duration(seconds: 30)));
 }

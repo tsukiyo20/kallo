@@ -1,3 +1,4 @@
+import 'edge_print.dart';
 import 'export_format.dart';
 
 /// What the print stage asks the model for.
@@ -13,6 +14,7 @@ class PrintRequest {
     this.heatGlass,
     this.width,
     this.format = ExportFormat.png,
+    this.border = BorderTemplate.none,
   });
 
   final double minutes;
@@ -22,6 +24,10 @@ class PrintRequest {
 
   /// What the finished file is written as.
   final ExportFormat format;
+
+  /// The edge printed into the print. [BorderTemplate.none] is the standard
+  /// carrier: the print is cropped to the frame and carries nothing else.
+  final BorderTemplate border;
 
   /// The enlarger's timer, in stops, on top of the solved balance.
   final double printEv;
