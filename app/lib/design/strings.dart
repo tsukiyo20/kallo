@@ -557,6 +557,60 @@ class KalloStrings {
   String get openRepository =>
       zh ? '在 GitHub 上打开项目' : 'Open the project on GitHub';
 
+  /// GitHub's own name for the Releases page. A page's title does not
+  /// translate, which is why this is the one label here with no other branch.
+  String get releasesPage => 'GitHub Releases';
+
+  /// The changelog row: the same repository, one page further on. The row is
+  /// the release notes a person reads, not the API the updater reads.
+  String get changelog => zh ? '更新日志' : 'Changelog';
+
+  /// The update row on About. "更新" is the act, not a version; the release's
+  /// own tag does the naming when there is one to offer.
+  String get updates => zh ? '更新' : 'Updates';
+
+  String get checkForUpdates => zh ? '检查更新' : 'Check for updates';
+
+  /// A check that is still out. The ellipsis is the app's only one: a
+  /// sentence that has not finished yet.
+  String get checkingForUpdates => zh ? '正在检查…' : 'Checking…';
+
+  String get upToDate => zh ? '已是最新版本' : 'Up to date';
+
+  /// The version keeps the `v` its tag carries: it is quoted, not inflected.
+  String updateTo(String version) => zh ? '更新到 $version' : 'Update to $version';
+
+  /// A download reports the one number it has, a whole percent.
+  String downloading(int percent) =>
+      zh ? '下载中 $percent%' : 'Downloading $percent%';
+
+  /// The last state the old app can show before it exits.
+  String get restarting => zh ? '正在重启…' : 'Restarting…';
+
+  /// A failed check is also the way to try again: a row that only says
+  /// "failed" is a row that cannot be used.
+  String get checkFailedRetry => zh ? '检查失败 · 重试' : 'Check failed · Retry';
+
+  /// The installer failed after the release was already found.
+  String get updateFailedRetry => zh ? '更新失败 · 重试' : 'Update failed · Retry';
+
+  /// There is a release, but no file this machine can install: the row
+  /// becomes a link to the page instead of a button that cannot work.
+  String get openReleases => zh ? '打开发布页' : 'Open releases page';
+
+  /// The preview channel's switch, and what the two channels follow. The
+  /// note is the switch's whole explanation, so it says both halves.
+  String get previewBuilds => zh ? '预览版' : 'Preview builds';
+  String get previewBuildsNote => zh
+      ? '稳定版跟随 GitHub 的 latest 发布，不含预览版。预览版取最新的非草稿发布，包含预览版。'
+      : 'Stable follows GitHub\'s latest release, which is never a prerelease. Preview takes the newest published release, prereleases included.';
+
+  /// The updater refuses a read-only or translocated bundle; moving the app
+  /// is the only way forward, so the row says so where the failure is.
+  String get updateNeedsApplications => zh
+      ? '请先把 Kallo 移到“应用程序”文件夹，再更新。'
+      : 'Move Kallo to Applications, then update.';
+
   String get applyAtOnce => zh ? '更改会立即生效。' : 'Changes apply immediately.';
 }
 

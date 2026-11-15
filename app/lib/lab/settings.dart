@@ -3,6 +3,24 @@ import 'dart:io';
 
 import 'render_mode.dart';
 
+/// Which releases the update check follows.
+///
+/// Stable is GitHub's `latest`: the newest release that is not a prerelease.
+/// Preview is the newest published release of any kind, so a person can take
+/// the next one before it is called stable. It is a channel, not a build, and
+/// it is remembered like the other choices.
+enum UpdateChannel {
+  stable,
+  preview;
+
+  bool get isPreview => this == UpdateChannel.preview;
+
+  String get storage => name;
+
+  static UpdateChannel fromStorage(Object? value) =>
+      value == 'preview' ? preview : stable;
+}
+
 /// The choices that outlive a window.
 ///
 /// A file, not a service: these are the two choices the system does not already
@@ -14,6 +32,7 @@ class Settings {
     this.spectral = false,
     this.photoPrimerSeen = false,
     this.renderer = RenderMode.gpu,
+    this.updateChannel = UpdateChannel.stable,
   });
 
   /// The folder prints are exported to and read from, or null for the place the
@@ -45,11 +64,19 @@ class Settings {
   /// frame.
   final RenderMode renderer;
 
+  /// Which releases the update check follows.
+  ///
+  /// A channel is a preference about what to be offered, not about what the
+  /// app can do, so it is the last thing that should stop a person from
+  /// opening the app: a settings file without it means stable.
+  final UpdateChannel updateChannel;
+
   Settings withExports(String? path) => Settings(
     exportPath: path,
     spectral: spectral,
     photoPrimerSeen: photoPrimerSeen,
     renderer: renderer,
+    updateChannel: updateChannel,
   );
 
   Settings withSpectral(bool on) => Settings(
@@ -57,6 +84,7 @@ class Settings {
     spectral: on,
     photoPrimerSeen: photoPrimerSeen,
     renderer: renderer,
+    updateChannel: updateChannel,
   );
 
   Settings withPhotoPrimerSeen(bool seen) => Settings(
@@ -64,6 +92,7 @@ class Settings {
     spectral: spectral,
     photoPrimerSeen: seen,
     renderer: renderer,
+    updateChannel: updateChannel,
   );
 
   Settings withRenderer(RenderMode mode) => Settings(
@@ -71,6 +100,15 @@ class Settings {
     spectral: spectral,
     photoPrimerSeen: photoPrimerSeen,
     renderer: mode,
+    updateChannel: updateChannel,
+  );
+
+  Settings withUpdateChannel(UpdateChannel channel) => Settings(
+    exportPath: exportPath,
+    spectral: spectral,
+    photoPrimerSeen: photoPrimerSeen,
+    renderer: renderer,
+    updateChannel: channel,
   );
 
   static const String _name = 'settings.json';
@@ -142,6 +180,7 @@ class Settings {
           spectral: json['spectral'] == true,
           photoPrimerSeen: json['photoPrimerSeen'] == true,
           renderer: RenderMode.fromStorage(json['renderer']),
+          updateChannel: UpdateChannel.fromStorage(json['updateChannel']),
         );
       }
     } on FormatException {
@@ -165,6 +204,7 @@ class Settings {
           if (spectral) 'spectral': true,
           if (photoPrimerSeen) 'photoPrimerSeen': true,
           if (!renderer.isGpu) 'renderer': renderer.storage,
+          if (updateChannel.isPreview) 'updateChannel': updateChannel.storage,
         }),
       );
     } on FileSystemException {

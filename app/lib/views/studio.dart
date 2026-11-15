@@ -13,6 +13,7 @@ import '../design/tokens.dart';
 import '../lab/exports.dart';
 import '../lab/print.dart';
 import '../lab/render_mode.dart';
+import '../lab/settings.dart';
 import '../lab/print_request.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
@@ -67,6 +68,8 @@ class Studio extends StatefulWidget {
     required this.onSpectral,
     required this.renderMode,
     required this.onRenderMode,
+    this.updateChannel = UpdateChannel.stable,
+    this.onUpdateChannel,
     this.initiallyOpen = false,
     this.initialChamber = Chamber.darkroom,
     this.initialStep = DarkroomStep.develop,
@@ -117,6 +120,10 @@ class Studio extends StatefulWidget {
   /// The engine renders may use, and the way to change it.
   final RenderMode renderMode;
   final ValueChanged<RenderMode> onRenderMode;
+
+  /// Which releases the update check follows, and the way to remember it.
+  final UpdateChannel updateChannel;
+  final ValueChanged<UpdateChannel>? onUpdateChannel;
 
   final bool initiallyOpen;
   final Chamber initialChamber;
@@ -326,6 +333,8 @@ class _StudioState extends State<Studio> {
                                   onSpectral: widget.onSpectral,
                                   renderMode: widget.renderMode,
                                   onRenderMode: widget.onRenderMode,
+                                  updateChannel: widget.updateChannel,
+                                  onUpdateChannel: widget.onUpdateChannel,
                                   onClose: _closeDrawer,
                                 ),
                               ),

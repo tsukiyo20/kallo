@@ -50,6 +50,35 @@ void main() {
     expect(settings.spectral, isTrue);
   });
 
+  test('the update channel is remembered, and the default is stable', () async {
+    expect((await Settings.read()).updateChannel, UpdateChannel.stable);
+
+    await const Settings().withUpdateChannel(UpdateChannel.preview).write();
+
+    final Settings settings = await Settings.read();
+    expect(settings.updateChannel, UpdateChannel.preview);
+    // Setting it must not drop the choices beside it.
+    expect(settings.spectral, isFalse);
+    expect(settings.renderer, RenderMode.gpu);
+  });
+
+  test('another setting does not drop the update channel', () async {
+    await const Settings().withUpdateChannel(UpdateChannel.preview).write();
+    await (await Settings.read()).withSpectral(true).write();
+
+    final Settings settings = await Settings.read();
+    expect(settings.updateChannel, UpdateChannel.preview);
+    expect(settings.spectral, isTrue);
+  });
+
+  test('a settings file without the channel means stable', () async {
+    final File file = Settings.file!;
+    file.writeAsStringSync('{"spectral": true}');
+
+    final Settings settings = await Settings.read();
+    expect(settings.updateChannel, UpdateChannel.stable);
+  });
+
   test('a settings file without the flag still opens', () async {
     final File file = Settings.file!;
     file.writeAsStringSync('{"spectral": true}');

@@ -208,6 +208,7 @@ class _KalloAppState extends State<KalloApp> {
   Brightness? _pinned;
   late bool _spectral = widget.spectral;
   RenderMode _renderMode = RenderMode.gpu;
+  UpdateChannel _updateChannel = UpdateChannel.stable;
   TestStrip? _strip;
   ui.Image? _photograph;
   bool _ownsPhotograph = false;
@@ -847,12 +848,14 @@ class _KalloAppState extends State<KalloApp> {
       _settings = await Settings.read();
       _spectral = _settings.spectral;
       _renderMode = _settings.renderer;
+      _updateChannel = _settings.updateChannel;
       RenderPreference.set(_renderMode);
     } else {
       _settings = await Settings.read();
       _exportPath = _settings.exportPath;
       _spectral = _settings.spectral;
       _renderMode = _settings.renderer;
+      _updateChannel = _settings.updateChannel;
       RenderPreference.set(_renderMode);
       await _openLibrary();
     }
@@ -949,6 +952,14 @@ class _KalloAppState extends State<KalloApp> {
     setState(() => _renderMode = mode);
     RenderPreference.set(mode);
     _settings = _settings.withRenderer(mode);
+    await _settings.write();
+  }
+
+  /// Which releases the update row follows. It outlives the window, like the
+  /// renderer: a preview reader does not choose again every launch.
+  Future<void> _setUpdateChannel(UpdateChannel channel) async {
+    setState(() => _updateChannel = channel);
+    _settings = _settings.withUpdateChannel(channel);
     await _settings.write();
   }
 
@@ -1389,6 +1400,8 @@ class _KalloAppState extends State<KalloApp> {
               onSpectral: _setSpectral,
               renderMode: _renderMode,
               onRenderMode: _setRenderMode,
+              updateChannel: _updateChannel,
+              onUpdateChannel: _setUpdateChannel,
               initiallyOpen: widget.drawerOpen,
               initialChamber: widget.initialChamber,
               initialStep: widget.initialStep,

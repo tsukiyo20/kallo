@@ -58,3 +58,61 @@ jobs:
         with:
           files: dist/*.tar.gz
           generate_release_notes: true
+
+  # A tag publishes two things: the CLI built above, and the desktop app built
+  # here. The asset names below are the updater's contract: app/lib/lab/updates.dart
+  # looks for exactly these three file names on the release, so renaming one
+  # here breaks self-update unless the updater changes with it.
+  desktop:
+    name: desktop (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Flutter builds one app for both Mac architectures, so the hook builds
+      # the model twice — and the runner's own target is not enough for the
+      # other slice.
+      - name: rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: build
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build macos --release
+
+      - name: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="app/build/macos/Build/Products/Release/Kallo.app"
+          # Which slices the build actually carries decides the file name: the
+          # updater picks by the Mac's own architecture.
+          archs="$(lipo -archs "$bundle/Contents/MacOS/Kallo")"
+          arm=false
+          intel=false
+          case " ${archs} " in *" arm64 "*) arm=true ;; esac
+          case " ${archs} " in *" x86_64 "*) intel=true ;; esac
+          if ${arm} && ${intel}; then
+            name="kallo-desktop-macos-universal.zip"
+          elif ${arm}; then
+            name="kallo-desktop-macos-aarch64.zip"
+          elif ${intel}; then
+            name="kallo-desktop-macos-x86_64.zip"
+          else
+            echo "unexpected architectures: ${archs}" >&2
+            exit 1
+          fi
+          mkdir -p app/dist
+          ditto -c -k --keepParent "$bundle" "app/dist/${name}"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: app/dist/*.zip
