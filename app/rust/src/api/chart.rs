@@ -4,7 +4,7 @@
 //! base, fog and mask the instrument sees — not the curve evaluated at nine
 //! exposures.
 
-use kallotype_api::{chart_for, film_curve, paper_chart, print_chart_with, PrintChartOptions};
+use kallo_api::{chart_for, film_curve, paper_chart, print_chart_with, PrintChartOptions};
 
 /// One frame's chart.
 #[derive(Debug, Clone)]

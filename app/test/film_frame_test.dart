@@ -106,7 +106,7 @@ void main() {
 
   test('a print without a record is print 01, not its folder place', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-order-',
+      'kallo-order-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final ui.Image card = await _card();
@@ -130,7 +130,7 @@ void main() {
 
   test('a batch record carries its print number and chemistry', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-batch-',
+      'kallo-batch-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final ui.Image card = await _card();
@@ -157,7 +157,7 @@ void main() {
     'a large print exports a capped JPEG, not a hundred-megabyte PNG',
     () async {
       final Directory folder = await Directory.systemTemp.createTemp(
-        'kallotype-large-frame-',
+        'kallo-large-frame-',
       );
       addTearDown(() => folder.delete(recursive: true));
       final ui.Image card = await _card(width: 5000, height: 3333);
@@ -206,7 +206,7 @@ void main() {
     expect(tiff[0], anyOf(0x49, 0x4D));
 
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-jpeg-print-',
+      'kallo-jpeg-print-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final File file = File('${folder.path}/print-01.jpg');
@@ -220,7 +220,7 @@ void main() {
 
   test('the frame can be written as PNG or TIFF', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-frame-formats-',
+      'kallo-frame-formats-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final ui.Image card = await _card();
@@ -257,7 +257,7 @@ void main() {
 
   test('the finished frame is written beside the print, in Frames', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-frame-',
+      'kallo-frame-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final ui.Image card = await _card();

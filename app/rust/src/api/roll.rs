@@ -1,7 +1,7 @@
 //! A roll: one photograph, one read, five prints and a proof.
 
 use crate::frb_generated::StreamSink;
-use kallotype_api::{resolve, roll, Exposure, Progress, RollRequest, StockChoice};
+use kallo_api::{resolve, roll, Exposure, Progress, RollRequest, StockChoice};
 
 /// What the bench asks for.
 #[derive(Debug, Clone)]
@@ -81,7 +81,7 @@ pub fn make_roll(job: RollJob, progress: StreamSink<RollProgress>) -> Result<(),
     let selection = resolve(&choice).map_err(|error| error.to_string())?;
     let request = RollRequest {
         input: job.input.into(),
-        input_encoding: kallotype_io::InputEncoding::Srgb,
+        input_encoding: kallo_io::InputEncoding::Srgb,
         frames: job.frames.into_iter().map(Into::into).collect(),
         contact: job.contact.map(Into::into),
         record: job.record.map(Into::into),

@@ -29,7 +29,7 @@ pub struct DeviceReport {
 
 /// Ask the machine what it offers.
 pub fn describe_device() -> DeviceReport {
-    let device = kallotype_api::render_device();
+    let device = kallo_api::render_device();
     let (cpu, cores) = cpu();
     DeviceReport {
         gpu: device.gpu,

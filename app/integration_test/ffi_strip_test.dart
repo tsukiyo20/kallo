@@ -47,7 +47,7 @@ void main() {
     expect(photograph.existsSync(), isTrue, reason: 'the test photograph');
 
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-strip-',
+      'kallo-strip-',
     );
     addTearDown(() => folder.delete(recursive: true));
 
@@ -105,7 +105,7 @@ void main() {
     );
 
     final Directory exports = await Directory.systemTemp.createTemp(
-      'kallotype-strip-print-',
+      'kallo-strip-print-',
     );
     addTearDown(() => exports.delete(recursive: true));
     final File printed = await printTest(

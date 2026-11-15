@@ -865,60 +865,60 @@ dependencies = [
 ]
 
 [[package]]
-name = "kallotype-api"
+name = "kallo-api"
 version = "0.1.0"
 dependencies = [
- "kallotype-core",
- "kallotype-gpu",
- "kallotype-io",
- "kallotype-raw",
- "kallotype-spectral",
- "kallotype-view",
+ "kallo-core",
+ "kallo-gpu",
+ "kallo-io",
+ "kallo-raw",
+ "kallo-spectral",
+ "kallo-view",
  "serde_json",
 ]
 
 [[package]]
-name = "kallotype-core"
+name = "kallo-core"
 version = "0.1.0"
 dependencies = [
- "kallotype-spectral",
+ "kallo-spectral",
  "rayon",
 ]
 
 [[package]]
-name = "kallotype-gpu"
+name = "kallo-gpu"
 version = "0.1.0"
 dependencies = [
- "kallotype-core",
+ "kallo-core",
  "pollster",
  "wgpu",
 ]
 
 [[package]]
-name = "kallotype-io"
+name = "kallo-io"
 version = "0.1.0"
 dependencies = [
  "image",
- "kallotype-core",
+ "kallo-core",
 ]
 
 [[package]]
-name = "kallotype-raw"
+name = "kallo-raw"
 version = "0.1.0"
 dependencies = [
  "flashraw",
- "kallotype-io",
+ "kallo-io",
 ]
 
 [[package]]
-name = "kallotype-spectral"
+name = "kallo-spectral"
 version = "0.1.0"
 
 [[package]]
-name = "kallotype-view"
+name = "kallo-view"
 version = "0.1.0"
 dependencies = [
- "kallotype-core",
+ "kallo-core",
  "serde",
  "serde_json",
 ]
@@ -1389,13 +1389,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
-name = "rust_lib_kallotype"
+name = "rust_lib_kallo"
 version = "0.1.0"
 dependencies = [
  "flutter_rust_bridge",
  "image",
- "kallotype-api",
- "kallotype-io",
+ "kallo-api",
+ "kallo-io",
  "sysinfo",
 ]
 

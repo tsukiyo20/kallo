@@ -620,7 +620,7 @@ void main() {
     expect(find.text('Kallo'), findsOneWidget);
     expect(find.text('版本 0.1.0'), findsOneWidget);
     expect(find.text('GitHub'), findsOneWidget);
-    expect(find.text('github.com/tsukiyo20/kallotype'), findsOneWidget);
+    expect(find.text('github.com/tsukiyo20/kallo'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('关于')).dy,
       lessThan(tester.getTopLeft(find.text('语言')).dy),

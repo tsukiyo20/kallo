@@ -1,4 +1,4 @@
-/// Kallo, the interface of Kallotype.
+/// Kallo: the app's design language and vocabulary.
 ///
 /// Import this; do not reach into `design/` or `widgets/` directly.
 library;

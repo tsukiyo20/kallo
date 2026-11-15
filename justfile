@@ -60,13 +60,13 @@ ffi:
 # Everything CI checks.
 check: fmt-check lint test
 
-# Render an image. Example: just run render crates/kallotype-cli/assets/testchart.png -o out/a.png --dev 9
+# Render an image. Example: just run render crates/kallo-cli/assets/testchart.png -o out/a.png --dev 9
 run *args:
     cargo run --release --bin kalo -- {{args}}
 
 # Compare RGB → spectrum reconstructions.
 bench *args:
-    cargo run --release -p kallotype-spectral --bin kalo-bench -- {{args}}
+    cargo run --release -p kallo-spectral --bin kalo-bench -- {{args}}
 
 # Audit licences, advisories and sources.
 deny:
@@ -95,7 +95,7 @@ print src dev="9" temp="20" dest="$HOME/Pictures/Kallo":
 # no Rust toolchain. Regenerate it; never edit it.
 # Example: just view vision3_500t app/assets/film_strip.json
 view *args:
-    cargo run --quiet -p kallotype-view --bin kaloview -- {{args}}
+    cargo run --quiet -p kallo-view --bin kaloview -- {{args}}
 
 clean:
     cargo clean

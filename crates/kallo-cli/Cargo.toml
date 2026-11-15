@@ -1,0 +1,47 @@
+[package]
+name = "kallo-cli"
+description = "The `kalo` command line interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["cli", "film", "photography", "command-line", "render"]
+categories = ["command-line-interface", "multimedia::images"]
+
+[lib]
+name = "kallo_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kalo"
+path = "src/main.rs"
+
+[features]
+default = ["gpu", "raw"]
+# On by default: the backend is a working implementation of the same model, and
+# a renderer that ignores the GPU on a machine that has one is leaving the
+# largest single speed-up on the table. It drags wgpu and about two hundred
+# crates into the build, which is the price of that.
+gpu = ["dep:kallo-gpu"]
+# Camera raw decoding, through `kallo-raw` and FlashRaw. On by default: the
+# decoder is MIT/Apache-2.0, and a photographer who is handed a film simulator
+# will point it at a raw. Build without default features for a binary that only
+# reads ordinary images.
+raw = ["dep:kallo-raw"]
+
+[dependencies]
+kallo-api = { path = "../kallo-api", version = "0.1.0" }
+kallo-core = { path = "../kallo-core", version = "0.1.0" }
+kallo-gpu = { path = "../kallo-gpu", version = "0.1.0", optional = true }
+kallo-io = { path = "../kallo-io", version = "0.1.0" }
+kallo-raw = { path = "../kallo-raw", version = "0.1.0", optional = true }
+kallo-spectral = { path = "../kallo-spectral", version = "0.1.0" }
+clap.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -9,7 +9,7 @@ import 'package:kallo/lab/stock.dart';
 void main() {
   test('old sidecars move into the app folder and the pictures stay', () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'kallotype-store-',
+      'kallo-store-',
     );
     addTearDown(() => root.delete(recursive: true));
     final Directory exports = Directory('${root.path}/exports')
@@ -64,7 +64,7 @@ void main() {
 
   test('a new print is remembered when there is no sidecar', () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'kallotype-store-',
+      'kallo-store-',
     );
     addTearDown(() => root.delete(recursive: true));
     final File print = File('${root.path}/print-02.png')
@@ -94,7 +94,7 @@ void main() {
 
   test('the store keeps the previous complete file as a backup', () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'kallotype-store-',
+      'kallo-store-',
     );
     addTearDown(() => root.delete(recursive: true));
     final File first = File('${root.path}/print-01.png')
@@ -139,7 +139,7 @@ void main() {
 
   test('two prints finishing together keep both records', () async {
     final Directory root = await Directory.systemTemp.createTemp(
-      'kallotype-store-',
+      'kallo-store-',
     );
     addTearDown(() => root.delete(recursive: true));
     final File first = File('${root.path}/print-01.png')

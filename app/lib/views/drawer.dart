@@ -716,7 +716,7 @@ class _RepositoryLinkState extends State<_RepositoryLink> {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        'github.com/tsukiyo20/kallotype',
+                        'github.com/tsukiyo20/kallo',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: KalloType.data.copyWith(

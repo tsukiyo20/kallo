@@ -25,7 +25,7 @@ void main() {
 
   test('the export folder is read oldest first, one stat per file', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-exports-',
+      'kallo-exports-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final DateTime base = DateTime(2026, 1, 1, 12);

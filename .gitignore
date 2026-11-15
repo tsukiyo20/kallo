@@ -1,4 +1,4 @@
-# Build output. Not anchored: `crates/kallotype-raw` is outside the workspace
+# Build output. Not anchored: `crates/kallo-raw` is outside the workspace
 # and grows a target directory of its own, and `/target/` only matched the one
 # at the root — which is how 1259 build files ended up in a commit.
 target/

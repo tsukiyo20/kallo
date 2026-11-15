@@ -1,7 +1,7 @@
 //! One print, at the size a print is.
 
-use kallotype_api::{render, resolve, Exposure, RenderOptions, StockChoice};
-use kallotype_io::resize_to_width;
+use kallo_api::{render, resolve, Exposure, RenderOptions, StockChoice};
+use kallo_io::resize_to_width;
 
 /// What a print asks for.
 #[derive(Debug, Clone)]
@@ -86,9 +86,9 @@ pub fn make_print(job: PrintJob) -> Result<PrintReport, String> {
         ..StockChoice::default()
     };
     let selection = resolve(&choice).map_err(|error| error.to_string())?;
-    let mut image = kallotype_api::read_input(
+    let mut image = kallo_api::read_input(
         std::path::Path::new(&job.input),
-        kallotype_io::InputEncoding::Srgb,
+        kallo_io::InputEncoding::Srgb,
     )
     .map_err(|error| error.to_string())?;
     if job.width > 0 {
