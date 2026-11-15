@@ -342,7 +342,7 @@ class _KalloAppState extends State<KalloApp> {
       return;
     }
     try {
-      final ui.Image image = await decode(file, width: 1600);
+      final ui.Image image = await decodePhotograph(file, width: 1600);
       if (!mounted) {
         image.dispose();
         return;
@@ -527,7 +527,7 @@ class _KalloAppState extends State<KalloApp> {
       if (current.photo == kept.path) {
         return;
       }
-      final ui.Image image = await decode(kept, width: 1600);
+      final ui.Image image = await decodePhotograph(kept, width: 1600);
       if (!mounted) {
         image.dispose();
         return;
@@ -554,7 +554,7 @@ class _KalloAppState extends State<KalloApp> {
       await StripStore.clear();
       await StripStore.save(next);
     } on Object catch (error) {
-      Model.log('the photograph could not be kept: $error');
+      Model.log('the photograph could not be kept or read: $error');
     }
   }
 
@@ -573,26 +573,43 @@ class _KalloAppState extends State<KalloApp> {
       acceptedTypeGroups: const <XTypeGroup>[
         XTypeGroup(
           label: 'photographs',
+          // What the model's readers accept: the window's formats and every
+          // camera raw the decoder claims. A panel can only offer extensions,
+          // so this list is the decoder's `EXTENSIONS` written the picker's
+          // way; a raw added there belongs here too.
           extensions: <String>[
             'jpg',
             'jpeg',
             'png',
             'tif',
             'tiff',
+            '3fr',
+            'ari',
             'arw',
             'cr2',
             'cr3',
-            'nef',
-            'raf',
-            'rw2',
-            'orf',
+            'crw',
+            'dcr',
+            'dcs',
             'dng',
-            'pef',
-            'srw',
-            'nrw',
-            'x3f',
+            'erf',
             'iiq',
-            '3fr',
+            'kdc',
+            'mef',
+            'mos',
+            'mrw',
+            'nef',
+            'nkd',
+            'nrw',
+            'orf',
+            'pef',
+            'qtk',
+            'raf',
+            'raw',
+            'rw2',
+            'srw',
+            'tfr',
+            'x3f',
           ],
         ),
       ],
