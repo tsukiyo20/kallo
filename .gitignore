@@ -1,6 +1,6 @@
-# Build output. Not anchored: `crates/kallo-raw` is outside the workspace
-# and grows a target directory of its own, and `/target/` only matched the one
-# at the root — which is how 1259 build files ended up in a commit.
+# Build output. Not anchored: `app/rust` is a workspace of its own and grows a
+# target directory beside the app, and a rooted `/target/` once let 1259 build
+# files into a commit.
 target/
 
 # Rendered images — regenerate with `kalo render`
