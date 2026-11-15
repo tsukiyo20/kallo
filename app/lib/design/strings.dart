@@ -53,7 +53,6 @@ class KalloStrings {
   String get galleryTab => zh ? '观景' : 'Gallery';
 
   /// The three steps of the darkroom, in the order the work goes.
-  String get selectStep => zh ? '选片' : 'Select';
   String get developStep => zh ? '显影' : 'Develop';
   String get printStep => zh ? '印相' : 'Print';
 
@@ -68,7 +67,6 @@ class KalloStrings {
   String get maximizeWindow => zh ? '最大化' : 'Maximize';
   String get restoreWindow => zh ? '还原' : 'Restore';
   String get closeWindow => zh ? '关闭窗口' : 'Close window';
-  String get noPhotographChosen => zh ? '还没选片' : 'nothing chosen';
   String get choosePhotoNote => zh
       ? '选一张照片。胶片和相纸随后决定。'
       : 'Choose a photograph. The film and paper come after.';
@@ -76,6 +74,7 @@ class KalloStrings {
       ? '照片还没有进显影液。先看它，再选胶片。'
       : 'The photograph before the developer. Look first, then choose a film.';
   String get theOriginal => zh ? '原片' : 'ORIGINAL';
+  String get compare => zh ? '对比' : 'Compare';
   String get changePhoto => zh ? '换一张' : 'Change';
   String get materials => zh ? '材料' : 'MATERIALS';
   String get change => zh ? '更换' : 'Change';

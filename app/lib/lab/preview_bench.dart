@@ -32,6 +32,32 @@ class PreviewBench {
     }
   }
 
+  /// Take another box off the shelf without closing the session.
+  ///
+  /// The session may still be opening when the person has already clicked
+  /// another film; the choice is applied as soon as it arrives, and every
+  /// frame asked for after this call is of the new box.
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {
+    if (_closed) {
+      return;
+    }
+    final PreviewSession? session = await (_opening ??= _start());
+    if (session == null || _closed) {
+      return;
+    }
+    _busy++;
+    try {
+      await session.setMaterials(film: film, paper: paper, tempC: tempC);
+    } finally {
+      _busy--;
+      _release();
+    }
+  }
+
   /// The print the model would make at this setting, or null when there is no
   /// session to make it in.
   Future<ui.Image?> frame({

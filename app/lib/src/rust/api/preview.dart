@@ -26,6 +26,16 @@ abstract class PreviewSession implements RustOpaqueInterface {
   /// Read the photograph once and meter it.
   static Future<PreviewSession> open({required PreviewJob job}) =>
       RustLib.instance.api.crateApiPreviewPreviewSessionOpen(job: job);
+
+  /// Point the session at another box on the shelf.
+  ///
+  /// The photograph is already decoded, so another film, paper or developer
+  /// temperature is a new choice and not a new read.
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  });
 }
 
 /// One preview frame, ready to become a texture.

@@ -26,6 +26,17 @@ abstract class PreviewSession {
     String? heatGlass,
   });
 
+  /// Take another box off the shelf without reading the photograph again.
+  ///
+  /// The film, the paper and the developer's temperature are choices about the
+  /// print, not about the photograph. A model that cannot hold a session has
+  /// nothing to change; the stage then renders each frame from the file.
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {}
+
   /// Let the model free the decoded photograph and the frames it kept.
   void dispose();
 }

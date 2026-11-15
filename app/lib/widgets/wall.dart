@@ -56,6 +56,7 @@ class PrintSheet extends StatelessWidget {
     this.outline,
     this.light = 1,
     this.aspect = 1.5,
+    this.footnote,
   });
 
   /// How wide the sheet is. The picture is the sheet minus its margins.
@@ -81,6 +82,13 @@ class PrintSheet extends StatelessWidget {
 
   /// The picture's shape, width over height.
   final double aspect;
+
+  /// A note written in the sheet's bottom margin, where a print is held.
+  ///
+  /// The deep bottom margin is the one place on the paper that is not the
+  /// picture; a small word there names a side of a comparison without putting
+  /// ink on the image.
+  final Widget? footnote;
 
   /// The margin, as a fraction of the sheet's width.
   ///
@@ -122,25 +130,39 @@ class PrintSheet extends StatelessWidget {
       height: image / aspect,
       child: child,
     );
+    final Widget picture = light >= 1
+        ? printed
+        : ColorFiltered(
+            colorFilter: ColorFilter.matrix(<double>[
+              light, 0, 0, 0, 0, //
+              0, light, 0, 0, 0, //
+              0, 0, light, 0, 0, //
+              0, 0, 0, 1, 0, //
+            ]),
+            child: printed,
+          );
+    final Widget sheet = Padding(
+      padding: EdgeInsets.fromLTRB(edge, edge, edge, edge * 2.2),
+      child: picture,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: KalloColors.under(paper, light),
         border: outline == null ? null : Border.all(color: outline!),
       ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(edge, edge, edge, edge * 2.2),
-        child: light >= 1
-            ? printed
-            : ColorFiltered(
-                colorFilter: ColorFilter.matrix(<double>[
-                  light, 0, 0, 0, 0, //
-                  0, light, 0, 0, 0, //
-                  0, 0, light, 0, 0, //
-                  0, 0, 0, 1, 0, //
-                ]),
-                child: printed,
-              ),
-      ),
+      child: footnote == null
+          ? sheet
+          : Stack(
+              children: <Widget>[
+                sheet,
+                Positioned(
+                  left: edge,
+                  right: edge,
+                  bottom: edge * 0.55,
+                  child: footnote!,
+                ),
+              ],
+            ),
     );
   }
 }

@@ -207,6 +207,13 @@ class _CardPreviewSession implements PreviewSession {
   }) async => _image.clone();
 
   @override
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {}
+
+  @override
   void dispose() {}
 }
 
@@ -225,6 +232,48 @@ const Catalogue _catalogue = Catalogue(
       short: 'PROVIA 100F',
       label: 'FUJICHROME PROVIA 100F (RDP III), E-6',
       process: FilmProcess.reversal,
+    ),
+    Stock(
+      id: 'kodak_gold_200',
+      short: 'GOLD 200',
+      label: 'KODAK GOLD 200, C-41',
+      process: FilmProcess.negative,
+    ),
+    Stock(
+      id: 'kodak_ektar_100',
+      short: 'EKTAR 100',
+      label: 'KODAK PROFESSIONAL EKTAR 100, C-41',
+      process: FilmProcess.negative,
+    ),
+    Stock(
+      id: 'fuji_pro400h',
+      short: 'PRO 400H',
+      label: 'FUJIFILM PRO 400H, C-41',
+      process: FilmProcess.negative,
+    ),
+    Stock(
+      id: 'fuji_superia_xtra400',
+      short: 'SUPERIA X-TRA 400',
+      label: 'FUJIFILM SUPERIA X-TRA 400, C-41',
+      process: FilmProcess.negative,
+    ),
+    Stock(
+      id: 'fuji_velvia_50',
+      short: 'VELVIA 50',
+      label: 'FUJICHROME VELVIA 50 (RVP50), E-6',
+      process: FilmProcess.reversal,
+    ),
+    Stock(
+      id: 'ilford_hp5plus',
+      short: 'HP5 PLUS',
+      label: 'ILFORD HP5 PLUS, ID-11 7 min 30 C',
+      process: FilmProcess.monochrome,
+    ),
+    Stock(
+      id: 'kodak_trix_400',
+      short: 'TRI-X 400',
+      label: 'KODAK PROFESSIONAL TRI-X 400, D-76',
+      process: FilmProcess.monochrome,
     ),
     Stock(
       id: 'ilford_delta400',
@@ -248,6 +297,18 @@ const Catalogue _catalogue = Catalogue(
       emulsion: PaperEmulsion.silver,
     ),
   ],
+);
+
+TestStrip _benchStrip(ui.Image card) => const TestStrip(
+  photo: '/photographs/uji.jpg',
+  stockId: 'vision3_500t',
+  stockLabel: 'VISION3 500T',
+  paperId: 'portra_endura',
+  paperLabel: 'PORTRA ENDURA',
+).withPrint(
+  TestPrint(minutes: 6, tempC: 20, image: card, chart: _chart(6)),
+).withPrint(
+  TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
 );
 
 List<Print> _prints(ui.Image card) => <Print>[
@@ -302,6 +363,28 @@ Future<ui.Image> _card({int width = 1200, int height = 800}) async {
   return recorder.endRecording().toImage(width, height);
 }
 
+/// The same card as a digital original: stronger, cooler, and not what the
+/// print is. The wipe's golden needs two different pictures to be about a wipe.
+Future<ui.Image> _original({int width = 1200, int height = 800}) async {
+  final ui.PictureRecorder recorder = ui.PictureRecorder();
+  final Canvas canvas = Canvas(recorder);
+  final Rect full = Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
+  canvas.drawRect(full, Paint()..color = const Color(0xFFBFD2DE));
+  canvas.drawRect(
+    Rect.fromLTWH(0, height * 0.58, width.toDouble(), height * 0.42),
+    Paint()..color = const Color(0xFF2E5C50),
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(width * 0.08, height * 0.14, width * 0.36, height * 0.62),
+    Paint()..color = const Color(0xFFB0733C),
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(width * 0.55, height * 0.20, width * 0.30, height * 0.50),
+    Paint()..color = const Color(0xFF0C0C0D),
+  );
+  return recorder.endRecording().toImage(width, height);
+}
+
 FilmChart _chart(double minutes) => FilmChart(
   minutes: minutes,
   tempC: 20,
@@ -333,15 +416,15 @@ void main() {
   });
 
   group('studio', skip: _paintHere ? false : 'the studio goldens are opt-in and have baselines on macOS and Windows', () {
-    testWidgets('the select step', (WidgetTester tester) async {
+    testWidgets('the bench before a photograph', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
         KalloApp(
           catalogue: _catalogue,
-          strip: const TestStrip(photo: '/photographs/uji.jpg'),
-          photograph: card,
+          strip: const TestStrip(),
+          photograph: null,
           prints: const <Print>[],
-          initialStep: DarkroomStep.select,
+          initialStep: DarkroomStep.develop,
           appearance: Brightness.dark,
           chrome: WindowChrome.mac,
         ),
@@ -349,19 +432,19 @@ void main() {
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(KalloApp),
-        matchesGoldenFile('goldens/$_platform/select.png'),
+        matchesGoldenFile('goldens/$_platform/develop-empty.png'),
       );
     });
 
-    testWidgets('the select step in daylight', (WidgetTester tester) async {
+    testWidgets('the bench in daylight', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
         KalloApp(
           catalogue: _catalogue,
-          strip: const TestStrip(photo: '/photographs/uji.jpg'),
+          strip: _benchStrip(card),
           photograph: card,
           prints: const <Print>[],
-          initialStep: DarkroomStep.select,
+          initialStep: DarkroomStep.develop,
           appearance: Brightness.light,
           chrome: WindowChrome.mac,
         ),
@@ -369,7 +452,52 @@ void main() {
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(KalloApp),
-        matchesGoldenFile('goldens/$_platform/select-light.png'),
+        matchesGoldenFile('goldens/$_platform/develop-light.png'),
+      );
+    });
+
+    testWidgets('the shelf on the bench', (WidgetTester tester) async {
+      _window(tester);
+      await tester.pumpWidget(
+        KalloApp(
+          catalogue: _catalogue,
+          strip: _benchStrip(card),
+          photograph: card,
+          prints: const <Print>[],
+          initialStep: DarkroomStep.develop,
+          appearance: Brightness.dark,
+          chrome: WindowChrome.mac,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('materials-line')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(KalloApp),
+        matchesGoldenFile('goldens/$_platform/develop-materials.png'),
+      );
+    });
+
+    testWidgets('the print against the original', (WidgetTester tester) async {
+      _window(tester);
+      final ui.Image original = await _original();
+      await tester.pumpWidget(
+        KalloApp(
+          catalogue: _catalogue,
+          strip: _benchStrip(card),
+          photograph: original,
+          prints: const <Print>[],
+          initialStep: DarkroomStep.develop,
+          appearance: Brightness.dark,
+          chrome: WindowChrome.mac,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Compare'));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(KalloApp),
+        matchesGoldenFile('goldens/$_platform/develop-compare.png'),
       );
     });
 

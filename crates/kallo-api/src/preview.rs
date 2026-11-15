@@ -146,6 +146,13 @@ impl Cache {
         self.order.push_back(key.clone());
         self.frames.insert(key, frame);
     }
+
+    /// Forget every frame: the prints they hold are of a box no longer on the
+    /// bench.
+    fn clear(&mut self) {
+        self.frames.clear();
+        self.order.clear();
+    }
 }
 
 /// A photograph held on the bench, ready to be printed at any setting.
@@ -261,6 +268,26 @@ impl PreviewSession {
         };
         self.cache().put(key, frame.clone());
         Ok(frame)
+    }
+
+    /// Point the session at another box on the shelf without reading the
+    /// photograph again.
+    ///
+    /// The film, the paper and the developer's temperature are choices about
+    /// the print, not about the photograph: the decode and the meter are the
+    /// photograph's, and a new box leaves them alone. The frames the old box
+    /// made are not this box's, so they are dropped.
+    pub fn set_materials(&mut self, film: &str, paper: &str, temp_c: f64) -> Result<(), Error> {
+        let mut choice = self.choice.clone();
+        choice.film = film.to_owned();
+        choice.paper = paper.to_owned();
+        choice.temp = Some(temp_c);
+        // Resolve before the choice is kept: a box the model does not carry is
+        // an error, not a session that answers for the wrong film.
+        resolve(&choice)?;
+        self.choice = choice;
+        self.cache().clear();
+        Ok(())
     }
 
     /// How many frames are held, for the tests that care that the cache works.
@@ -414,6 +441,57 @@ mod tests {
             .expect("the filtered frame");
         assert_ne!(plain, filtered, "a colour pack changes the print");
         assert_eq!(session.held(), 2);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn another_box_keeps_the_photograph_and_drops_the_frame() {
+        let (path, _) = photograph();
+        let mut session = PreviewSession::open(request(&path)).expect("the session");
+        let before = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        assert_eq!(session.held(), 1);
+        session
+            .set_materials("kodak_portra_400", "portra_endura", 20.0)
+            .expect("another box");
+        let after = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        assert_ne!(before, after, "another film is another print");
+        assert_eq!(session.choice.film, "kodak_portra_400");
+        assert_eq!(
+            session.held(),
+            1,
+            "the frame the last box made is not served again"
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn the_temperature_is_a_material() {
+        let (path, _) = photograph();
+        let mut session = PreviewSession::open(request(&path)).expect("the session");
+        let cool = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        session
+            .set_materials("vision3_500t", "portra_endura", 24.0)
+            .expect("a warmer tray");
+        let warm = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        assert_ne!(cool, warm, "a warmer developer is a denser negative");
+        assert_eq!(session.held(), 1);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_box_the_model_does_not_have_changes_nothing() {
+        let (path, _) = photograph();
+        let mut session = PreviewSession::open(request(&path)).expect("the session");
+        let before = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        assert!(
+            session
+                .set_materials("no_such_film", "portra_endura", 20.0)
+                .is_err(),
+            "a film the model does not carry is an error"
+        );
+        assert_eq!(session.choice.film, "vision3_500t", "the box stays put");
+        let after = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        assert_eq!(before, after, "the error changed nothing");
         let _ = std::fs::remove_file(path);
     }
 }

@@ -20,6 +20,27 @@ class _Session implements PreviewSession {
     String filters = '',
     String? heatGlass,
   }) async => throw UnimplementedError('the test never asks for pixels');
+
+  @override
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {}
+}
+
+/// A session that remembers which box it was pointed at.
+class _MaterialsSession extends _Session {
+  final List<String> calls = <String>[];
+
+  @override
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {
+    calls.add('$film|$paper|$tempC');
+  }
 }
 
 void main() {
@@ -47,5 +68,38 @@ void main() {
       isNull,
       reason: 'a closed bench has no session and no work',
     );
+  });
+
+  test('another box is a call on the session, not a new one', () async {
+    final _MaterialsSession session = _MaterialsSession();
+    int opened = 0;
+    final PreviewBench bench = PreviewBench(
+      open: () async {
+        opened++;
+        return session;
+      },
+    );
+    bench.warm();
+    await bench.setMaterials(
+      film: 'kodak_portra_400',
+      paper: 'portra_endura',
+      tempC: 20,
+    );
+    expect(session.calls, <String>['kodak_portra_400|portra_endura|20.0']);
+    expect(opened, 1, reason: 'the photograph was not read again');
+    bench.dispose();
+    expect(session.disposed, isTrue);
+  });
+
+  test('a closed bench changes no box', () async {
+    final _MaterialsSession session = _MaterialsSession();
+    final PreviewBench bench = PreviewBench(open: () async => session);
+    bench.dispose();
+    await bench.setMaterials(
+      film: 'kodak_portra_400',
+      paper: 'portra_endura',
+      tempC: 20,
+    );
+    expect(session.calls, isEmpty);
   });
 }

@@ -4,7 +4,7 @@
 >
 > Boards: [workflow](board-1.png) · [printing and the two rooms](board-2.png) · [empty states and settings](board-3.png) · [interactive HTML](mockups.html)
 >
-> The phone shell as built: [current-select.png](current-select.png)
+> The screenshots down the page are of the shell as it was built; the step row is two segments now (the shelf moved onto the bench), and `current-select.png` is the old first page kept for the record.
 
 ---
 
@@ -14,18 +14,20 @@
 
 The desktop is organised as two rooms, a drying rack and an instrument panel on the right; the phone should not press that furniture into 390 pt at the same proportions. It should become:
 
-> One subject (a photograph or a sheet of paper), one instrument deck (the 2–3 controls of the current step), and a strip of steps (Select / Develop / Print).
+> One subject (a photograph or a sheet of paper), one instrument deck (the 2–3 controls of the current step), and a strip of steps (Develop / Print).
 
-Three rooms, still; three steps, still. What changes is that they no longer appear at once. **The screen answers one question at a time.**
+Three rooms, still; two steps. What changes is that they no longer appear at once. **The screen answers one question at a time.**
 
 ---
 
 ## 1. Why the phone is wrong today
 
+> The shell this section criticises is the old one; the select page has since been folded into the bench. The critique is kept because it is the reason the shell has the shape it has.
+
 The compact branch today is not a phone layout; it is the desktop layout with things taken away:
 
 - `Studio` keeps 56 pt of top chrome and a 52 pt bottom bar at width `< 700`, and takes the sidebar away (`app/lib/views/studio.dart:109`, `:190`, `:330`).
-- `SelectStage` turns the desktop work area and inspector into two stacked blocks: the photograph above, `_materials(stacked: true)` below, with the panel taking 46% of the screen height (`app/lib/views/select_stage.dart:105–119`).
+- `SelectStage` turned the desktop work area and inspector into two stacked blocks: the photograph above, the materials below, with the panel taking 46% of the screen height.
 - `DevelopStage` / `PrintStage` likewise press the inspector into a bottom panel at 46% / 50% (`app/lib/views/develop_stage.dart:553–561`, `app/lib/views/print_stage.dart:379–389`).
 - So a phone holds all of these at once: the status bar, a 56 pt top bar, the content area, a second scrolling panel, and a 52 pt bottom navigation. **The content rarely takes more than half the screen.**
 
@@ -48,7 +50,7 @@ None of this is fixed by changing a few colours. It all comes from one premise: 
 
 ## 2. Design principles
 
-1. **One subject.** On Select the subject is the original; on Develop it is the test print being developed; on Print it is the finished print; on the drying rack it is paper drying; in the gallery it is the same paper, hung. The subject takes most of the screen, and the controls give way.
+1. **One subject.** On the bench the subject is the test print being developed — the original is a row and a wipe, not a page; on Print it is the finished print; on the drying rack it is paper drying; in the gallery it is the same paper, hung. The subject takes most of the screen, and the controls give way.
 2. **Two levels of navigation at most.** A room is a bottom tab; a step is a top segmented control; a task is a sheet. Never again a room pill plus a room in the bottom bar.
 3. **The main action is always under the thumb.** Each working page has one filled CTA, pinned above the bottom safe area, never hidden in a scrolling panel.
 4. **Controls ≥ 44 pt, body ≥ 15 pt.** This is a phone, not a 27-inch display. Desktop type sizes do not enter the compact shell.
@@ -65,8 +67,7 @@ None of this is fixed by changing a few colours. It all comes from one premise: 
 ```text
 Kallo
 ├─ Darkroom (bottom tab)
-│  ├─ Select        ← original + materials
-│  ├─ Develop       ← test print + time + strip
+│  ├─ Develop       ← the bench: original + materials + time + strip
 │  └─ Print         ← finished print + time/exposure/balance/glass
 ├─ Drying rack (bottom tab)
 │  └─ Print viewer (full screen, no tabs)
@@ -81,10 +82,10 @@ Kallo
 ```
 
 - **Three rooms, not four.** Settings is not a room; it is a whole page opened from the gear, and the bottom bar holds three places only. The tab labels are the short names: `Darkroom` / `Rack` / `Gallery` in English (`Rack`, not `Drying rack`), and two characters each in Chinese rather than the rooms' longer names — the rooms are the same; only the label is shortened so three fit under a thumb.
-- **Three steps, not three page stacks.** The segmented control switches steps, and state stays where it is. Come back to the Darkroom from the Gallery and you are still on the step you left.
+- **Two steps, not three page stacks.** The segmented control switches steps, and state stays where it is. Come back to the Darkroom from the Gallery and you are still on the step you left.
 - **Tasks are sheets.** Film picker, paper picker, temperature, Details, print options, export, confirmation — all sheets; the desktop inspector is not pushed back into the main screen.
 - **Viewing is full screen.** Tapping a print on the rack or on the wall opens a tab-less full-screen viewer; going back keeps the scroll position.
-- **Back hierarchy (Android back button / iOS edge swipe):** close the sheet first → then one step back (Print → Develop → Select) → finally leave the Darkroom; a viewer or Settings closes itself first and does not leave the app.
+- **Back hierarchy (Android back button / iOS edge swipe):** close the sheet first → then one step back (Print → Develop) → finally leave the Darkroom; a viewer or Settings closes itself first and does not leave the app.
 
 ---
 
@@ -108,7 +109,7 @@ So an iPhone in landscape (844 × 390, shortestSide 390) is still judged a phone
 ┌──────────────────────────────┐
 │ status 47                    │  safe top
 ├──────────────────────────────┤
-│ nav 52  KALLO │ Select/… │ ⚙ │  compact navigation
+│ nav 52  KALLO │ Develop/… │ ⚙ │  compact navigation
 ├──────────────────────────────┤
 │                              │
 │                              │
@@ -255,40 +256,42 @@ Rules:
 
 ## 6. Screen by screen
 
-### 6.1 Select: the photograph is the page
+### 6.1 Develop: one sheet, one strip, one time
 
 ```text
 status 47
-nav 52    KALLO      [Select|Develop|Print]      ⚙
-stage     ┌──────────────────────────────┐
-          │                              │ 320
-          │        original              │
-          │        (contain)             │
-          └──────────────────────────────┘
-          IMG_2048.HEIC          4032 × 3024
-          MATERIALS
-          ┌──────────────────────────────┐
-          │ ▣ PORTRA 400              ›  │ 64
-          │   Kodak · C-41               │
-          ├──────────────────────────────┤
-          │ ▤ CRYSTAL ARCHIVE PEARL   ›  │ 64
-          │   Fujifilm · RA-4            │
-          └──────────────────────────────┘
-          ● Metered · 0.0 EV · spectral
-CTA 50    [        To the developer        ]
+nav 52    KALLO      [Develop|Print]      ⚙
+stage     ┌──────────────────┐
+          │    developed      │  (paper)
+          │    test print     │
+          └──────────────────┘
+          VISION3 500T · CRYSTAL ARCHIVE  ›  Test print
+deck 236  ╭────────────────────────────────╮
+          │ TEST STRIP  2 prints   New strip│
+          │ [6:00] [12:00] [15:00]          │
+          │ 12:00                  20.0 °C  │
+          │ ├──────●───────────────────────┤│
+          │ [        Develop 12:00        ] │
+          ╰────────────────────────────────╯
 tab 49+34 [ Darkroom ] [ Rack ] [ Gallery ]
 ```
 
-- The photograph sits on **black card** (`stage`), `contain`, never cropped and never stretched to fill. The black card lifts the original out of the page and gives portrait or banner shapes a stable frame.
-- A small `ORIGINAL` pill at the top left; a `Change` pill at the bottom right (32 pt, 44 pt touch area); do not turn "change it" into a small orange word in the title bar.
-- Under the photograph, the filename and pixels; under that, the `MATERIALS` section header.
-- Materials are two rows, not a shelf: film, paper. Row height 64, a 35 pt icon on the left, title 15/600, subtitle 12/400, a chevron on the right; tapping a row opens a full-height picker.
-- Exposure is a fact, not a control: one 11 pt line, `● Metered · 0.0 EV · spectral`; not tappable.
-- **The CTA is fixed above the tab bar** and does not scroll with the materials: `To the developer`, 50 pt, radius 14; with no photograph it becomes `Choose a photograph…`.
-- With no photograph the whole stage is an empty state: a 76 pt rounded icon, a 22 pt title "Start with a photograph", a 13 pt note, the CTA, and one line at the bottom, "Your original is never modified." No second "choose a photograph" anywhere.
-- Once there is a photograph the material card appears; if the current strip already has test prints, confirm before changing the photograph, film or paper.
-- **Reversal film**: the paper row greys out and shows "This film is its own picture"; `To the developer` still reaches Develop, and the Print step says there is no print to make.
-- No model / catalogue not loaded: the material rows show "Film list unavailable", the CTA is disabled with one line of reason; do not pretend there are materials.
+- **The bench is the darkroom's first page.** There is no page before the developer: the film and the paper are chosen by looking at the print they make, so they live on the bench.
+- **The photograph is the test print**: the 1200 px test print for the current time, on warm white paper; the paper has an edge and an object shadow. Tapping the paper opens a full-screen preview (chrome hidden, pinch to zoom), so even though the paper is only 250 pt wide on the main screen, the detail can be read.
+- Under the paper is the **materials row**: `VISION3 500T · CRYSTAL ARCHIVE PEARL ›` on the left, `Test print` on the right, 44 pt of touch height. Tapping it opens the **materials sheet** — the film, the paper and the photograph, one row each (64 pt, a glyph, a title, a subtitle, a chevron). The film and paper rows open the searchable `.large` pickers below; the photograph row opens the system picker. Do not repeat the temperature there — it lives in the deck.
+- **The wipe**: the paper's top-left `Compare` pill turns the print into a before-and-after wipe at half; drag the paper left and right to move the seam. The seam is not drawn — the edge between the original and the print is the whole control. A tap on the paper leaves the wipe; the pill leaves it too.
+- **The deck is an instrument panel**:
+  - The first row is the strip: `TEST STRIP` at 9.5 uppercase + the print count; `New strip` on the right (13, orange, destructive confirmation). Thumbnails 44 × 44, with the time under each at 9 pt; the selected one has a 1.5 pt orange frame.
+  - The second row is the clock, 32/600 tabular, + the temperature pill on the right (28 pt, 44 pt touch area). Tapping the temperature opens a `.medium` sheet: a large value, −/+ at 44 pt, a slider, and one line, "Changing temperature starts a new strip"; after setting it, confirm first if there are prints.
+  - The third row is the 46 pt time ruler: five ticks at 3/6/9/12/15; dragging follows the finger; values are quantised to 0.5 min; ticks and whole numbers snap with a selection haptic.
+  - Last is `Develop 12:00` at 44–50 pt. When a print at that time exists, the label becomes `Re-develop 12:00`, and a text button, "Remove this print", appears beside it (or long-press a thumbnail → context menu).
+- **No prints**: the deck puts the strip away and keeps one line, "A test print fixes the exposure.", + `Develop first print`; the paper's place shows the original with a `NOT DEVELOPED` pill on it, not blank paper.
+- **Rendering**: keep the previous image; the CTA text becomes `Developing…` and a 2 pt progress shows inside the button; disable the time ruler to prevent repeat taps. No full-screen spinner.
+- **Details**: the 32 pt `i` at the stage's top right opens a `.large` sheet for the film curve, the paper curve, Gamma/Dmax and the materials' full names; all the density that the desktop inspector holds lives here, off the main screen.
+- **Changing temperature / film / paper / photograph**: all of these are "new strip" semantics; confirm when there are prints. The confirmation names the count: `3 test prints will be cleared.` The photograph stays. The materials card's rows are disabled for a reversal's paper, and say why.
+- With no photograph the whole stage is an empty state: a 76 pt rounded icon, a 22 pt title "Start with a photograph", a 13 pt note, the CTA, and one line at the bottom, "Your original is never modified."
+- **Reversal film**: the paper row greys out and shows "This film is its own picture"; the Print step says there is no print to make.
+- No model / catalogue not loaded: the material sheet says the list is unavailable; the CTA is disabled with one line of reason; do not pretend there are materials.
 
 **Film / paper picker (sheet)**
 
@@ -318,43 +321,11 @@ tab 49+34 [ Darkroom ] [ Rack ] [ Gallery ]
 - Empty search, no results and an unloaded catalogue each have an inline empty state.
 - The paper picker is the same skeleton; it filters to the papers available for the current film first; for a reversal film it shows an explanation rather than an empty list.
 
-### 6.2 Develop: one sheet, one strip, one time
+### 6.2 Print: four values, one finished print
 
 ```text
 status 47
-nav 52    [Select|Develop|Print]      ⚙
-stage     ┌──────────────────┐
-          │    developed      │  (paper)
-          │    test print     │
-          └──────────────────┘
-          PORTRA 400 · CRYSTAL        Test print
-deck 236  ╭────────────────────────────────╮
-          │ TEST STRIP  2 prints   New strip│
-          │ [6:00] [12:00] [15:00]          │
-          │ 12:00                  20.0 °C  │
-          │ ├──────●───────────────────────┤│
-          │ [        Develop 12:00        ] │
-          ╰────────────────────────────────╯
-tab 49+34
-```
-
-- **The photograph is the test print**: the 1200 px test print for the current time, on warm white paper; the paper has an edge and an object shadow. Tapping the paper opens a full-screen preview (chrome hidden, pinch to zoom), so even though the paper is only 250 pt wide on the main screen, the detail can be read.
-- Under the paper there is only one line of material name (12 pt muted) + `Test print`; do not repeat the temperature there — it lives in the deck.
-- **The deck is an instrument panel**:
-  - The first row is the strip: `TEST STRIP` at 9.5 uppercase + the print count; `New strip` on the right (13, orange, destructive confirmation). Thumbnails 44 × 44, with the time under each at 9 pt; the selected one has a 1.5 pt orange frame.
-  - The second row is the clock, 32/600 tabular, + the temperature pill on the right (28 pt, 44 pt touch area). Tapping the temperature opens a `.medium` sheet: a large value, −/+ at 44 pt, a slider, and one line, "Changing temperature starts a new strip"; after setting it, confirm first if there are prints.
-  - The third row is the 46 pt time ruler: five ticks at 3/6/9/12/15; dragging follows the finger; values are quantised to 0.5 min; ticks and whole numbers snap with a selection haptic.
-  - Last is `Develop 12:00` at 44–50 pt. When a print at that time exists, the label becomes `Re-develop 12:00`, and a text button, "Remove this print", appears beside it (or long-press a thumbnail → context menu).
-- **No prints**: the deck puts the strip away and keeps one line, "A test print fixes the exposure.", + `Develop first print`; the paper's place shows the original with a `NOT DEVELOPED` pill on it, not blank paper.
-- **Rendering**: keep the previous image; the CTA text becomes `Developing…` and a 2 pt progress shows inside the button; disable the time ruler to prevent repeat taps. No full-screen spinner.
-- **Details**: the 32 pt `i` at the stage's top right opens a `.large` sheet for the film curve, the paper curve, Gamma/Dmax and the materials' full names; all the density that the desktop inspector holds lives here, off the main screen.
-- **Changing temperature / film / paper**: all of these are "new strip" semantics; confirm when there are prints. The confirmation names the count: `3 test prints will be cleared.` The photograph stays.
-
-### 6.3 Print: four values, one finished print
-
-```text
-status 47
-nav 52    [Select|Develop|Print]      ⚙
+nav 52    [Develop|Print]      ⚙
 stage     ┌──────────────────┐
           │   finished print  │
           └──────────────────┘
@@ -382,7 +353,7 @@ deck 192  ╭──────────────────────�
 - Reversal: there is no Print; the Print segment in the step control shows as unavailable and says why.
 - Details: the same sheet as Develop, showing the paper curve for the current settings.
 
-### 6.4 Drying rack: two columns of paper
+### 6.3 Drying rack: two columns of paper
 
 ```text
 status 47
@@ -407,7 +378,7 @@ tab
 - Tap one → full-screen viewer: black, a 44 pt back/title/export bar at the top, the image `contain`, pinch to zoom, double-tap 1:1, swipe down to close; material/time/temperature/date at the bottom; no tab bar.
 - The desktop's existing `Rack` geometry (138 pt wire, 28 pt margins, 260 max width) stays for the desktop; the phone gets the new grid.
 
-### 6.5 Gallery: a wall
+### 6.4 Gallery: a wall
 
 ```text
 status 47
@@ -432,7 +403,7 @@ tab
 - Lamp: one switch changes the wall's `light` and the paper's brightness; with the lamp off the wall goes black and the label goes with it, while the paper stays at a tenth and the window and the back control remain. Motion 240 ms.
 - Sorting is still newest first; if the list is empty when the gallery opens, show the empty state, not an empty wall.
 
-### 6.6 Settings: a whole page, not a drawer
+### 6.5 Settings: a whole page, not a drawer
 
 ```text
 status 47
@@ -485,9 +456,9 @@ content   APPEARANCE
 
 | Component | Spec |
 |---|---|
-| `MobileNavBar` | 52 high; segment 34 high, 3 equal parts, track `fill`, selected `card` + 0.5 hairline; gear 44 × 44; 16 on both sides; glass + hairline |
+| `MobileNavBar` | 52 high; segment 34 high, 2 equal parts (196 wide), track `fill`, selected `card` + 0.5 hairline; gear 44 × 44; 16 on both sides; glass + hairline |
 | `MobileTabBar` | 49 + safe; 3 equal parts; icons 24, labels 10.5; selected accent; top hairline; no shadow |
-| `MobileStageTabs` | 3 segments; touch area ≥ 44; `Semantics(selected:)`; step switch 160 ms |
+| `MobileStageTabs` | 2 segments; touch area ≥ 44; `Semantics(selected:)`; step switch 160 ms |
 | `MobileCTA` | 50 high, radius 14, accent, onAccent, 17/600; disabled fill; min width 200 |
 | `InstrumentDeck` | 12 on both sides, 12 at the bottom, 192–236 high, radius 16, card, hairline; 10–14 padding inside; CTA pinned to the bottom |
 | `TestStrip` | horizontal scrolling; thumbnails 44–58; selected 1.5–2 pt accent frame; long-press context menu; no scrollbar |
@@ -522,7 +493,7 @@ Confirmations use the iOS action-sheet shape: a title + one line of explanation 
 
 ### 8.2 Back
 
-- Android back button: sheet → close; viewer/Settings → close; Print → Develop → Select; back again exits.
+- Android back button: sheet → close; viewer/Settings → close; Print → Develop; back again exits.
 - iOS: sheet pulls down; viewer/Settings swipe in from the edge; steps do not intercept the edge gesture (so they do not fight the system back).
 - Closing a sheet restores the focus/scroll position of the control that opened it.
 
@@ -584,8 +555,8 @@ app/lib/
     mobile_sheet.dart       ← sheet, confirm, choice, full-screen viewer
   views/
     studio.dart             ← only adds the compact branch; the desktop path is untouched
-    select_stage.dart       ← compact branch: original + two material rows + picker
-    develop_stage.dart      ← compact branch: paper + strip + clock/ruler/CTA
+    develop_stage.dart      ← compact branch: the bench — paper, materials sheet,
+                              wipe, strip, clock/ruler/CTA
     print_stage.dart        ← compact branch: 2×2 controls + print options
     rack.dart / gallery.dart ← compact grid, empty states, viewer callbacks
   main.dart                 ← portrait lock on phones; callback API unchanged
@@ -605,7 +576,7 @@ app/lib/
 | Phase | Content | Done when |
 |---|---|---|
 | **1. Shell and tokens** | breakpoints, `MobileStudio`, nav/tab/step/CTA/sheet, the 44 pt baseline | three empty tabs switch on 390 × 844; iPhone landscape no longer shows the desktop's two columns; the desktop goldens are unchanged |
-| **2. Select** | original on black card, two material rows, picker sheet, empty state, destructive confirmations | the photograph, materials and CTA fit in one screen; no 24 chips; material changes confirm first |
+| **2. The bench** | the test print as the subject, the materials row and sheet, the wipe, the empty state, destructive confirmations | paper, materials and CTA fit in one screen; no 24 chips; material changes confirm first |
 | **3. Develop** | test print as the subject, deck, time ruler, strip, temperature/Details sheets | paper, time, prints and CTA fit in one screen; dragging is smooth; curves are off the main screen |
 | **4. Print** | 2×2 controls, four sheets, print options, success toast | all four values change and the image updates live; Print needs no panel scrolling |
 | **5. Rack / Gallery / Viewer** | two-column grid, empty states, lamp, pinch viewer, no hover loupe | at least two papers per screen; the viewer zooms and returns |
@@ -617,18 +588,18 @@ app/lib/
   - the three sizes 390 × 844, 375 × 667, 430 × 932; light/dark;
   - every tappable element ≥ 44 (walking semantics/rect);
   - text scaling 1.3 does not overflow;
-  - the Android back hierarchy;
+  - the Android back hierarchy (Print → Develop → out);
   - changing film/paper/temperature with prints present asks for confirmation;
   - an empty state's CTA reaches the next step;
   - sheets close by pulling down or tapping the scrim.
 - New phone goldens: `test/goldens/macos/mobile/{select,develop,print,rack,gallery}.png`, drawn with the synthetic test card, with no photographs of people. They use the existing `studio-goldens` opt-in.
-- Integration test: on iPhone/Android, drive a **synthetic picture** through Select → film → paper → develop 3/6/9 → print → drying rack → gallery → settings; personal photographs never enter the repository.
-- Desktop: the existing 12 macOS goldens and the widget tests all pass; the 7 CI checks all pass.
+- Integration test: on iPhone/Android, drive a **synthetic picture** through the bench → film → paper → develop 3/6/9 → print → drying rack → gallery → settings; personal photographs never enter the repository.
+- Desktop: the existing macOS goldens and the widget tests all pass; the CI checks all pass.
 
 ### 9.4 Not doing
 
 - Not changing the model's mathematics, data files, XMP or catalogue; PhotoKit/MediaStore are adjusted only in Android permission timing.
-- Not changing the desktop layout, the desktop sidebars or the desktop goldens.
+- The phone plan did not change the desktop layout; the later merge of the shelf into the bench did, and is recorded in `private/docs/0037-the-bench-holds-the-materials.md`.
 - Not introducing `MaterialApp` / `Material` / `CupertinoApp` / `CupertinoPageScaffold`; not introducing a new font.
 - Not swapping safelight orange for the system blue just to "look like iOS"; Kallo's accent is safelight.
 - Not making the phone a responsive reduction of the desktop studio; the phone is a shell of its own.
@@ -638,7 +609,7 @@ app/lib/
 
 ## 10. Acceptance checklist
 
-- [ ] At 390 × 844, the subject area of Select/Develop/Print is at least 50% of the content height; the photograph/paper itself is ≥ 280 pt (Select ≥ 300 pt); the CTA is visible on the first screen without scrolling.
+- [ ] At 390 × 844, the subject area of Develop/Print is at least 50% of the content height; the paper itself is ≥ 280 pt; the CTA is visible on the first screen without scrolling.
 - [ ] No tappable element is < 44 × 44; body ≥ 15, required notes ≥ 13.
 - [ ] The top bar holds one step control only; the bottom bar holds three rooms only; there is no room-name pill.
 - [ ] In iPhone landscape (844 × 390) there is no desktop sidebar/inspector; at least one operable column remains.
@@ -650,7 +621,7 @@ app/lib/
 - [ ] The phone has no Loupe switch; the viewer supports pinch, double-tap 1:1, and swipe down to close.
 - [ ] Settings is a whole-page grouped list, not a horizontal tab rail + drawer.
 - [ ] 1.3× type does not overflow; VoiceOver can read steps/materials/time/CC/lamp.
-- [ ] The 12 desktop goldens are unchanged; CI is green.
+- [ ] The desktop goldens pass; CI is green.
 
 ---
 
@@ -658,7 +629,7 @@ app/lib/
 
 1. **A bottom bar with 3 rooms + a gear**; Settings is not a room.
 2. **The gallery is 2 columns of paper**; with one print it is still a single centred sheet.
-3. **Changing film/paper/temperature/photograph confirms first when there are prints**; the copy says how many will be cleared. The desktop keeps its current behaviour; whether it follows is a separate change.
+3. **Changing film/paper/temperature/photograph confirms first when there are prints**; the copy says how many will be cleared. The desktop follows: the bench asks before it loses a strip too.
 
 One implementation-level decision is recorded here too: an Android Adreno 730 caps a single storage buffer binding at 128 MiB, and a 12 MP print is 195 MiB, so the old implementation hit a wgpu validation error in `create_bind_group` and fell back to the CPU. The GPU backend now renders frames larger than the binding limit in horizontal bands, with enough guard rows above and below the band for the vertical effect, and the body rows are bit-for-bit identical to a whole-frame render (Rust has a comparison test); `FfiModel.develop`'s CPU retry remains as the fallback for driver faults. When the preview session (`PreviewBench`) fails, the Develop and Print pages still fall back to a one-off CPU render.
 
@@ -670,7 +641,7 @@ Android photo permission is on demand too: the app reads the state at launch and
 
 - The existing design rules: `app/README.md` (no Material, no layout shadows, one accent, closed spacing/radius/type ramps, nothing on screen is invented here).
 - The existing desktop goldens: `app/test/goldens/macos/`.
-- The existing compact branch: `app/lib/views/studio.dart`, `select_stage.dart`, `develop_stage.dart`, `print_stage.dart`, `gallery.dart`, `rack.dart`, `drawer.dart`.
+- The existing compact branch: `app/lib/views/studio.dart`, `develop_stage.dart`, `print_stage.dart`, `gallery.dart`, `rack.dart`, `drawer.dart`.
 - The boards for this plan: [board-1.png](board-1.png), [board-2.png](board-2.png), [board-3.png](board-3.png), [mockups.html](mockups.html).
 
-> The boards are a direction, not final pixels: 390 × 844, Inter, real type sizes and touch targets. When building, the closed tokens of section 5 are the authority; the desktop does not move. The current implementation passes `flutter analyze`, the full widget tests and the 12 desktop goldens; the phone tests live in `app/test/mobile_test.dart`.
+> The boards are a direction, not final pixels: 390 × 844, Inter, real type sizes and touch targets. When building, the closed tokens of section 5 are the authority. The current implementation passes `flutter analyze`, the full widget tests and the fifteen desktop goldens; the phone tests live in `app/test/mobile_test.dart`.
