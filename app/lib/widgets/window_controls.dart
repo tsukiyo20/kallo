@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
@@ -8,8 +10,10 @@ import '../design/tokens.dart';
 
 /// The runner's side of the frame the app draws.
 ///
-/// The app tells the runner where its maximize button is, because Windows only
-/// shows the snap layouts flyout over a button it believes exists.
+/// The app tells the Windows runner where its maximize button is, because
+/// Windows only shows the snap layouts flyout over a button it believes
+/// exists. The Mac runner answers the one question the app cannot answer for
+/// itself: what that system's title bar does on a double click.
 const MethodChannel _frame = MethodChannel('com.kallo.app/frame');
 
 /// Maximize the window, or put it back.
@@ -25,6 +29,64 @@ Future<void> toggleWindowMaximize() async {
     }
   } on Object catch (_) {
     // No window behind the call; there is nothing to maximize.
+  }
+}
+
+/// What a double click on a title bar does on this Mac.
+///
+/// System Settings > Desktop & Dock > "Double-click a window's title bar to"
+/// owns the gesture, and the app's band stands where that title bar would be.
+/// The setting is stored in the global defaults as one of `Maximize`, `Fill`,
+/// `Minimize` or `None`.
+enum TitleBarGesture { zoom, minimize, none }
+
+/// The gesture the Mac's setting names.
+///
+/// Fill and Zoom both mean "make the window bigger"; AppKit exposes no public
+/// Fill action, so both arrive here as the green button's zoom. An absent
+/// setting is the system's default, which also fills the screen.
+TitleBarGesture titleBarGesture(String? setting) {
+  switch (setting?.toLowerCase()) {
+    case 'minimize':
+      return TitleBarGesture.minimize;
+    case 'none':
+      return TitleBarGesture.none;
+    default:
+      return TitleBarGesture.zoom;
+  }
+}
+
+/// A double click on the top band, where the app draws its own caption.
+///
+/// On Windows the caption fills the screen and puts the window back. On the
+/// Mac the band is the stand-in for the title bar the hidden chrome no longer
+/// leaves clickable, so it does what that bar would have done: the person
+/// chooses that in the system settings, and the app follows.
+Future<void> doubleClickTitleBand() async {
+  if (Platform.isMacOS) {
+    switch (titleBarGesture(await _macTitleBarAction())) {
+      case TitleBarGesture.zoom:
+        break;
+      case TitleBarGesture.minimize:
+        try {
+          await windowManager.minimize();
+        } on Object catch (_) {
+          // No window behind the call; there is nothing to minimize.
+        }
+        return;
+      case TitleBarGesture.none:
+        return;
+    }
+  }
+  await toggleWindowMaximize();
+}
+
+/// The Mac's word for the gesture, or null where there is no setting to ask.
+Future<String?> _macTitleBarAction() async {
+  try {
+    return await _frame.invokeMethod<String>('titleBarDoubleClick');
+  } on Object catch (_) {
+    return null;
   }
 }
 

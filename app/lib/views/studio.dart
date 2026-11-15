@@ -266,6 +266,11 @@ class _StudioState extends State<Studio> {
               // for the rest of the session and ignores every click.
               onTap: () {},
               onPanStart: (_) => widget.onDragWindow!(),
+              // The strip is the caption's left end, too: the empty space
+              // around the traffic lights is title bar on the Mac even when
+              // the sidebar is open, and it takes the same double click as the
+              // rest of the band.
+              onDoubleTap: widget.onToggleMaximize,
             ),
           ),
         Positioned.fill(
