@@ -80,6 +80,13 @@ struct Params {
     // zero is a delta: the centre tap is the whole kernel and the draw is the
     // per-pixel one.
     grain_stencil: array<vec4<f32>, 3>,
+    // (first global row this dispatch holds, rows in the buffer, guard rows, _).
+    //
+    // A device whose storage-buffer binding is smaller than a camera frame
+    // renders in bands. `grain` still carries the whole frame, because grain is
+    // seeded from the global pixel coordinate; `band` says which slice of that
+    // frame the buffers contain.
+    band: vec4<u32>,
 };
 
 // The spectral model's constants, in the order `kallotype_core::model` writes

@@ -299,9 +299,10 @@ pub fn render_image(
 
 /// Render the pixels, on the GPU if asked and possible, on the CPU otherwise.
 ///
-/// The fallback is deliberate and loud. A machine with no adapter, or a render
-/// the backend does not implement, gets a warning and a correct image, not an
-/// error and not a silently different one.
+/// The fallback is deliberate and loud. A machine with no adapter, a render the
+/// backend does not implement, or a device that rejects a frame gets a warning
+/// and a correct image, not an error and not a silently different one. The
+/// device's own failure is a property of the driver, not of the photograph.
 #[cfg(feature = "gpu")]
 fn render_pixels(
     pixels: &mut [[f64; 3]],
@@ -333,17 +334,14 @@ fn render_pixels(
         }
         // The backend names what it cannot do — a table, a dictionary — and
         // asking it is what decides: the API keeps no second list of supported
-        // stages to drift out of step with the crate's.
-        Err(kallotype_gpu::GpuError::Unsupported(stage)) => {
-            warnings.push(format!(
-                "the gpu backend does not implement {stage} yet; rendering on the cpu"
-            ));
+        // stages to drift out of step with the crate's. A device error is the
+        // same kind of answer: the CPU has the model and the print is worth
+        // finishing, so a reject is a warning rather than a failed render.
+        Err(error) => {
+            warnings.push(format!("{error}; rendering on the cpu"));
             render_pixels_finished(pixels, prepared, width, height, finishing);
             Ok(Backend::Cpu)
         }
-        Err(error) => Err(Error::Gpu {
-            message: error.to_string(),
-        }),
     }
 }
 

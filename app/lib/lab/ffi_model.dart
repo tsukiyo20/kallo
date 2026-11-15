@@ -64,7 +64,61 @@ class FfiModel implements Model {
     String filters = '',
     String? heatGlass,
   }) async {
-    await print_api.makePrint(
+    try {
+      await _develop(
+        photograph: photograph,
+        stock: stock,
+        paper: paper,
+        minutes: minutes,
+        tempC: tempC,
+        width: width,
+        output: output,
+        spectral: spectral,
+        balanceFrom: balanceFrom,
+        printEv: printEv,
+        filters: filters,
+        heatGlass: heatGlass,
+        gpu: true,
+      );
+    } on Object catch (error) {
+      // Some Android Vulkan drivers reject a valid render at print size. The
+      // model is the same on the CPU; a finished print is worth the wait, and
+      // the bench should not show a validation panic where a picture belongs.
+      Model.log('the gpu print failed; retrying on the cpu: $error');
+      await _develop(
+        photograph: photograph,
+        stock: stock,
+        paper: paper,
+        minutes: minutes,
+        tempC: tempC,
+        width: width,
+        output: output,
+        spectral: spectral,
+        balanceFrom: balanceFrom,
+        printEv: printEv,
+        filters: filters,
+        heatGlass: heatGlass,
+        gpu: false,
+      );
+    }
+  }
+
+  Future<void> _develop({
+    required File photograph,
+    required String stock,
+    required String paper,
+    required double minutes,
+    required double tempC,
+    required int width,
+    required File output,
+    required bool gpu,
+    bool spectral = false,
+    double? balanceFrom,
+    double printEv = 0,
+    String filters = '',
+    String? heatGlass,
+  }) async {
+    final print_api.PrintReport report = await print_api.makePrint(
       job: print_api.PrintJob(
         input: photograph.path,
         film: stock,
@@ -84,10 +138,13 @@ class FfiModel implements Model {
         grainSeed: BigInt.zero,
         halation: true,
         couplers: true,
-        gpu: true,
+        gpu: gpu,
         output: output.path,
       ),
     );
+    if (gpu) {
+      Model.log('the print at ${report.width}px is on ${report.backend}');
+    }
   }
 
   @override

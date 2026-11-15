@@ -16,6 +16,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (index >= arrayLength(&source)) {
         return;
     }
-    let density = develop(index, model_exposure(source[index].rgb));
+    // The grain field runs over the whole frame; a band still draws the pixels
+    // its global coordinate names.
+    let global = index + params.band.x * params.grain.z;
+    let density = develop(global, model_exposure(source[index].rgb));
     output[index] = vec4<f32>(model_positive(density), 1.0);
 }

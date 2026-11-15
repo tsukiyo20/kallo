@@ -169,6 +169,12 @@ file, and imports through the system photo picker. Album membership is the
 boundary: an asset whose marker was stripped is still a print, and the catalog
 keeps its record.
 
+A camera-sized print is rendered in horizontal bands when a device caps a single
+storage-buffer binding below the frame size — Adreno reports 128 MiB and a 12 MP
+frame is 195 MiB. The guard rows are the sum of the vertical effect radii, and a
+banded frame is bit-identical to the whole-frame render; the device stays the
+one doing the print instead of falling back to the CPU.
+
 The test loads the bundled faces from disk before it draws, so the picture is in
 the product's own type rather than the runner's. That is the reason the fonts are
 bundled — and both are under the SIL Open Font License, so a public repository
