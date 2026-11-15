@@ -7,9 +7,10 @@ import 'print_library.dart';
 
 /// Open the library this platform actually has.
 ///
-/// The app asks once, at launch, and never branches on the platform again:
-/// a desktop gets a folder, a phone gets the system photo library. Tests and
-/// desktop code call [FolderPrintLibrary.open] directly.
+/// A desktop gets a folder, a phone gets the system photo library. Tests and
+/// desktop code call [FolderPrintLibrary.open] directly. Android's bridge is
+/// opened without a permission dialog; the first photograph chosen is where
+/// the app explains itself and asks.
 Future<PrintLibrary> openPrintLibrary({
   Directory? folder,
   Catalog? catalog,

@@ -33,7 +33,7 @@ fn image_width() -> u32 {
 }
 
 fn image_height() -> u32 {
-    return params.grain.w;
+    return params.band.y;
 }
 
 fn tap_index(value: i32, limit: u32) -> u32 {
@@ -251,7 +251,11 @@ fn develop_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (index >= arrayLength(&density)) {
         return;
     }
-    density[index] = vec4<f32>(develop(index, exposure[index].xyz), 0.0);
+    // Grain is a function of the global pixel, not of this dispatch's buffer:
+    // a band starts at `band.x` and every body row must draw the same number
+    // the whole-frame render would have drawn.
+    let global = index + params.band.x * params.grain.z;
+    density[index] = vec4<f32>(develop(global, exposure[index].xyz), 0.0);
 }
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,11 @@ It is also small on purpose. If it grows past a few thousand lines it has become
 a framework, and a framework is a thing you maintain instead of a thing you
 ship.
 
+The phone has its own shell and its own design record:
+[`docs/mobile/README.md`](docs/mobile/README.md). The desktop keeps the room
+with the two panes; the phone gets one column, three places, three steps and
+sheets.
+
 ---
 
 ## Name and mark
@@ -47,9 +52,13 @@ and the two render differently — which is exactly the failure this pin exists 
 prevent.
 
 All five platforms are checked in: `macos`, `windows`, `linux`, `ios`, `android`.
-A window narrower than 700 points takes the phone shell: one column, a bottom
-bar for the three places and settings, and no side panes. The rooms are the
-same; only the furniture moves.
+`KalloLayout.isCompact` chooses the phone shell: a narrow window, a phone, or a
+touch tablet. It is one column with three places in the bottom bar, a three-step
+segment in the header, and a gear that opens a grouped Settings page. There are
+no side panes. The rooms are the same; only the furniture moves. Phones are
+portrait-first for now: the vertical deck cannot hold itself in a 390-point-tall
+landscape window, and leaving the phone in portrait is better than showing the
+desktop's panes there. The landscape workbench is the next phase.
 They share one codebase: iOS is `io.github.tsukiyo20.kallo`, the other
 platforms are `com.kallo.app`, and the floors are macOS 13, iOS 15, and
 Android API 29, which is where Impeller takes the Vulkan path instead of
@@ -160,6 +169,19 @@ file, and imports through the system photo picker. Album membership is the
 boundary: an asset whose marker was stripped is still a print, and the catalog
 keeps its record.
 
+Android's media permission is asked when a photograph is first chosen, not when
+the app opens. Saving a print and the system picker both work without it; what
+it buys is seeing pictures another app put in `Pictures/Kallo`, so the app says
+that in its own sheet before the system dialog and leaves the picker available
+if the answer is no. The Settings page keeps the row that can change the answer,
+including the permanent-denial route through system Settings.
+
+A camera-sized print is rendered in horizontal bands when a device caps a single
+storage-buffer binding below the frame size — Adreno reports 128 MiB and a 12 MP
+frame is 195 MiB. The guard rows are the sum of the vertical effect radii, and a
+banded frame is bit-identical to the whole-frame render; the device stays the
+one doing the print instead of falling back to the CPU.
+
 The test loads the bundled faces from disk before it draws, so the picture is in
 the product's own type rather than the runner's. That is the reason the fonts are
 bundled — and both are under the SIL Open Font License, so a public repository
@@ -192,6 +214,15 @@ Settings is one sheet, opened from the bottom of the sidebar. About is first:
 the app's mark, its version, and one click to the repository. There is no
 drawer heading and no prose about the type or the model; the other four pages
 are the settings themselves, with the one sentence each needs.
+
+On a phone the same work is not a small window. The bottom bar holds the three
+places and nothing else; the header holds the three steps; the gear opens one
+grouped Settings page with Done. Select is a photograph on black card and two
+material rows, each a searchable picker. Develop is the paper, a test strip, the
+clock and a ruler in one deck; Print is four summary cells and one action.
+Rack and Gallery are two columns, and a print opens full screen. The curves
+move to a Details sheet. The phone does not use the desktop panes at all, and
+the desktop does not use the phone's.
 
 | | |
 |---|---|

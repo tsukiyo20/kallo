@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/chrome.dart';
+import '../design/mobile.dart';
 import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
@@ -16,6 +17,8 @@ import '../lab/print_request.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../widgets/shadow_box.dart';
+import '../widgets/mobile/mobile_chrome.dart';
+import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/stage_tabs.dart';
 import '../widgets/switch.dart';
 import '../widgets/studio_top_bar.dart';
@@ -24,6 +27,7 @@ import '../widgets/window_grips.dart';
 import 'chambers.dart';
 import 'develop_stage.dart';
 import 'drawer.dart';
+import 'mobile/mobile_settings.dart';
 import 'gallery.dart';
 import 'rack.dart';
 import 'print_stage.dart';
@@ -109,7 +113,7 @@ class Studio extends StatefulWidget {
 class _StudioState extends State<Studio> {
   /// A phone has one column, not two panes. The threshold is below the
   /// desktop window's minimum, so this is the phone layout and nothing else.
-  bool get _compact => MediaQuery.sizeOf(context).width < 700;
+  bool get _compact => KalloLayout.isCompact(context);
 
   late Chamber _chamber = widget.initialChamber;
   late DarkroomStep _step = widget.initialStep;
@@ -131,13 +135,18 @@ class _StudioState extends State<Studio> {
   /// Whether one print has left the wall to fill the window. The loupe is a
   /// wall tool, so its switch goes with the wall.
   bool _galleryNear = false;
+  bool _rackNear = false;
 
   void _room(Chamber chamber) {
+    HapticFeedback.selectionClick();
     setState(() {
       _chamber = chamber;
       _open = false;
       if (chamber != Chamber.gallery) {
         _galleryNear = false;
+      }
+      if (chamber != Chamber.rack) {
+        _rackNear = false;
       }
     });
     if (chamber != Chamber.darkroom) {
@@ -149,6 +158,7 @@ class _StudioState extends State<Studio> {
     if (widget.strip.photo == null && step != DarkroomStep.select) {
       return;
     }
+    HapticFeedback.selectionClick();
     setState(() => _step = step);
   }
 
@@ -184,7 +194,7 @@ class _StudioState extends State<Studio> {
         autofocus: true,
         child: ColoredBox(
           color: KalloScope.colorsOf(context).ground,
-          child: _shell(compact: _compact),
+          child: _compact ? _compactShell() : _shell(compact: false),
         ),
       ),
     );
@@ -392,6 +402,105 @@ class _StudioState extends State<Studio> {
     );
   }
 
+  /// The phone: three places, three steps, and sheets. Nothing from the
+  /// desktop's two-pane furniture survives here except the stages' state.
+  Widget _compactShell() {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final KalloStrings s = KalloStrings.of(context);
+    final double top = MediaQuery.paddingOf(context).top;
+    final bool dark = colors.brightness == Brightness.dark;
+    final bool viewerOpen =
+        (_chamber == Chamber.gallery && _galleryNear) ||
+        (_chamber == Chamber.rack && _rackNear);
+    final Widget header = _chamber == Chamber.darkroom
+        ? KalloMobileDarkroomBar(
+            current: _step,
+            onStep: _stage,
+            onSettings: () => setState(() => _open = true),
+          )
+        : KalloMobileRoomHeader(
+            title: _chamber == Chamber.rack ? s.rack : s.galleryRoom,
+            subtitle: s.printCount(widget.prints.length),
+            onSettings: () => setState(() => _open = true),
+            trailing: _chamber == Chamber.gallery
+                ? KalloIconButton(
+                    key: const Key('mobile-light'),
+                    glyph: KalloGlyph.sun,
+                    semanticLabel: s.roomLight,
+                    onTap: _toggleLight,
+                    glyphSize: 20,
+                    foreground: _lit ? colors.accent : colors.inkMuted,
+                  )
+                : null,
+          );
+    final Widget shell = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (!viewerOpen) ...<Widget>[
+          Padding(
+            padding: EdgeInsets.only(top: top),
+            child: header,
+          ),
+        ],
+        Expanded(child: ClipRect(child: _body())),
+        if (!viewerOpen) KalloMobileTabBar(current: _chamber, onChamber: _room),
+      ],
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: const Color(0x00000000),
+        statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: colors.sidebar,
+        systemNavigationBarIconBrightness: dark
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+      child: PopScope<void>(
+        canPop:
+            !_open &&
+            _chamber == Chamber.darkroom &&
+            _step == DarkroomStep.select,
+        onPopInvokedWithResult: (bool didPop, void result) {
+          if (didPop) {
+            return;
+          }
+          if (_open) {
+            setState(() => _open = false);
+            return;
+          }
+          if (_chamber != Chamber.darkroom) {
+            _room(Chamber.darkroom);
+            return;
+          }
+          if (_step != DarkroomStep.select) {
+            _stage(DarkroomStep.values[_step.index - 1]);
+          }
+        },
+        child: Stack(
+          children: <Widget>[
+            ExcludeSemantics(excluding: _open, child: shell),
+            if (_open)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: KalloMobileSettings(
+                    locale: widget.locale,
+                    onLocale: widget.onLocale,
+                    spectral: widget.spectral,
+                    onSpectral: widget.onSpectral,
+                    export: widget.export,
+                    onClose: _closeDrawer,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _body() {
     if (_chamber == Chamber.gallery) {
       return TweenAnimationBuilder<double>(
@@ -403,13 +512,14 @@ class _StudioState extends State<Studio> {
           // the one worth seeing.
           prints: widget.prints.reversed.toList(growable: false),
           light: light,
-          loupe: _loupe,
+          loupe: _compact ? false : _loupe,
           onNear: (bool near) {
             if (_galleryNear != near) {
               setState(() => _galleryNear = near);
             }
           },
-          topInset: _topBarHeight,
+          topInset: _compact ? 0 : _topBarHeight,
+          onOpenDarkroom: _compact ? () => _room(Chamber.darkroom) : null,
         ),
       );
     }
@@ -417,7 +527,15 @@ class _StudioState extends State<Studio> {
       return Rack(
         prints: widget.prints,
         jobs: widget.jobs,
-        topInset: _topBarHeight,
+        topInset: _compact ? 0 : _topBarHeight,
+        onOpenDarkroom: _compact ? () => _room(Chamber.darkroom) : null,
+        onViewerChanged: _compact
+            ? (bool open) {
+                if (_rackNear != open) {
+                  setState(() => _rackNear = open);
+                }
+              }
+            : null,
       );
     }
     return _darkroom();
@@ -496,7 +614,7 @@ class _StudioState extends State<Studio> {
         onGoDevelop: () => _stage(DarkroomStep.develop),
         onClear: widget.onClearStrip,
         showInspector: _inspector && !_compact,
-        topInset: _topBarHeight,
+        topInset: _compact ? 0 : _topBarHeight,
       ),
       DarkroomStep.develop => DevelopStage(
         key: ValueKey<String>(
@@ -507,8 +625,10 @@ class _StudioState extends State<Studio> {
         onTemperature: widget.onTemperature,
         onDevelop: widget.onDevelop,
         onRemove: widget.onRemove,
+        photograph: widget.photograph,
+        onClearStrip: widget.onClearStrip,
         showInspector: _inspector && !_compact,
-        topInset: _topBarHeight,
+        topInset: _compact ? 0 : _topBarHeight,
       ),
       DarkroomStep.print => PrintStage(
         key: ValueKey<String>(
@@ -525,7 +645,7 @@ class _StudioState extends State<Studio> {
         onGoDevelop: () => _stage(DarkroomStep.develop),
         onGoRack: () => _room(Chamber.rack),
         showInspector: _inspector && !_compact,
-        topInset: _topBarHeight,
+        topInset: _compact ? 0 : _topBarHeight,
       ),
     };
   }

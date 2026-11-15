@@ -89,6 +89,21 @@
 //! closest the two have come: a convolution is the only thing here the device is
 //! not dramatically better at.
 //!
+//! ## A frame is not one binding
+//!
+//! The buffers are storage buffers, and a device may cap how much of one a
+//! single binding covers. Adreno 730 reports 128 MiB; a 12 MP frame is 195 MiB,
+//! which the driver rejects at `create_bind_group` — the old backend fell back
+//! to the CPU there, so a camera-sized print was the one render the phone could
+//! not do on the phone.
+//!
+//! A frame larger than the limit is now rendered in horizontal bands. The band
+//! carries guard rows on each side wide enough for the sum of the vertical
+//! effects' radii, because halation reads the blurred exposure and the couplers
+//! read the halo's density; only the body rows are kept. Grain is seeded from
+//! the global row, so the band seams cannot move it. A test renders the same
+//! frame whole and in 128-row bands and asserts the two are bit for bit equal.
+//!
 //! ## No adapter, no test
 //!
 //! CI runners have no GPU and some have no software rasteriser either. The tests
@@ -97,6 +112,8 @@
 
 #[cfg(test)]
 mod replay;
+
+use std::sync::{Arc, Mutex};
 
 use kallotype_core::model::NEUTRAL_ENTRIES;
 use kallotype_core::psf::gaussian_kernel;
@@ -143,6 +160,12 @@ pub enum GpuError {
     },
     /// The pixel count does not match the buffer size used.
     Empty,
+    /// The device rejected an operation, or its driver failed during one.
+    ///
+    /// wgpu reports these through its uncaptured-error path, which panics by
+    /// default. A render that cannot finish on the device is a fallback, not a
+    /// crash: the CPU is the same model and the caller can still make a print.
+    Failed(String),
 }
 
 impl std::fmt::Display for GpuError {
@@ -167,6 +190,7 @@ impl std::fmt::Display for GpuError {
                 width * height
             ),
             Self::Empty => write!(formatter, "no pixels to render"),
+            Self::Failed(message) => write!(formatter, "the device could not finish: {message}"),
         }
     }
 }
@@ -180,6 +204,14 @@ pub struct Gpu {
     binder: wgpu::BindGroupLayout,
     passes: Passes,
     adapter: wgpu::AdapterInfo,
+    /// The largest single storage-buffer binding this device accepts.
+    ///
+    /// A frame is one binding, so a device with a small binding range needs the
+    /// frame split into bands. Adreno reports 128 MiB here; a 12 MP frame is
+    /// 195 MiB and would otherwise be rejected at `create_bind_group`.
+    max_binding_bytes: u64,
+    /// The first error wgpu's uncaptured path saw, if any.
+    errors: Arc<Mutex<Option<String>>>,
 }
 
 /// The entry points, one per pass.
@@ -248,6 +280,11 @@ impl Gpu {
         limits.max_buffer_size = supported.max_buffer_size;
         limits.max_storage_buffer_binding_size = supported.max_storage_buffer_binding_size;
 
+        // A binding cannot cover more than the buffer it names. The two limits
+        // are usually the same order, but a device is free to report them
+        // independently; the smaller one is what a band has to fit in.
+        let max_binding_bytes =
+            u64::from(limits.max_storage_buffer_binding_size).min(limits.max_buffer_size);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("kallotype"),
             required_features: wgpu::Features::empty(),
@@ -255,6 +292,19 @@ impl Gpu {
             ..Default::default()
         }))
         .map_err(|error| GpuError::NoAdapter(error.to_string()))?;
+
+        // wgpu's default handler panics, and a panic crossing the FFI boundary
+        // is a crash where the caller expected a picture. Keep the first error
+        // instead, and let `run` turn it into a fallback the API can report.
+        let errors = Arc::new(Mutex::new(None));
+        let sink = Arc::clone(&errors);
+        device.on_uncaptured_error(Box::new(move |error| {
+            let mut slot = sink.lock().unwrap_or_else(|poison| poison.into_inner());
+            if slot.is_none() {
+                *slot = Some(error.to_string());
+            }
+        }));
+        let adapter_info = adapter.get_info();
 
         let binder = bind_group_layout(&device);
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -315,12 +365,21 @@ impl Gpu {
             couplers_vertical: pipeline("couplers_vertical", &chain_module, "couplers_vertical"),
         };
 
+        if let Some(error) = take_error(&errors) {
+            return Err(GpuError::Failed(format!(
+                "{error} (on {} ({:?}))",
+                adapter_info.name, adapter_info.backend
+            )));
+        }
+
         Ok(Self {
             device,
             queue,
             binder,
             passes,
-            adapter: adapter.get_info(),
+            adapter: adapter_info,
+            max_binding_bytes,
+            errors,
         })
     }
 
@@ -377,6 +436,37 @@ impl Gpu {
         finishing: &Finishing,
         force_chain: bool,
     ) -> Result<Vec<[f64; 3]>, GpuError> {
+        self.run_with_binding(
+            pixels,
+            prepared,
+            width,
+            height,
+            finishing,
+            self.max_binding_bytes,
+            force_chain,
+        )
+    }
+
+    /// The render, with the largest storage-buffer binding stated by the caller.
+    ///
+    /// A frame is one storage buffer per plane, and a device may cap a single
+    /// binding below the size of a camera frame: Adreno reports 128 MiB, while a
+    /// 12 MP frame is 195 MiB. A frame larger than one binding is rendered in
+    /// horizontal bands with enough guard rows above and below that every
+    /// spatial effect has the same neighbours it would have in the whole frame.
+    /// The rendered body rows are then exactly the rows the full-frame chain
+    /// would have produced.
+    #[allow(clippy::too_many_arguments)]
+    fn run_with_binding(
+        &self,
+        pixels: &[[f64; 3]],
+        prepared: &PreparedRender,
+        width: usize,
+        height: usize,
+        finishing: &Finishing,
+        max_binding_bytes: u64,
+        force_chain: bool,
+    ) -> Result<Vec<[f64; 3]>, GpuError> {
         if pixels.is_empty() {
             return Err(GpuError::Empty);
         }
@@ -421,6 +511,34 @@ impl Gpu {
             .filter(|emulsion| !emulsion.is_noop())
             .copied();
         let kernels = EffectKernels::build(halation, couplers, emulsion)?;
+        let chain = force_chain || halation.is_some() || couplers.is_some() || emulsion.is_some();
+        let guard = if chain { kernels.guard_rows() } else { 0 };
+
+        let row_bytes = u64::from(width) * 16;
+        if max_binding_bytes < row_bytes {
+            return Err(GpuError::Unsupported(
+                "a frame wider than the device's storage-buffer binding limit",
+            ));
+        }
+        let max_rows = (max_binding_bytes / row_bytes) as usize;
+        let full_bytes = pixels.len() as u64 * 16;
+        let tiled = full_bytes > max_binding_bytes;
+
+        // The working set is the band, not the frame. A 12 MP frame is two
+        // bands at 128 MiB; making the buffers the frame's size would be the
+        // bind-group rejection this exists to avoid.
+        let capacity_rows = if tiled { max_rows } else { height as usize };
+        let body_rows = if tiled {
+            if max_rows <= guard.saturating_mul(2) {
+                return Err(GpuError::Unsupported(
+                    "a frame whose effects need more rows than one storage-buffer binding holds",
+                ));
+            }
+            max_rows - guard * 2
+        } else {
+            height as usize
+        };
+        let band_bytes = capacity_rows as u64 * row_bytes;
 
         let uniform = uniform(
             &scalar,
@@ -432,42 +550,31 @@ impl Gpu {
             couplers,
             &kernels,
         );
+        let band_at = uniform.len() - 16;
         let tables = spectral
             .as_ref()
             .map_or_else(|| vec![0.0_f32; TABLE_FLOATS], spectral_tables);
 
         let count = pixels.len();
-        let bytes = (count * 16) as u64;
-
         let uniform_buffer = self.buffer(
             "params",
             uniform.len() as u64,
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         );
-        self.queue.write_buffer(&uniform_buffer, 0, &uniform);
 
-        let mut source_bytes = Vec::with_capacity(bytes as usize);
-        for pixel in pixels {
-            for channel in pixel {
-                source_bytes.extend_from_slice(&(*channel as f32).to_le_bytes());
-            }
-            source_bytes.extend_from_slice(&1.0_f32.to_le_bytes());
-        }
         let source = self.buffer(
             "source",
-            bytes,
+            band_bytes,
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         );
-        self.queue.write_buffer(&source, 0, &source_bytes);
-
         let output = self.buffer(
             "output",
-            bytes,
+            band_bytes,
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         );
         let staging = self.buffer(
             "staging",
-            bytes,
+            band_bytes,
             wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         );
 
@@ -498,11 +605,11 @@ impl Gpu {
 
         // The chain's working buffers. The single dispatch does not touch them,
         // but the bind group has to name something for every binding.
-        let chain = force_chain || halation.is_some() || couplers.is_some() || emulsion.is_some();
+        let work_bytes = if chain { band_bytes } else { 16 };
         let work = |label| {
             self.buffer(
                 label,
-                if chain { bytes } else { 16 },
+                work_bytes,
                 wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             )
         };
@@ -548,81 +655,126 @@ impl Gpu {
                 },
             ],
         });
+        if let Some(error) = self.error() {
+            return Err(error);
+        }
 
-        // One workgroup row per image row. A flat dispatch would need
+        // One workgroup row per band row. A flat dispatch would need
         // `count / 64` workgroups in one dimension, and WebGPU caps that at
         // 65535 — a limit a 4 MP image crosses. Splitting the grid over two
         // dimensions keeps every dispatch inside it however large the frame.
         let groups_x = width.div_ceil(64);
-        let groups_y = height;
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("kallotype"),
-            });
-        {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("kallotype"),
-                timestamp_writes: None,
-            });
-            pass.set_bind_group(0, &bind_group, &[]);
-            let mut dispatch = |pipeline: &wgpu::ComputePipeline| {
-                pass.set_pipeline(pipeline);
-                pass.dispatch_workgroups(groups_x, groups_y, 1);
-            };
-            if chain {
-                dispatch(&self.passes.expose);
-                if emulsion.is_some() {
-                    dispatch(&self.passes.blur_horizontal);
-                    dispatch(&self.passes.blur_vertical);
-                }
-                if halation.is_some() {
-                    dispatch(&self.passes.halation_horizontal);
-                    dispatch(&self.passes.halation_vertical);
-                }
-                dispatch(&self.passes.develop);
-                if couplers.is_some() {
-                    dispatch(&self.passes.couplers_horizontal);
-                    dispatch(&self.passes.couplers_vertical);
-                }
-                dispatch(&self.passes.positive);
-            } else {
-                dispatch(&self.passes.simple);
-            }
-        }
-        encoder.copy_buffer_to_buffer(&output, 0, &staging, 0, bytes);
-        self.queue.submit([encoder.finish()]);
-
-        let slice = staging.slice(..);
-        let (sender, receiver) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |result| {
-            let _ = sender.send(result);
-        });
-        self.device
-            .poll(wgpu::PollType::Wait)
-            .map_err(|error| GpuError::NoAdapter(format!("waiting for the readback: {error}")))?;
-        receiver
-            .recv()
-            .map_err(|error| GpuError::NoAdapter(error.to_string()))?
-            .map_err(|error| GpuError::NoAdapter(error.to_string()))?;
-
-        let mapped = slice.get_mapped_range();
         let mut out = Vec::with_capacity(count);
-        for chunk in mapped.chunks_exact(16) {
-            let mut pixel = [0.0; 3];
-            for (channel, slot) in pixel.iter_mut().enumerate() {
-                let start = channel * 4;
-                *slot = f32::from_le_bytes([
-                    chunk[start],
-                    chunk[start + 1],
-                    chunk[start + 2],
-                    chunk[start + 3],
-                ]) as f64;
+        let mut start = 0usize;
+        while start < height as usize {
+            let rows = body_rows.min(height as usize - start);
+            let end = start + rows;
+            let top_guard = guard.min(start);
+            let bottom_guard = guard.min(height as usize - end);
+            let band_start = start - top_guard;
+            let band_rows = top_guard + rows + bottom_guard;
+
+            // Only the rows this band needs are written: the guard rows are the
+            // neighbours a vertical kernel on the body would have read from the
+            // whole frame.
+            let mut source_bytes = Vec::with_capacity(band_rows * row_bytes as usize);
+            for row in band_start..band_start + band_rows {
+                for pixel in &pixels[row * width as usize..(row + 1) * width as usize] {
+                    for channel in pixel {
+                        source_bytes.extend_from_slice(&(*channel as f32).to_le_bytes());
+                    }
+                    source_bytes.extend_from_slice(&1.0_f32.to_le_bytes());
+                }
             }
-            out.push(pixel);
+            self.queue.write_buffer(&source, 0, &source_bytes);
+
+            let mut params = uniform.clone();
+            write_u32_at(
+                &mut params,
+                band_at,
+                [band_start as u32, band_rows as u32, guard as u32, 0],
+            );
+            self.queue.write_buffer(&uniform_buffer, 0, &params);
+
+            let body_offset = top_guard as u64 * row_bytes;
+            let body_bytes = rows as u64 * row_bytes;
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("kallotype"),
+                });
+            {
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("kallotype"),
+                    timestamp_writes: None,
+                });
+                pass.set_bind_group(0, &bind_group, &[]);
+                let mut dispatch = |pipeline: &wgpu::ComputePipeline| {
+                    pass.set_pipeline(pipeline);
+                    pass.dispatch_workgroups(groups_x, band_rows as u32, 1);
+                };
+                if chain {
+                    dispatch(&self.passes.expose);
+                    if emulsion.is_some() {
+                        dispatch(&self.passes.blur_horizontal);
+                        dispatch(&self.passes.blur_vertical);
+                    }
+                    if halation.is_some() {
+                        dispatch(&self.passes.halation_horizontal);
+                        dispatch(&self.passes.halation_vertical);
+                    }
+                    dispatch(&self.passes.develop);
+                    if couplers.is_some() {
+                        dispatch(&self.passes.couplers_horizontal);
+                        dispatch(&self.passes.couplers_vertical);
+                    }
+                    dispatch(&self.passes.positive);
+                } else {
+                    dispatch(&self.passes.simple);
+                }
+            }
+            encoder.copy_buffer_to_buffer(&output, body_offset, &staging, 0, body_bytes);
+            self.queue.submit([encoder.finish()]);
+
+            if let Some(error) = self.error() {
+                return Err(error);
+            }
+
+            let slice = staging.slice(..body_bytes);
+            let (sender, receiver) = std::sync::mpsc::channel();
+            slice.map_async(wgpu::MapMode::Read, move |result| {
+                let _ = sender.send(result);
+            });
+            self.device
+                .poll(wgpu::PollType::Wait)
+                .map_err(|error| GpuError::Failed(format!("waiting for the readback: {error}")))?;
+            if let Some(error) = self.error() {
+                return Err(error);
+            }
+            receiver
+                .recv()
+                .map_err(|error| GpuError::Failed(format!("waiting for the readback: {error}")))?
+                .map_err(|error| GpuError::Failed(format!("reading the frame: {error}")))?;
+
+            let mapped = slice.get_mapped_range();
+            for chunk in mapped.chunks_exact(16) {
+                let mut pixel = [0.0; 3];
+                for (channel, slot) in pixel.iter_mut().enumerate() {
+                    let at = channel * 4;
+                    *slot = f32::from_le_bytes([
+                        chunk[at],
+                        chunk[at + 1],
+                        chunk[at + 2],
+                        chunk[at + 3],
+                    ]) as f64;
+                }
+                out.push(pixel);
+            }
+            drop(mapped);
+            staging.unmap();
+
+            start = end;
         }
-        drop(mapped);
-        staging.unmap();
         Ok(out)
     }
 
@@ -634,6 +786,27 @@ impl Gpu {
             mapped_at_creation: false,
         })
     }
+
+    /// The first error the device reported since the last check.
+    fn take_error(&self) -> Option<String> {
+        take_error(&self.errors)
+    }
+
+    /// Turn a captured device error into the fallback the caller can act on.
+    fn error(&self) -> Option<GpuError> {
+        self.take_error().map(|error| {
+            GpuError::Failed(format!(
+                "{error} (on {} ({:?}))",
+                self.adapter.name, self.adapter.backend
+            ))
+        })
+    }
+}
+
+/// Take the first captured wgpu error, if any.
+fn take_error(errors: &Arc<Mutex<Option<String>>>) -> Option<String> {
+    let mut slot = errors.lock().unwrap_or_else(|poison| poison.into_inner());
+    slot.take()
 }
 
 /// One bind group layout for every pass, so a pass cannot read the kernel table
@@ -690,6 +863,24 @@ struct EffectKernels {
 }
 
 impl EffectKernels {
+    /// The number of rows a body row's vertical effects can reach.
+    ///
+    /// The chain is exposure → blur → halation → development → couplers →
+    /// print, and every vertical pass after the first reads the previous one's
+    /// output. A body row therefore depends on source rows as far away as the
+    /// sum of the three radii, not the widest one. Getting this wrong leaves a
+    /// visible seam at every band edge.
+    fn guard_rows(&self) -> usize {
+        let blur = self
+            .blur
+            .iter()
+            .map(|kernel| kernel.length / 2)
+            .max()
+            .unwrap_or(0);
+        let halation = self.scatter.length.max(self.reflection.length) / 2;
+        blur + halation + self.couplers.length / 2
+    }
+
     fn build(
         halation: Option<Halation>,
         couplers: Option<Couplers>,
@@ -986,7 +1177,20 @@ fn uniform(
             None => push_f32(&mut out, &[0.0; 4]),
         }
     }
+    // Where this dispatch's rows start and how many rows it holds. The full
+    // frame is (0, height, 0, 0); a banded render patches this lane per band.
+    // Grain is seeded from the global row below, so the split is invisible to
+    // the grain field.
+    push_u32(&mut out, &[0, height, 0, 0]);
     out
+}
+
+/// Overwrite one lane of the uniform after it was built.
+fn write_u32_at(out: &mut [u8], offset: usize, values: [u32; 4]) {
+    for (index, value) in values.iter().enumerate() {
+        let at = offset + index * 4;
+        out[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
 }
 
 /// The flags lane is `f32`, so a boolean has to become one.
@@ -1465,6 +1669,84 @@ mod tests {
         );
     }
 
+    /// A device that caps a binding below a frame renders it in bands. The body
+    /// rows must be the same numbers the whole-frame chain produces: the guard
+    /// is what makes the vertical effects blind to the seam, and the global row
+    /// is what keeps grain seeded from the same coordinate.
+    #[test]
+    fn a_banded_render_matches_the_whole_frame() {
+        let gpu = match Gpu::new() {
+            Ok(gpu) => gpu,
+            Err(error) => {
+                eprintln!("skipping the banded comparison: {error}");
+                return;
+            }
+        };
+        const BAND_WIDTH: usize = 64;
+        const BAND_HEIGHT: usize = 256;
+        let mut input = Vec::with_capacity(BAND_WIDTH * BAND_HEIGHT);
+        for y in 0..BAND_HEIGHT {
+            for x in 0..BAND_WIDTH {
+                let a = (x as f64 + 0.5) / BAND_WIDTH as f64;
+                let b = (y as f64 + 0.5) / BAND_HEIGHT as f64;
+                let highlight = if (x as f64 - 24.0).powi(2) + (y as f64 - 80.0).powi(2) < 36.0 {
+                    0.8
+                } else {
+                    0.0
+                };
+                input.push([a * 0.4 + highlight, b * 0.4 + highlight, a * b * 0.3]);
+            }
+        }
+        let grain = GrainField::new(BAND_WIDTH, BAND_HEIGHT, 36.0, 0xBADC0DE);
+        let halation = Halation::typical(6.0);
+        let couplers = Couplers::typical(6.0);
+        let emulsion = crate::EmulsionBlur::measured(6.0);
+        let finishing = Finishing {
+            emulsion: Some(&emulsion),
+            halation: Some(&halation),
+            grain: Some(&grain),
+            couplers: Some(&couplers),
+            interimage: None,
+        };
+        let prepared = RenderParams::default().prepare();
+
+        let whole = gpu
+            .run_with_binding(
+                &input,
+                &prepared,
+                BAND_WIDTH,
+                BAND_HEIGHT,
+                &finishing,
+                u64::MAX,
+                false,
+            )
+            .expect("the whole frame renders");
+        // 128 rows of 64 pixels is 128 KiB, less than the 256 KiB frame and
+        // enough for the effect guard.
+        let band_limit = (BAND_WIDTH * 16 * 128) as u64;
+        let banded = gpu
+            .run_with_binding(
+                &input,
+                &prepared,
+                BAND_WIDTH,
+                BAND_HEIGHT,
+                &finishing,
+                band_limit,
+                false,
+            )
+            .expect("the frame renders in bands");
+
+        assert_eq!(whole.len(), banded.len());
+        for (index, (expected, actual)) in whole.iter().zip(&banded).enumerate() {
+            for channel in 0..3 {
+                assert_eq!(
+                    expected[channel], actual[channel],
+                    "pixel {index} channel {channel} differs across the band seam"
+                );
+            }
+        }
+    }
+
     /// Two ways to run the model — one dispatch, or a chain of passes — is two
     /// ways to disagree. With no spatial effect the chain must land on exactly
     /// the same pixels as the single dispatch: same arithmetic, stored to memory
@@ -1623,7 +1905,7 @@ mod tests {
                 finishing.couplers.copied(),
                 &kernels,
             );
-            assert_eq!(bytes.len(), 32 * 16, "thirty-two lanes");
+            assert_eq!(bytes.len(), 33 * 16, "thirty-three lanes");
         }
     }
 

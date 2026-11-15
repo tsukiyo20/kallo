@@ -172,6 +172,8 @@ class ExportSetting {
     this.onReset,
     this.onImport,
     this.canListAll = true,
+    this.photoAccess = true,
+    this.onPhotoAccess,
     this.missingPrints = 0,
     this.repairablePrints = 0,
     this.onRepair,
@@ -195,6 +197,13 @@ class ExportSetting {
   /// Whether the platform lets the app see pictures other apps put in the
   /// library. False on a phone with partial photo access.
   final bool canListAll;
+
+  /// Whether the phone has allowed any photo-library access. True on a desktop,
+  /// where the folder is the whole library.
+  final bool photoAccess;
+
+  /// Open the explanation, ask for access, or open Settings.
+  final VoidCallback? onPhotoAccess;
 
   /// Prints whose file is gone. The catalog keeps them; the wall does not.
   final int missingPrints;

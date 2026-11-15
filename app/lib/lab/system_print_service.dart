@@ -68,13 +68,45 @@ class SystemLibraryInfo {
   /// The app's temporary folder, where the model writes before adoption.
   final String temporaryPath;
 
-  /// False when the photo library permission was denied. The app can still
-  /// open; it has nothing to hang and cannot save until permission is granted.
+  /// False when iOS PhotoKit refused the album. Android opens without asking
+  /// and reports what was already allowed through [MediaAccess].
   final bool available;
 
   /// False when the app may import and save but cannot see pictures other
   /// apps put in the library. Android's partial media access is this state.
   final bool canListAll;
+}
+
+/// What a phone has allowed of its photo library.
+///
+/// `granted` means the app can read library pictures. `canListAll` is narrower:
+/// Android 14 can grant selected pictures only, in which case the app has some
+/// access but cannot see a picture another app puts in `Pictures/Kallo`.
+class MediaAccess {
+  const MediaAccess({
+    required this.granted,
+    required this.canAsk,
+    required this.canListAll,
+    required this.limited,
+  });
+
+  final bool granted;
+
+  /// Whether the system dialog can still be presented. False after a permanent
+  /// denial, where the only route left is the app's Settings page.
+  final bool canAsk;
+
+  final bool canListAll;
+
+  /// Some pictures are readable but not all of them.
+  final bool limited;
+
+  factory MediaAccess.fromMap(Map<Object?, Object?> map) => MediaAccess(
+    granted: map['granted'] == true,
+    canAsk: map['canAsk'] != false,
+    canListAll: map['canListAll'] != false,
+    limited: map['limited'] == true,
+  );
 }
 
 /// The bridge to the one library the platform owns.
@@ -102,6 +134,31 @@ class SystemPrintService {
       canListAll: map['canListAll'] != false,
     );
   }
+
+  /// What the platform has already allowed.
+  ///
+  /// Android answers this without showing a dialog; iOS does not implement it
+  /// because PhotoKit's `open` is where its authorization lives.
+  Future<MediaAccess> access() async {
+    final Map<Object?, Object?> map =
+        await _channel.invokeMapMethod<Object?, Object?>('access') ??
+        const <Object?, Object?>{};
+    return MediaAccess.fromMap(map);
+  }
+
+  /// Ask the platform for media access.
+  ///
+  /// The caller shows the app's own explanation first; this is only the system
+  /// dialog, and it returns whatever the person chose.
+  Future<MediaAccess> requestAccess() async {
+    final Map<Object?, Object?> map =
+        await _channel.invokeMapMethod<Object?, Object?>('requestAccess') ??
+        const <Object?, Object?>{};
+    return MediaAccess.fromMap(map);
+  }
+
+  /// Open this app's system settings, for the permanent-denial case.
+  Future<void> openSettings() => _channel.invokeMethod<void>('openSettings');
 
   Future<List<SystemAsset>> list() async {
     final List<Object?> rows =

@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../design/mobile.dart';
 import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
@@ -18,6 +19,8 @@ import '../lab/thumbnails.dart';
 import '../widgets/export_sheet.dart';
 import '../widgets/film_frame.dart';
 import '../widgets/lens.dart';
+import '../widgets/mobile/mobile_controls.dart';
+import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/print_image.dart';
 import '../widgets/wall.dart';
 
@@ -53,6 +56,7 @@ class Gallery extends StatefulWidget {
     this.loupe = false,
     this.onNear,
     this.topInset = 0,
+    this.onOpenDarkroom,
   });
 
   /// Everything exported, oldest first.
@@ -74,6 +78,10 @@ class Gallery extends StatefulWidget {
 
   /// The transparent chrome over the wall: the grid starts below it.
   final double topInset;
+
+  /// The one way out of an empty phone wall. Null on the desktop, where the
+  /// sidebar is the way out.
+  final VoidCallback? onOpenDarkroom;
 
   @override
   State<Gallery> createState() => _GalleryState();
@@ -225,6 +233,7 @@ class _GalleryState extends State<Gallery> {
     final double printed =
         KalloWall.darkAdaptation + (1 - KalloWall.darkAdaptation) * light;
     final List<Print> prints = widget.prints;
+    final KalloStrings s = KalloStrings.of(context);
 
     if (near != null) {
       return _Loupe(
@@ -239,16 +248,42 @@ class _GalleryState extends State<Gallery> {
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints room) {
-        const double gap = 28;
-        const double margin = 40;
+        final bool compact = KalloLayout.isCompact(context);
+        if (compact && prints.isEmpty) {
+          return Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              Wall(wall: wall, light: light),
+              KalloMobileEmpty(
+                glyph: KalloGlyph.gallery,
+                title: s.emptyGalleryTitle,
+                message: s.emptyGalleryNote,
+                action: widget.onOpenDarkroom == null
+                    ? null
+                    : SizedBox(
+                        width: 220,
+                        child: KalloMobileButton(
+                          label: s.makePrint,
+                          onTap: widget.onOpenDarkroom,
+                        ),
+                      ),
+              ),
+            ],
+          );
+        }
+        final double gap = compact ? 12 : 28;
+        final double margin = compact ? 16 : 40;
         // The wall fades into the floor, and the grid stops above it.
-        const double floor = 96;
+        final double floor = compact ? 24 : 96;
         final double available = math.max(200, room.maxWidth - margin * 2);
         // Three frames across a 1280 window, four across a wide one, and never
         // fewer columns than there are frames to put in them.
         final int fitting = math.max(
           1,
-          math.min(5, ((available + gap) / 328).floor()),
+          math.min(
+            compact ? 2 : 5,
+            ((available + gap) / (compact ? 180 : 328)).floor(),
+          ),
         );
         final int columns = math.max(1, math.min(prints.length, fitting));
         // A wall hangs one frame. A frame is the picture's shape plus its
@@ -267,9 +302,9 @@ class _GalleryState extends State<Gallery> {
         final double film = math.min(
           math.min(
             (available - gap * (columns - 1)) / columns,
-            (room.maxHeight - floor - 40) / perWidth,
+            (room.maxHeight - floor - (compact ? 8 : 40)) / perWidth,
           ),
-          KalloWall.largest,
+          compact ? 240 : KalloWall.largest,
         );
         // A landscape 3:2 frame gets the full `film` width; a portrait gets
         // the same area, so it is the same piece of film turned.
@@ -286,12 +321,15 @@ class _GalleryState extends State<Gallery> {
         final double tallest = prints.isEmpty
             ? 0.0
             : prints.map(heightOf).reduce(math.max);
-        final double height = math.max(film * 0.74, tallest) + 48;
+        final double height =
+            math.max(film * 0.74, tallest) + (compact ? 0 : 48);
         final double content = rows * height + math.max(0, rows - 1) * gap;
-        final double top = math.max(
-          margin + widget.topInset,
-          (room.maxHeight - content) / 2,
-        );
+        final double top = compact
+            ? KalloMobileSpace.step2
+            : math.max(
+                margin + widget.topInset,
+                (room.maxHeight - content) / 2,
+              );
 
         final List<List<Print>> lines = <List<Print>>[
           for (int i = 0; i < prints.length; i += columns)
@@ -321,7 +359,7 @@ class _GalleryState extends State<Gallery> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           for (int i = 0; i < line.length; i++) ...<Widget>[
-                            if (i > 0) const SizedBox(width: gap),
+                            if (i > 0) SizedBox(width: gap),
                             SizedBox(
                               width: widthOf(line[i]),
                               child: _Hung(
@@ -329,6 +367,7 @@ class _GalleryState extends State<Gallery> {
                                 printNumber: line[i].printNumber,
                                 wall: wall,
                                 width: widthOf(line[i]),
+                                showLabel: !compact,
                                 light: light,
                                 printed: printed,
                                 cursor: widget.loupe && _lensFor != null
@@ -457,6 +496,8 @@ class _LoupeState extends State<_Loupe> {
 
   /// Where the picture is held, in points, from the centre of its aperture.
   Offset _pan = Offset.zero;
+  double _gestureMag = 1;
+  Offset _gesturePan = Offset.zero;
 
   bool _exporting = false;
   bool _exported = false;
@@ -647,209 +688,227 @@ class _LoupeState extends State<_Loupe> {
       },
       child: Focus(
         focusNode: _keys,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            Wall(wall: widget.wall, light: light),
-            LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints room) {
-                final Size pixels = shown.pixels;
-                final double aspect = pixels.width / pixels.height;
-                final double perWidth = FilmFrameMetrics.heightPerWidthFor(
-                  aspect,
-                );
-                final double freeWidth = math.max(240, room.maxWidth - 80);
-                final double freeHeight = math.max(200, room.maxHeight - 150);
-                final double filmWidth = math.min(
-                  freeWidth,
-                  freeHeight / perWidth,
-                );
-                final FilmFrameMetrics metrics = FilmFrameMetrics.fromWidth(
-                  filmWidth,
-                  aspect: aspect,
-                );
-                final double fit = math.min(
-                  1,
-                  dpr * metrics.aperture.width / pixels.width,
-                );
-                final double ceiling = _ceiling(fit);
-                final double mag = _mag.clamp(1.0, ceiling);
-                final double percent = fit * mag * 100;
-                final double limitX =
-                    math.max(
+        child: PopScope<void>(
+          canPop: false,
+          onPopInvokedWithResult: (bool didPop, void result) {
+            if (!didPop) {
+              widget.onClose();
+            }
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              Wall(wall: widget.wall, light: light),
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints room) {
+                  final Size pixels = shown.pixels;
+                  final double aspect = pixels.width / pixels.height;
+                  final double perWidth = FilmFrameMetrics.heightPerWidthFor(
+                    aspect,
+                  );
+                  final double freeWidth = math.max(240, room.maxWidth - 80);
+                  final double freeHeight = math.max(200, room.maxHeight - 150);
+                  final double filmWidth = math.min(
+                    freeWidth,
+                    freeHeight / perWidth,
+                  );
+                  final FilmFrameMetrics metrics = FilmFrameMetrics.fromWidth(
+                    filmWidth,
+                    aspect: aspect,
+                  );
+                  final double fit = math.min(
+                    1,
+                    dpr * metrics.aperture.width / pixels.width,
+                  );
+                  final double ceiling = _ceiling(fit);
+                  final double mag = _mag.clamp(1.0, ceiling);
+                  final double percent = fit * mag * 100;
+                  final double limitX =
+                      math.max(
+                        0,
+                        metrics.aperture.width * mag - metrics.aperture.width,
+                      ) /
+                      2;
+                  final double limitY =
+                      math.max(
+                        0,
+                        metrics.aperture.height * mag - metrics.aperture.height,
+                      ) /
+                      2;
+                  final Offset pan = _clamp(_pan, Size(limitX, limitY));
+                  final double sourceWidth = pixels.width / mag;
+                  final double sourceHeight = pixels.height / mag;
+                  final Offset centre = Offset(
+                    pixels.width / 2 -
+                        pan.dx * sourceWidth / metrics.aperture.width,
+                    pixels.height / 2 -
+                        pan.dy * sourceHeight / metrics.aperture.height,
+                  );
+                  final Rect source = Rect.fromLTWH(
+                    (centre.dx - sourceWidth / 2).clamp(
                       0,
-                      metrics.aperture.width * mag - metrics.aperture.width,
-                    ) /
-                    2;
-                final double limitY =
-                    math.max(
+                      math.max(0, pixels.width - sourceWidth),
+                    ),
+                    (centre.dy - sourceHeight / 2).clamp(
                       0,
-                      metrics.aperture.height * mag - metrics.aperture.height,
-                    ) /
-                    2;
-                final Offset pan = _clamp(_pan, Size(limitX, limitY));
-                final double sourceWidth = pixels.width / mag;
-                final double sourceHeight = pixels.height / mag;
-                final Offset centre = Offset(
-                  pixels.width / 2 -
-                      pan.dx * sourceWidth / metrics.aperture.width,
-                  pixels.height / 2 -
-                      pan.dy * sourceHeight / metrics.aperture.height,
-                );
-                final Rect source = Rect.fromLTWH(
-                  (centre.dx - sourceWidth / 2).clamp(
-                    0,
-                    math.max(0, pixels.width - sourceWidth),
-                  ),
-                  (centre.dy - sourceHeight / 2).clamp(
-                    0,
-                    math.max(0, pixels.height - sourceHeight),
-                  ),
-                  sourceWidth,
-                  sourceHeight,
-                );
-                final String exportLabel = _exporting
-                    ? s.exportingFrame
-                    : _exportFailed
-                    ? s.exportFailed
-                    : _exported
-                    ? s.exportedFrame
-                    : s.exportFrame;
+                      math.max(0, pixels.height - sourceHeight),
+                    ),
+                    sourceWidth,
+                    sourceHeight,
+                  );
+                  final String exportLabel = _exporting
+                      ? s.exportingFrame
+                      : _exportFailed
+                      ? s.exportFailed
+                      : _exported
+                      ? s.exportedFrame
+                      : s.exportFrame;
 
-                return Stack(
-                  fit: StackFit.expand,
-                  children: <Widget>[
-                    Align(
-                      alignment: const Alignment(0, -0.12),
-                      child: SizedBox(
-                        width: metrics.outer.width,
-                        height: metrics.outer.height,
-                        child: Stack(
-                          children: <Widget>[
-                            FilmFrame(
-                              image: shown.image,
-                              width: metrics.outer.width,
-                              source: source,
-                              film: widget.print.film,
-                              printNumber: widget.printNumber,
-                              process: widget.print.process,
-                              light: widget.printed,
-                            ),
-                            Positioned.fromRect(
-                              rect: metrics.aperture,
-                              child: MouseRegion(
-                                cursor: SystemMouseCursors.zoomIn,
-                                child: Listener(
-                                  onPointerSignal: (PointerSignalEvent event) {
-                                    if (event is PointerScrollEvent) {
-                                      _zoom(
-                                        event,
-                                        metrics.aperture.width,
-                                        aspect,
-                                        ceiling,
-                                      );
-                                    }
-                                  },
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onPanUpdate: (DragUpdateDetails d) =>
-                                        setState(
-                                          () => _pan = _clamp(
-                                            _pan + d.delta,
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      Align(
+                        alignment: const Alignment(0, -0.12),
+                        child: SizedBox(
+                          width: metrics.outer.width,
+                          height: metrics.outer.height,
+                          child: Stack(
+                            children: <Widget>[
+                              FilmFrame(
+                                image: shown.image,
+                                width: metrics.outer.width,
+                                source: source,
+                                film: widget.print.film,
+                                printNumber: widget.printNumber,
+                                process: widget.print.process,
+                                light: widget.printed,
+                              ),
+                              Positioned.fromRect(
+                                rect: metrics.aperture,
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.zoomIn,
+                                  child: Listener(
+                                    onPointerSignal:
+                                        (PointerSignalEvent event) {
+                                          if (event is PointerScrollEvent) {
+                                            _zoom(
+                                              event,
+                                              metrics.aperture.width,
+                                              aspect,
+                                              ceiling,
+                                            );
+                                          }
+                                        },
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onScaleStart: (ScaleStartDetails d) {
+                                        _gestureMag = _mag;
+                                        _gesturePan = _pan;
+                                      },
+                                      onScaleUpdate: (ScaleUpdateDetails d) {
+                                        setState(() {
+                                          _mag = (_gestureMag * d.scale).clamp(
+                                            1.0,
+                                            ceiling,
+                                          );
+                                          _pan = _clamp(
+                                            _gesturePan + d.focalPointDelta,
                                             Size(limitX, limitY),
-                                          ),
-                                        ),
-                                    onDoubleTap: () => setState(() {
-                                      _mag = _mag >= ceiling - 0.001
-                                          ? 1
-                                          : ceiling;
-                                      _pan = Offset.zero;
-                                    }),
+                                          );
+                                        });
+                                      },
+                                      onDoubleTap: () => setState(() {
+                                        _mag = _mag >= ceiling - 0.001
+                                            ? 1
+                                            : ceiling;
+                                        _pan = Offset.zero;
+                                      }),
+                                    ),
                                   ),
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 40,
+                        right: 40,
+                        bottom: 28,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text.rich(
+                                    TextSpan(
+                                      children: wallLabel(
+                                        light: light,
+                                        wall: widget.wall,
+                                        film: filmEdgeName(widget.print.film),
+                                        clock: widget.print.clock,
+                                        paper: widget.print.paperDisplay,
+                                        fallback: widget.print.name,
+                                      ),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: KalloType.small.copyWith(
+                                      letterSpacing: 0.2,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    s.magnification(
+                                      '${pixels.width.round()} × '
+                                      '${pixels.height.round()}',
+                                      percent >= 99.5
+                                          ? s.actualPixels
+                                          : '${percent.round()} %',
+                                    ),
+                                    style: KalloType.data.copyWith(
+                                      color: KalloColors.under(
+                                        widget.wall.label,
+                                        light,
+                                      ).withValues(alpha: 0.60),
+                                      fontFeatures: const <FontFeature>[
+                                        FontFeature('tnum'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: KalloSpace.step4),
+                            _Pill(
+                              key: const Key('export'),
+                              label: exportLabel,
+                              control: widget.wall.controlAt(light),
+                              onTap: _canExport
+                                  ? () => unawaited(_chooseExport())
+                                  : null,
+                              enabled: _canExport && !_exporting,
+                            ),
+                            const SizedBox(width: KalloSpace.step3),
+                            _Pill(
+                              key: const Key('back'),
+                              label: s.back,
+                              control: widget.wall.controlAt(light),
+                              onTap: widget.onClose,
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 40,
-                      right: 40,
-                      bottom: 28,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text.rich(
-                                  TextSpan(
-                                    children: wallLabel(
-                                      light: light,
-                                      wall: widget.wall,
-                                      film: filmEdgeName(widget.print.film),
-                                      clock: widget.print.clock,
-                                      paper: widget.print.paperDisplay,
-                                      fallback: widget.print.name,
-                                    ),
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: KalloType.small.copyWith(
-                                    letterSpacing: 0.2,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  s.magnification(
-                                    '${pixels.width.round()} × '
-                                    '${pixels.height.round()}',
-                                    percent >= 99.5
-                                        ? s.actualPixels
-                                        : '${percent.round()} %',
-                                  ),
-                                  style: KalloType.data.copyWith(
-                                    color: KalloColors.under(
-                                      widget.wall.label,
-                                      light,
-                                    ).withValues(alpha: 0.60),
-                                    fontFeatures: const <FontFeature>[
-                                      FontFeature('tnum'),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: KalloSpace.step4),
-                          _Pill(
-                            key: const Key('export'),
-                            label: exportLabel,
-                            control: widget.wall.controlAt(light),
-                            onTap: _canExport
-                                ? () => unawaited(_chooseExport())
-                                : null,
-                            enabled: _canExport && !_exporting,
-                          ),
-                          const SizedBox(width: KalloSpace.step3),
-                          _Pill(
-                            key: const Key('back'),
-                            label: s.back,
-                            control: widget.wall.controlAt(light),
-                            onTap: widget.onClose,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -964,6 +1023,7 @@ class _Hung extends StatelessWidget {
     required this.light,
     required this.printed,
     required this.cursor,
+    this.showLabel = true,
     required this.onHover,
     required this.onLeave,
     required this.onTap,
@@ -987,6 +1047,10 @@ class _Hung extends StatelessWidget {
   /// then nothing — the glass is where the pointer is, and a hand inside it is
   /// a hand on the picture.
   final MouseCursor cursor;
+
+  /// A phone wall is only the film. The label would be four points tall at
+  /// this width; the viewer carries it instead.
+  final bool showLabel;
 
   /// The lens: the pointer over the frame, its place on the frame, and where
   /// it is on the wall. Null when the loupe is put away.
@@ -1026,26 +1090,28 @@ class _Hung extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: KalloSpace.step3 - 2),
-          Text.rich(
-            TextSpan(
-              children: wallLabel(
-                light: light,
-                wall: wall,
-                film: filmEdgeName(print.film),
-                clock: print.clock,
-                paper: print.paperDisplay,
-                fallback: print.name,
+          if (showLabel) ...<Widget>[
+            const SizedBox(height: KalloSpace.step3 - 2),
+            Text.rich(
+              TextSpan(
+                children: wallLabel(
+                  light: light,
+                  wall: wall,
+                  film: filmEdgeName(print.film),
+                  clock: print.clock,
+                  paper: print.paperDisplay,
+                  fallback: print.name,
+                ),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: KalloType.small.copyWith(
+                letterSpacing: 0.2,
+                fontWeight: FontWeight.w400,
               ),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: KalloType.small.copyWith(
-              letterSpacing: 0.2,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          ],
         ],
       ),
     );

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import '../design/mobile.dart';
 import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
@@ -18,6 +19,10 @@ import '../lab/strip_develop.dart';
 import '../widgets/button.dart';
 import '../widgets/curves.dart';
 import '../widgets/inspector.dart';
+import '../widgets/mobile/mobile_controls.dart';
+import '../widgets/mobile/mobile_icon.dart';
+import '../widgets/mobile/mobile_sheet.dart';
+import '../widgets/shadow_box.dart';
 import '../widgets/stepper.dart';
 import '../widgets/time_slider.dart';
 import '../widgets/wall.dart';
@@ -35,6 +40,8 @@ class DevelopStage extends StatefulWidget {
     required this.onTemperature,
     required this.onDevelop,
     required this.onRemove,
+    this.photograph,
+    this.onClearStrip,
     this.showInspector = true,
     this.topInset = 0,
   });
@@ -50,6 +57,14 @@ class DevelopStage extends StatefulWidget {
 
   /// Take one print off the strip.
   final Future<void> Function(double minutes) onRemove;
+
+  /// The original photograph, when the caller has it. The phone shows it on
+  /// the easel before the first test print exists.
+  final ui.Image? photograph;
+
+  /// Forget every print and keep the photograph and materials. A phone asks
+  /// before this runs; the desktop keeps its existing gesture.
+  final VoidCallback? onClearStrip;
 
   /// Whether the instrument panel is open.
   final bool showInspector;
@@ -380,10 +395,19 @@ class _DevelopStageState extends State<DevelopStage> {
       // The session is the whole point: the photograph is already decoded, so
       // this is a render and not a read. A model without a session falls back
       // to the subprocess's one render per preview.
-      ui.Image? image = await _previewBench?.frame(
-        minutes: minutes,
-        balanceFrom: widget.strip.balanceFrom,
-      );
+      ui.Image? image;
+      try {
+        image = await _previewBench?.frame(
+          minutes: minutes,
+          balanceFrom: widget.strip.balanceFrom,
+        );
+      } on Object catch (error) {
+        // A preview session is the fast path; if its device buffer is rejected
+        // the one-shot CPU render below is still the same photograph.
+        Model.log(
+          'the preview session failed; rendering once on the cpu: $error',
+        );
+      }
       if (image == null) {
         if (!mounted || generation != _generation) {
           return;
@@ -550,22 +574,8 @@ class _DevelopStageState extends State<DevelopStage> {
   Widget build(BuildContext context) {
     final KalloColors colors = KalloScope.colorsOf(context);
     final KalloStrings s = KalloStrings.of(context);
-    if (MediaQuery.sizeOf(context).width < 700) {
-      return LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final double panel = (constraints.maxHeight * 0.46).clamp(
-            240.0,
-            420.0,
-          );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Expanded(child: _bench(colors, s)),
-              SizedBox(height: panel, child: _panel(colors, s)),
-            ],
-          );
-        },
-      );
+    if (KalloLayout.isCompact(context)) {
+      return _phone(colors, s);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -577,6 +587,485 @@ class _DevelopStageState extends State<DevelopStage> {
           child: _panel(colors, s),
         ),
       ],
+    );
+  }
+
+  Widget _phone(KalloColors colors, KalloStrings s) {
+    return ColoredBox(
+      color: colors.ground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Expanded(child: _phoneStage(colors, s)),
+          _phoneDeck(colors, s),
+        ],
+      ),
+    );
+  }
+
+  Widget _phoneStage(KalloColors colors, KalloStrings s) {
+    final ui.Image? image = _preview ?? widget.photograph;
+    final bool developed = _preview != null;
+    final double aspect = image == null ? 1.5 : image.width / image.height;
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints room) {
+        final double width = math.min(
+          room.maxWidth - 48,
+          (room.maxHeight - 46) / PrintSheet.heightPerWidth(aspect: aspect),
+        );
+        return Column(
+          children: <Widget>[
+            Expanded(
+              child: Center(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: image == null
+                      ? null
+                      : () => showKalloImageViewer(
+                          context,
+                          image: image,
+                          semanticLabel: widget.strip.name ?? s.testPrint,
+                          caption:
+                              '${s.testPrint} · ${darkroomClock(_minutes)}',
+                        ),
+                  child: KalloShadowBox(
+                    kind: KalloShadowKind.paper,
+                    child: PrintSheet(
+                      width: math.max(180, width),
+                      aspect: aspect,
+                      paper: colors.print,
+                      outline: colors.hairline,
+                      child: image == null
+                          ? Center(
+                              child: Text(
+                                _busy ? s.developing : s.noTestPrintShort,
+                                textAlign: TextAlign.center,
+                                style: KalloMobileType.footnote.copyWith(
+                                  color: KalloInk.muted,
+                                ),
+                              ),
+                            )
+                          : Stack(
+                              fit: StackFit.expand,
+                              children: <Widget>[
+                                RawImage(
+                                  image: image,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                                if (!developed)
+                                  Positioned(
+                                    left: 8,
+                                    top: 8,
+                                    child: Container(
+                                      height: 24,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      alignment: Alignment.center,
+                                      color: const Color(0x991D1D1F),
+                                      child: Text(
+                                        s.noTestPrintShort,
+                                        style: KalloMobileType.micro.copyWith(
+                                          color: const Color(0xFFF5F5F7),
+                                          fontSize: 8,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                KalloMobileSpace.screen,
+                KalloMobileSpace.step1,
+                KalloMobileSpace.screen,
+                KalloMobileSpace.step2,
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      stockDisplayName(widget.strip.stockLabel),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: KalloMobileType.footnote.copyWith(
+                        color: colors.inkMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: KalloMobileSpace.step2),
+                  Text(
+                    s.testPrint,
+                    style: KalloMobileType.footnote.copyWith(
+                      color: colors.inkFaint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _phoneDeck(KalloColors colors, KalloStrings s) {
+    final List<TestPrint> prints = widget.strip.prints;
+    final TestPrint? exact = _printAt(_minutes);
+    final bool hasPrints = prints.isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        KalloMobileSpace.step3,
+        0,
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step2,
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step3,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(KalloMobileRadius.card),
+        border: Border.all(color: colors.hairline),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  hasPrints
+                      ? '${s.testStrip}   ${s.stripCount(prints.length)}'
+                      : s.testStrip,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: KalloMobileType.caption.copyWith(
+                    color: colors.inkMuted,
+                    fontSize: 10.5,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+              KalloIconButton(
+                glyph: KalloGlyph.info,
+                semanticLabel: s.details,
+                onTap: _showDetails,
+                size: 40,
+                glyphSize: 18,
+                foreground: colors.inkMuted,
+              ),
+              if (hasPrints && widget.onClearStrip != null)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _newStrip,
+                  child: SizedBox(
+                    height: KalloMobileSpace.touch,
+                    child: Center(
+                      child: Text(
+                        s.newStrip,
+                        style: KalloMobileType.footnote.copyWith(
+                          color: colors.accent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (hasPrints)
+            SizedBox(
+              height: 58,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(top: 2),
+                itemCount: prints.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: KalloMobileSpace.step2),
+                itemBuilder: (BuildContext context, int index) {
+                  final TestPrint print = prints[index];
+                  return _Pegged(
+                    key: _stripKey(print.minutes),
+                    print: print,
+                    selected: (print.minutes - _minutes).abs() < 1e-9,
+                    compact: true,
+                    onTap: () => _changed(print.minutes),
+                    onLongPress: () => _removeAt(print.minutes),
+                  );
+                },
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: KalloMobileSpace.step1),
+              child: Text(
+                s.testStripHint,
+                style: KalloMobileType.footnote.copyWith(
+                  color: colors.inkFaint,
+                ),
+              ),
+            ),
+          const SizedBox(height: KalloMobileSpace.step2),
+          Row(
+            children: <Widget>[
+              Text(
+                darkroomClock(_minutes),
+                style: KalloMobileType.plate.copyWith(color: colors.ink),
+              ),
+              const Spacer(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _showTemperature,
+                child: Container(
+                  height: 30,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.fill,
+                    borderRadius: BorderRadius.circular(KalloMobileRadius.pill),
+                  ),
+                  child: Text(
+                    '${widget.strip.tempC.toStringAsFixed(1)} °C',
+                    style: KalloMobileType.footnote.copyWith(
+                      color: colors.inkMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          TimeSlider(
+            value: _minutes,
+            ticks: _ladder,
+            onChanged: _changed,
+            onSettled: _settled,
+          ),
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: KalloMobileSpace.step1),
+            Text(
+              _error!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: KalloMobileType.footnote.copyWith(color: colors.accent),
+            ),
+          ],
+          KalloMobileButton(
+            key: const Key('phone-develop'),
+            label: _busy
+                ? s.developing
+                : '${exact == null ? s.developStep : s.redevelop} '
+                      '${darkroomClock(_minutes)}',
+            height: 46,
+            onTap: _busy ? null : _develop,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _newStrip() async {
+    if (widget.onClearStrip == null || widget.strip.prints.isEmpty) {
+      return;
+    }
+    final KalloStrings s = KalloStrings.of(context);
+    final bool go = await showKalloConfirm(
+      context,
+      title: s.newStripQuestion,
+      message: s.clearsPrints(widget.strip.prints.length),
+      confirm: s.newStripAction,
+    );
+    if (go) {
+      widget.onClearStrip!();
+    }
+  }
+
+  Future<void> _removeAt(double minutes) async {
+    if (_busy) {
+      return;
+    }
+    setState(() => _minutes = minutes);
+    await _remove();
+  }
+
+  Future<void> _showTemperature() async {
+    final KalloStrings s = KalloStrings.of(context);
+    double value = widget.strip.tempC;
+    final double? next = await showKalloMobileSheet<double>(
+      context,
+      builder: (BuildContext sheetContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setSheet) {
+          return KalloMobileSheet(
+            title: s.temperature,
+            onClose: () => Navigator.of(sheetContext).pop(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                KalloMobileSpace.step5,
+                0,
+                KalloMobileSpace.step5,
+                KalloMobileSpace.step5,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    '${value.toStringAsFixed(1)} °C',
+                    style: KalloMobileType.plate.copyWith(
+                      color: KalloScope.colorsOf(context).ink,
+                    ),
+                  ),
+                  const SizedBox(height: KalloMobileSpace.step4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      KalloIconButton(
+                        glyph: KalloGlyph.minus,
+                        semanticLabel: '−',
+                        onTap: value <= _tempLow
+                            ? null
+                            : () =>
+                                  setSheet(() => value = _nextTemp(-_tempStep)),
+                        foreground: KalloScope.colorsOf(context).ink,
+                        background: KalloScope.colorsOf(context).fill,
+                        size: 48,
+                      ),
+                      const SizedBox(width: KalloMobileSpace.step5),
+                      KalloIconButton(
+                        glyph: KalloGlyph.plus,
+                        semanticLabel: '+',
+                        onTap: value >= _tempHigh
+                            ? null
+                            : () =>
+                                  setSheet(() => value = _nextTemp(_tempStep)),
+                        foreground: KalloScope.colorsOf(context).ink,
+                        background: KalloScope.colorsOf(context).fill,
+                        size: 48,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: KalloMobileSpace.step4),
+                  Text(
+                    s.temperatureNote,
+                    textAlign: TextAlign.center,
+                    style: KalloMobileType.footnote.copyWith(
+                      color: KalloScope.colorsOf(context).inkMuted,
+                    ),
+                  ),
+                  const SizedBox(height: KalloMobileSpace.step5),
+                  KalloMobileButton(
+                    label: s.done,
+                    onTap: () => Navigator.of(sheetContext).pop(value),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (next == null || next == widget.strip.tempC || !mounted) {
+      return;
+    }
+    if (widget.strip.hasPrints) {
+      final bool go = await showKalloConfirm(
+        context,
+        title: s.changeTemperatureQuestion,
+        message: s.clearsPrints(widget.strip.prints.length),
+        confirm: s.changeAction,
+      );
+      if (!go) {
+        return;
+      }
+    }
+    widget.onTemperature(next);
+  }
+
+  Future<void> _showDetails() async {
+    final KalloStrings s = KalloStrings.of(context);
+    final FilmCurve? curve = _currentCurve;
+    final FilmChart? chart = _currentChart;
+    final List<double>? xs = _xs;
+    await showKalloMobileSheet<void>(
+      context,
+      builder: (BuildContext sheetContext) => KalloMobileSheet(
+        title: s.details,
+        onClose: () => Navigator.of(sheetContext).pop(),
+        height: MediaQuery.sizeOf(sheetContext).height * 0.82,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            KalloMobileSpace.step5,
+            0,
+            KalloMobileSpace.step5,
+            KalloMobileSpace.step5,
+          ),
+          children: <Widget>[
+            Text(
+              '${stockDisplayName(widget.strip.stockLabel)}   ·   '
+              '${stockDisplayName(widget.strip.paperLabel ?? '')}',
+              style: KalloMobileType.footnote.copyWith(
+                color: KalloScope.colorsOf(context).inkMuted,
+              ),
+            ),
+            const SizedBox(height: KalloMobileSpace.step4),
+            Text(
+              s.filmCurve,
+              style: KalloMobileType.micro.copyWith(
+                color: KalloScope.colorsOf(context).inkMuted,
+              ),
+            ),
+            const SizedBox(height: KalloMobileSpace.step2),
+            if (_series.isEmpty)
+              Text(
+                s.noCurve,
+                style: KalloMobileType.footnote.copyWith(
+                  color: KalloScope.colorsOf(context).inkMuted,
+                ),
+              )
+            else
+              KalloCurves(
+                series: _series,
+                selected: _selectedCurve,
+                xs: xs,
+                height: 170,
+              ),
+            if (curve != null) ...<Widget>[
+              const SizedBox(height: KalloMobileSpace.step3),
+              _Fact(label: s.gamma, value: _triple(curve.gamma)),
+              _Fact(label: s.dMax, value: _triple(curve.dMax)),
+            ] else if (chart != null) ...<Widget>[
+              const SizedBox(height: KalloMobileSpace.step3),
+              _Fact(label: s.gamma, value: _triple(chart.gamma)),
+              _Fact(label: s.dMax, value: _triple(chart.dMax)),
+            ],
+            if (_paper != null) ...<Widget>[
+              const SizedBox(height: KalloMobileSpace.step5),
+              Text(
+                s.paperCurve,
+                style: KalloMobileType.micro.copyWith(
+                  color: KalloScope.colorsOf(context).inkMuted,
+                ),
+              ),
+              const SizedBox(height: KalloMobileSpace.step2),
+              KalloCurves(
+                series: <List<double>>[_paper!.density],
+                xs: _paper!.logE,
+                height: 96,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -938,11 +1427,15 @@ class _Pegged extends StatelessWidget {
     required this.print,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
+    this.compact = false,
   });
 
   final TestPrint print;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -952,18 +1445,24 @@ class _Pegged extends StatelessWidget {
     // The strip has one height, not one width: a portrait print narrows and a
     // landscape print widens, and every print stays whole on the paper. The
     // card includes its padding and its border, which is thicker when chosen.
-    const double imageHeight = 88;
-    final double imageWidth = (imageHeight * aspect).clamp(44.0, 160.0);
+    final double imageHeight = compact ? 36 : 88;
+    final double imageWidth = (imageHeight * aspect).clamp(
+      compact ? 28.0 : 44.0,
+      compact ? 54.0 : 160.0,
+    );
     final double border = selected ? 1.5 : 1;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
+        onLongPress: onLongPress,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: imageWidth + 6 + border * 2,
-          margin: const EdgeInsets.only(right: KalloSpace.step3),
-          padding: const EdgeInsets.all(3),
+          width: imageWidth + (compact ? 10 : 6) + border * 2,
+          margin: EdgeInsets.only(
+            right: compact ? KalloMobileSpace.step2 : KalloSpace.step3,
+          ),
+          padding: EdgeInsets.all(compact ? 2 : 3),
           decoration: BoxDecoration(
             color: colors.print,
             border: Border.all(
@@ -986,12 +1485,15 @@ class _Pegged extends StatelessWidget {
                         filterQuality: FilterQuality.medium,
                       ),
               ),
-              const SizedBox(height: 5),
+              SizedBox(height: compact ? 2 : 5),
               Text(
                 print.clock,
-                style: KalloType.folio.copyWith(
-                  color: selected ? KalloInk.ink : KalloInk.muted,
-                ),
+                maxLines: 1,
+                style: (compact ? KalloMobileType.caption : KalloType.folio)
+                    .copyWith(
+                      color: selected ? KalloInk.ink : KalloInk.muted,
+                      fontSize: compact ? 8.5 : null,
+                    ),
               ),
             ],
           ),

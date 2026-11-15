@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../design/mobile.dart';
 import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
@@ -9,6 +10,8 @@ import '../lab/print.dart';
 import '../lab/print_out.dart';
 import '../widgets/print_image.dart';
 import '../widgets/print_viewer.dart';
+import '../widgets/mobile/mobile_controls.dart';
+import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/shadow_box.dart';
 import '../widgets/wall.dart';
 
@@ -29,6 +32,8 @@ class Rack extends StatefulWidget {
     required this.prints,
     required this.jobs,
     this.topInset = 0,
+    this.onOpenDarkroom,
+    this.onViewerChanged,
   });
 
   /// Everything exported, oldest first. The rack reads it backwards.
@@ -40,6 +45,14 @@ class Rack extends StatefulWidget {
 
   /// The transparent chrome over the room.
   final double topInset;
+
+  /// The one way out of an empty phone room. Null on the desktop, where the
+  /// sidebar is already the way out.
+  final VoidCallback? onOpenDarkroom;
+
+  /// Whether the room's viewer is open. The phone shell takes its header and
+  /// tab bar away while it is.
+  final ValueChanged<bool>? onViewerChanged;
 
   @override
   State<Rack> createState() => _RackState();
@@ -61,6 +74,7 @@ class _RackState extends State<Rack> {
       _viewer = print;
       _roomHidden = true;
     });
+    widget.onViewerChanged?.call(true);
   }
 
   void _close() {
@@ -71,6 +85,7 @@ class _RackState extends State<Rack> {
       _viewer = null;
       _roomHidden = false;
     });
+    widget.onViewerChanged?.call(false);
   }
 
   @override
@@ -87,6 +102,7 @@ class _RackState extends State<Rack> {
             prints: widget.prints,
             jobs: widget.jobs,
             topInset: widget.topInset,
+            onOpenDarkroom: widget.onOpenDarkroom,
             onPrint: _open,
           ),
         ),
@@ -95,7 +111,9 @@ class _RackState extends State<Rack> {
             child: PrintViewer(
               key: ObjectKey(_viewer),
               print: _viewer!,
-              topInset: widget.topInset,
+              topInset: KalloLayout.isCompact(context)
+                  ? MediaQuery.paddingOf(context).top
+                  : widget.topInset,
               onClose: _close,
             ),
           ),
@@ -112,6 +130,7 @@ class _RackRoom extends StatelessWidget {
     required this.jobs,
     required this.onPrint,
     this.topInset = 0,
+    this.onOpenDarkroom,
   });
 
   /// Everything exported, oldest first. The rack reads it backwards.
@@ -123,6 +142,9 @@ class _RackRoom extends StatelessWidget {
 
   /// The transparent chrome over the room.
   final double topInset;
+
+  /// The one way out of an empty phone room.
+  final VoidCallback? onOpenDarkroom;
 
   /// Takes a print off the wire into the room's viewer.
   final ValueChanged<Print> onPrint;
@@ -143,6 +165,26 @@ class _RackRoom extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints room) {
+          final bool compact = KalloLayout.isCompact(context);
+          if (prints.isEmpty && compact) {
+            return ColoredBox(
+              color: colors.ground,
+              child: KalloMobileEmpty(
+                glyph: KalloGlyph.rack,
+                title: s.rackEmpty,
+                message: s.rackEmptyNote,
+                action: onOpenDarkroom == null
+                    ? null
+                    : SizedBox(
+                        width: 220,
+                        child: KalloMobileButton(
+                          label: s.openDarkroom,
+                          onTap: onOpenDarkroom,
+                        ),
+                      ),
+              ),
+            );
+          }
           if (prints.isEmpty) {
             return Stack(
               children: <Widget>[
@@ -181,16 +223,17 @@ class _RackRoom extends StatelessWidget {
             );
           }
           final List<Print> newest = prints.reversed.toList(growable: false);
-          final double side = room.maxWidth >= 900 ? 48 : 28;
+          final double side = compact ? 16 : (room.maxWidth >= 900 ? 48 : 28);
           final double available = math.max(220, room.maxWidth - side * 2);
-          const double gap = 28;
+          final double gap = compact ? 12 : 28;
+          final double target = compact ? 158 : 210;
           final int fit = math.max(
             1,
-            ((available + gap) / (210 + gap)).floor(),
+            ((available + gap) / (target + gap)).floor(),
           );
           final int columns = math.max(1, math.min(newest.length, fit));
           final double width = math.min(
-            260,
+            compact ? 174 : 260,
             (available - gap * (columns - 1)) / columns,
           );
           final List<List<Print>> lines = <List<Print>>[
