@@ -72,6 +72,21 @@ impl PreviewSession {
         Ok(Self { inner })
     }
 
+    /// Point the session at another box on the shelf.
+    ///
+    /// The photograph is already decoded, so another film, paper or developer
+    /// temperature is a new choice and not a new read.
+    pub fn set_materials(
+        &mut self,
+        film: String,
+        paper: String,
+        temp_c: f64,
+    ) -> Result<(), String> {
+        self.inner
+            .set_materials(&film, &paper, temp_c)
+            .map_err(|error| error.to_string())
+    }
+
     /// The print this session would make at one setting.
     ///
     /// `balance_from` is the strip's one exposure: the enlarger is borrowed

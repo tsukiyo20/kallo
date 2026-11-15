@@ -114,6 +114,13 @@ class _CardPreview implements PreviewSession {
   }) async => _image.clone();
 
   @override
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {}
+
+  @override
   void dispose() {}
 }
 

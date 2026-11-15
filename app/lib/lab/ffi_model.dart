@@ -430,6 +430,18 @@ class _FfiPreviewSession implements PreviewSession {
   }
 
   @override
+  Future<void> setMaterials({
+    required String film,
+    required String paper,
+    required double tempC,
+  }) async {
+    if (_closed) {
+      throw StateError('this preview session was closed');
+    }
+    await _session.setMaterials(film: film, paper: paper, tempC: tempC);
+  }
+
+  @override
   void dispose() {
     if (_closed) {
       return;
