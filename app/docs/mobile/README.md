@@ -452,6 +452,14 @@ content   APPEARANCE
           │ Import images            ›│
           │ Repair markers  Up to date│
           └──────────────────────────┘
+          RENDERING
+          ┌──────────────────────────┐
+          │ Graphics                  │
+          │  Adreno 730 (Vulkan)      │
+          │ Processor                 │
+          │  Snapdragon · 8 核        │
+          │ Engine          [GPU|CPU] │
+          └──────────────────────────┘
           COLOUR
           ┌──────────────────────────┐
           │ Spectral path        [on] │
@@ -465,6 +473,7 @@ content   APPEARANCE
 - 从任意房间的齿轮推入，整页覆盖；顶部 48 nav：标题 17/600 居中，右侧 `Done` 16/500 橙色。
 - `grouped background` + 12–16 圆角 card；section header 11 大写；行 44，主字 15，副字 11–13；分隔线 inset 14。
 - 语言用 checkmark 行，不用 segmented；外观用 30 pt segmented 放在行右侧；Colour path 用 47 × 28 原生 switch。
+- 渲染页是唯一说硬件的一页：显卡是 wgpu 渲染时会打开的那一块（同一探测），处理器是系统肯给出的名字加核心数（Android 可能不给名字，就只显示核心数）。引擎默认 GPU；切到 CPU 后不再尝试显卡，而 GPU 出错时那一张仍会自动用 CPU 完成。
 - 手机上的 Library 不再出现「选择文件夹」；显示系统位置（iOS `Kallo` album / Android `Pictures/Kallo`），导入、修复状态，以及 iOS 部分授权时的说明。
 - 页脚说明只在需要时出现：spectral 路径改变会改新 strip，不动已有 strip；手机上不能选文件夹。
 - 底部留 24 pt，不贴 home indicator；内容可滚动，不嵌套 sheet 的滚动。

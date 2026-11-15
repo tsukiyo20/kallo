@@ -30,6 +30,7 @@ import 'lab/print_out.dart';
 import 'lab/print_request.dart';
 import 'lab/roll.dart';
 import 'lab/roll_store.dart';
+import 'lab/render_mode.dart';
 import 'lab/settings.dart';
 import 'lab/stock.dart';
 import 'lab/strip.dart';
@@ -195,6 +196,7 @@ class _KalloAppState extends State<KalloApp> {
   Locale? _locale;
   Brightness? _pinned;
   late bool _spectral = widget.spectral;
+  RenderMode _renderMode = RenderMode.gpu;
   TestStrip? _strip;
   ui.Image? _photograph;
   bool _ownsPhotograph = false;
@@ -807,10 +809,14 @@ class _KalloAppState extends State<KalloApp> {
       await _openLibrary();
       _settings = await Settings.read();
       _spectral = _settings.spectral;
+      _renderMode = _settings.renderer;
+      RenderPreference.set(_renderMode);
     } else {
       _settings = await Settings.read();
       _exportPath = _settings.exportPath;
       _spectral = _settings.spectral;
+      _renderMode = _settings.renderer;
+      RenderPreference.set(_renderMode);
       await _openLibrary();
     }
     await _reloadPrints();
@@ -897,6 +903,15 @@ class _KalloAppState extends State<KalloApp> {
   Future<void> _setSpectral(bool on) async {
     setState(() => _spectral = on);
     _settings = _settings.withSpectral(on);
+    await _settings.write();
+  }
+
+  /// The engine this machine may use. It outlives the strip, so it is written
+  /// down and read back before any render is asked for.
+  Future<void> _setRenderMode(RenderMode mode) async {
+    setState(() => _renderMode = mode);
+    RenderPreference.set(mode);
+    _settings = _settings.withRenderer(mode);
     await _settings.write();
   }
 
@@ -1288,6 +1303,8 @@ class _KalloAppState extends State<KalloApp> {
               onLocale: (Locale? next) => setState(() => _locale = next),
               spectral: _spectral,
               onSpectral: _setSpectral,
+              renderMode: _renderMode,
+              onRenderMode: _setRenderMode,
               initiallyOpen: widget.drawerOpen,
               initialChamber: widget.initialChamber,
               initialStep: widget.initialStep,

@@ -6,6 +6,7 @@
 import 'api/catalogue.dart';
 import 'api/chart.dart';
 import 'api/contact.dart';
+import 'api/device.dart';
 import 'api/preview.dart';
 import 'api/print.dart';
 import 'api/roll.dart';
@@ -73,7 +74,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1314745626;
+  int get rustContentHash => 320822995;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -99,6 +100,8 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<String> crateApiCatalogueCatalogue();
+
+  Future<DeviceReport> crateApiDeviceDescribeDevice();
 
   Future<List<ChartFrame>> crateApiChartMakeChart({
     required String film,
@@ -258,6 +261,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "catalogue", argNames: []);
 
   @override
+  Future<DeviceReport> crateApiDeviceDescribeDevice() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_device_report,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiDeviceDescribeDeviceConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeviceDescribeDeviceConstMeta =>
+      const TaskConstMeta(debugName: "describe_device", argNames: []);
+
+  @override
   Future<List<ChartFrame>> crateApiChartMakeChart({
     required String film,
     required List<double> times,
@@ -273,7 +303,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -303,7 +333,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -337,7 +367,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -367,7 +397,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 8,
             port: port_,
           );
         },
@@ -395,7 +425,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 9,
             port: port_,
           );
         },
@@ -423,7 +453,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 10,
             port: port_,
           );
         },
@@ -454,7 +484,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 10,
+              funcId: 11,
               port: port_,
             );
           },
@@ -492,7 +522,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 12,
             port: port_,
           );
         },
@@ -664,6 +694,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       width: dco_decode_u_32(arr[0]),
       height: dco_decode_u_32(arr[1]),
       exposureEv: dco_decode_f_64(arr[2]),
+    );
+  }
+
+  @protected
+  DeviceReport dco_decode_device_report(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return DeviceReport(
+      gpu: dco_decode_opt_String(arr[0]),
+      gpuError: dco_decode_opt_String(arr[1]),
+      cpu: dco_decode_opt_String(arr[2]),
+      cores: dco_decode_u_32(arr[3]),
+      architecture: dco_decode_String(arr[4]),
+      platform: dco_decode_String(arr[5]),
     );
   }
 
@@ -1123,6 +1169,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       width: var_width,
       height: var_height,
       exposureEv: var_exposureEv,
+    );
+  }
+
+  @protected
+  DeviceReport sse_decode_device_report(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    final var_gpu = sse_decode_opt_String(deserializer);
+    final var_gpuError = sse_decode_opt_String(deserializer);
+    final var_cpu = sse_decode_opt_String(deserializer);
+    final var_cores = sse_decode_u_32(deserializer);
+    final var_architecture = sse_decode_String(deserializer);
+    final var_platform = sse_decode_String(deserializer);
+    return DeviceReport(
+      gpu: var_gpu,
+      gpuError: var_gpuError,
+      cpu: var_cpu,
+      cores: var_cores,
+      architecture: var_architecture,
+      platform: var_platform,
     );
   }
 
@@ -1667,6 +1732,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.width, serializer);
     sse_encode_u_32(self.height, serializer);
     sse_encode_f_64(self.exposureEv, serializer);
+  }
+
+  @protected
+  void sse_encode_device_report(DeviceReport self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_String(self.gpu, serializer);
+    sse_encode_opt_String(self.gpuError, serializer);
+    sse_encode_opt_String(self.cpu, serializer);
+    sse_encode_u_32(self.cores, serializer);
+    sse_encode_String(self.architecture, serializer);
+    sse_encode_String(self.platform, serializer);
   }
 
   @protected

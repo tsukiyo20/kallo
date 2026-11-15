@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'render_mode.dart';
+
 /// The choices that outlive a window.
 ///
 /// A file, not a service: these are the two choices the system does not already
@@ -11,6 +13,7 @@ class Settings {
     this.exportPath,
     this.spectral = false,
     this.photoPrimerSeen = false,
+    this.renderer = RenderMode.gpu,
   });
 
   /// The folder prints are exported to and read from, or null for the place the
@@ -33,22 +36,41 @@ class Settings {
   /// after the person has already answered it.
   final bool photoPrimerSeen;
 
+  /// Which engine a render may use.
+  ///
+  /// A machine's choice, not a photograph's. The GPU is the default because it
+  /// is the same model faster, and a render the device refuses already falls
+  /// back to the CPU on its own; this setting is how a person skips the attempt
+  /// entirely, on a machine whose driver cannot be trusted with a camera-sized
+  /// frame.
+  final RenderMode renderer;
+
   Settings withExports(String? path) => Settings(
     exportPath: path,
     spectral: spectral,
     photoPrimerSeen: photoPrimerSeen,
+    renderer: renderer,
   );
 
   Settings withSpectral(bool on) => Settings(
     exportPath: exportPath,
     spectral: on,
     photoPrimerSeen: photoPrimerSeen,
+    renderer: renderer,
   );
 
   Settings withPhotoPrimerSeen(bool seen) => Settings(
     exportPath: exportPath,
     spectral: spectral,
     photoPrimerSeen: seen,
+    renderer: renderer,
+  );
+
+  Settings withRenderer(RenderMode mode) => Settings(
+    exportPath: exportPath,
+    spectral: spectral,
+    photoPrimerSeen: photoPrimerSeen,
+    renderer: mode,
   );
 
   static const String _name = 'settings.json';
@@ -119,6 +141,7 @@ class Settings {
           exportPath: exports is String ? exports : null,
           spectral: json['spectral'] == true,
           photoPrimerSeen: json['photoPrimerSeen'] == true,
+          renderer: RenderMode.fromStorage(json['renderer']),
         );
       }
     } on FormatException {
@@ -141,6 +164,7 @@ class Settings {
           if (exportPath != null) 'exports': exportPath,
           if (spectral) 'spectral': true,
           if (photoPrimerSeen) 'photoPrimerSeen': true,
+          if (!renderer.isGpu) 'renderer': renderer.storage,
         }),
       );
     } on FileSystemException {

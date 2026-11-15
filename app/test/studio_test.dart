@@ -438,6 +438,15 @@ void main() {
       tester.getTopLeft(find.text('关于')).dy,
       lessThan(tester.getTopLeft(find.text('语言')).dy),
     );
+
+    // The machine's engines are a page of their own: what was detected, and
+    // the switch that decides which one a render may use.
+    await tester.tap(find.text('渲染'));
+    await tester.pumpAndSettle();
+    expect(find.text('GPU'), findsOneWidget);
+    expect(find.text('CPU'), findsOneWidget);
+    expect(find.text('不可用'), findsOneWidget);
+    expect(find.textContaining('核'), findsWidgets);
   });
 
   testWidgets('the rack opens a print in the room, not over the window', (

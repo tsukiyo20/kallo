@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1314745626;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 320822995;
 
 // Section: executor
 
@@ -168,6 +168,38 @@ fn wire__crate__api__catalogue__catalogue_impl(
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>(crate::api::catalogue::catalogue())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__device__describe_device_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "describe_device",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::device::describe_device())?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -590,6 +622,26 @@ impl SseDecode for crate::api::contact::ContactReport {
     }
 }
 
+impl SseDecode for crate::api::device::DeviceReport {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_gpu = <Option<String>>::sse_decode(deserializer);
+        let mut var_gpuError = <Option<String>>::sse_decode(deserializer);
+        let mut var_cpu = <Option<String>>::sse_decode(deserializer);
+        let mut var_cores = <u32>::sse_decode(deserializer);
+        let mut var_architecture = <String>::sse_decode(deserializer);
+        let mut var_platform = <String>::sse_decode(deserializer);
+        return crate::api::device::DeviceReport {
+            gpu: var_gpu,
+            gpu_error: var_gpuError,
+            cpu: var_cpu,
+            cores: var_cores,
+            architecture: var_architecture,
+            platform: var_platform,
+        };
+    }
+}
+
 impl SseDecode for f64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1005,14 +1057,15 @@ fn pde_ffi_dispatcher_primary_impl(
         }
         2 => wire__crate__api__preview__PreviewSession_open_impl(port, ptr, rust_vec_len, data_len),
         3 => wire__crate__api__catalogue__catalogue_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__chart__make_chart_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__contact__make_contact_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__chart__make_film_curve_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__chart__make_paper_curve_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__print__make_print_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__chart__make_print_curve_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__roll__make_roll_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__thumbnail__make_thumbnail_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__device__describe_device_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__chart__make_chart_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__contact__make_contact_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__chart__make_film_curve_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__chart__make_paper_curve_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__print__make_print_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__chart__make_print_curve_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__roll__make_roll_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__thumbnail__make_thumbnail_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1124,6 +1177,31 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::contact::ContactReport>
     for crate::api::contact::ContactReport
 {
     fn into_into_dart(self) -> crate::api::contact::ContactReport {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::device::DeviceReport {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.gpu.into_into_dart().into_dart(),
+            self.gpu_error.into_into_dart().into_dart(),
+            self.cpu.into_into_dart().into_dart(),
+            self.cores.into_into_dart().into_dart(),
+            self.architecture.into_into_dart().into_dart(),
+            self.platform.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::device::DeviceReport
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::device::DeviceReport>
+    for crate::api::device::DeviceReport
+{
+    fn into_into_dart(self) -> crate::api::device::DeviceReport {
         self
     }
 }
@@ -1490,6 +1568,18 @@ impl SseEncode for crate::api::contact::ContactReport {
         <u32>::sse_encode(self.width, serializer);
         <u32>::sse_encode(self.height, serializer);
         <f64>::sse_encode(self.exposure_ev, serializer);
+    }
+}
+
+impl SseEncode for crate::api::device::DeviceReport {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<String>>::sse_encode(self.gpu, serializer);
+        <Option<String>>::sse_encode(self.gpu_error, serializer);
+        <Option<String>>::sse_encode(self.cpu, serializer);
+        <u32>::sse_encode(self.cores, serializer);
+        <String>::sse_encode(self.architecture, serializer);
+        <String>::sse_encode(self.platform, serializer);
     }
 }
 

@@ -13,6 +13,7 @@ import '../lab/chart.dart';
 import '../lab/clock.dart';
 import '../lab/model.dart';
 import '../lab/preview_bench.dart';
+import '../lab/render_mode.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
@@ -186,10 +187,12 @@ class _DevelopStageState extends State<DevelopStage> {
 
   String _benchKeyFor(TestStrip strip) =>
       '${strip.photo}|${strip.stockId}|${strip.paperId}|'
-      '${strip.tempC}|${strip.spectral}';
+      '${strip.tempC}|${strip.spectral}|${RenderPreference.mode.name}';
 
   /// The session is the strip's, not the time's: changing the ruler does not
-  /// touch it. A material or a photograph is a different session.
+  /// touch it. A material or a photograph is a different session, and so is the
+  /// engine: frames drawn by the device are not frames the CPU drew, and a
+  /// switch has to start again rather than mix the two.
   void _openBench() {
     final String key = _benchKeyFor(widget.strip);
     if (_benchKey == key) {
