@@ -15,4 +15,8 @@ targets = [
   # refuses to build for a target that is not in this list, so a Windows
   # checkout could not link the model at all.
   "x86_64-pc-windows-msvc",
+  # Xcode 27 builds a macOS release for both architectures by default. The hook
+  # refuses a target the list does not name, so without the Intel half a
+  # `flutter build macos` stops before the app is linked.
+  "x86_64-apple-darwin",
 ]
