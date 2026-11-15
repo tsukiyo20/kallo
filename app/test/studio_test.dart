@@ -264,6 +264,75 @@ void main() {
     expect(asked, 0);
   });
 
+  testWidgets('a double click on the mac band asks its title bar setting', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int asked = 0;
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+        chrome: WindowChrome.mac,
+        onToggleMaximize: () => asked++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The Mac hides its title bar but keeps the traffic lights over the
+    // sidebar, so the band over the work is the caption that is left.
+    const Offset band = Offset(320, 28);
+    await tester.tapAt(band);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(band);
+    await tester.pumpAndSettle();
+
+    expect(asked, 1);
+  });
+
+  testWidgets('a double click over the sidebar is the caption too', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int asked = 0;
+    int dragged = 0;
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+        chrome: WindowChrome.mac,
+        onDragWindow: () => dragged++,
+        onToggleMaximize: () => asked++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Where the traffic lights sit is title bar on the Mac even with the
+    // sidebar open, so the strip that drags there takes the double click too.
+    const Offset strip = Offset(100, 20);
+    await tester.tapAt(strip);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(strip);
+    await tester.pumpAndSettle();
+
+    expect(asked, 1);
+    expect(dragged, 0);
+  });
+
   testWidgets('the band is not a caption where the system draws one', (
     WidgetTester tester,
   ) async {

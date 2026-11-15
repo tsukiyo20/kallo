@@ -60,9 +60,10 @@ class StudioTopBar extends StatelessWidget {
 
   final VoidCallback? onDragWindow;
 
-  /// What a double click on the band does, where the app owns the frame. On
-  /// Windows that is the title bar's oldest gesture: a caption is a place you
-  /// drag, and the same place is the one you double click to fill the screen.
+  /// What a double click on the band does, where the app owns the frame. A
+  /// caption is a place you drag, and the same place is the one you double
+  /// click: Windows fills the screen and puts the window back, and the Mac
+  /// does whatever its own title bar is set to do.
   final VoidCallback? onToggleMaximize;
 
   final double height;

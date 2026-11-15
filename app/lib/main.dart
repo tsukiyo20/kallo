@@ -104,10 +104,13 @@ Future<void> main() async {
           ? WindowChrome.windows
           : WindowChrome.plain,
       onDragWindow: desktop ? windowManager.startDragging : null,
-      // Only Windows lost a title bar the system would have double-clicked.
-      // On the Mac the band is the drag handle and the zoom belongs to the
-      // system's own title bar, which is still there.
-      onToggleMaximize: Platform.isWindows ? toggleWindowMaximize : null,
+      // The band stands where a title bar would be, so it takes that bar's
+      // oldest gesture. Windows fills the screen and puts the window back; the
+      // Mac follows its own title bar setting, because the hidden chrome no
+      // longer leaves that gesture to the system.
+      onToggleMaximize: Platform.isMacOS || Platform.isWindows
+          ? doubleClickTitleBand
+          : null,
     ),
   );
 }
@@ -143,8 +146,9 @@ class KalloApp extends StatefulWidget {
   /// Moves the window, when the chrome has no title bar of its own.
   final VoidCallback? onDragWindow;
 
-  /// Fills the screen and puts the window back, for a double click on the band
-  /// that stands where a title bar would have been.
+  /// What a double click on the band does, where the band stands where a title
+  /// bar would have been: fill the screen and put the window back on Windows,
+  /// or the Mac's own title bar gesture.
   final VoidCallback? onToggleMaximize;
 
   /// A strip to open directly. The tests pass one; the app reads the strip on

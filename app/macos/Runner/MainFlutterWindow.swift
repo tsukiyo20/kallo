@@ -11,9 +11,28 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(windowFrame, display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    registerFrameChannel(flutterViewController)
     registerThumbnailChannel(flutterViewController)
 
     super.awakeFromNib()
+  }
+
+  /// The app draws its own caption, so the gesture a system title bar would
+  /// have handled is the app's to perform. This hands the app the Mac's word
+  /// for that gesture: the person's choice in System Settings, kept in the
+  /// global defaults. An unset value is the system's own default.
+  private func registerFrameChannel(_ controller: FlutterViewController) {
+    let channel = FlutterMethodChannel(
+      name: "com.kallo.app/frame",
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "titleBarDoubleClick" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick"))
+    }
   }
 
   /// Thumbnails are made by ImageIO, which can ask a decoder for a small image
