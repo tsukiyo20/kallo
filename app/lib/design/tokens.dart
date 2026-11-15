@@ -146,34 +146,39 @@ class KalloColors {
   }
 }
 
-/// The film itself: the rebate, the clear holes and the printing on the edge.
+/// The print's edge, and the film a reversal is.
 ///
-/// These are not planes of the window. A film frame is an object in the work,
-/// like the paper, so its colours are stated here once and lit by the room's
-/// lamp where a frame is hung.
+/// A full-frame print carries the negative's rebate, so its colours are the
+/// print's: the rebate passes the enlarger's light and the paper goes black,
+/// and the edge printing is the negative's density, so it prints as paper
+/// white. A reversal is not printed — the film is the picture, read on a light
+/// box — and there the rebate is black dye, the edge printing is clear film,
+/// and the perforations are the only white in the edge.
 abstract final class KalloFilm {
-  /// The exposed rebate: black, because it was never in the gate.
+  /// The rebate: black. Clear film passing light on a print, developed dye on a
+  /// reversal.
   static const Color rebate = Color(0xFF0B0A09);
 
-  /// The film's outer edge, for the one hairline around the rebate.
-  static const Color edge = Color(0xFFB0B0B4);
+  /// The rebate of a colour negative read as a scan: the orange mask is not
+  /// neutral, and what is left of it after the inversion warms the black into
+  /// brown. This is the film's own read, not the paper's.
+  static const Color rebateMasked = Color(0xFF261913);
 
-  /// The edge printing of a silver film: warm ivory, the positive view of the
-  /// dark letters on a negative.
-  static const Color edgeMono = Color(0xFFF1E8D8);
+  /// The edge printing on a print: the negative's letters block the light, so
+  /// they are paper white.
+  static const Color edgePrint = Color(0xFFF2EEE4);
 
-  /// The edge printing of a colour negative: the amber of its base and mask.
-  static const Color edgeNegative = Color(0xFFD8AE72);
+  /// The edge printing of a colour negative read as a scan: the letters keep
+  /// the amber the mask gives them.
+  static const Color edgeMasked = Color(0xFFD8AE72);
 
-  /// The edge printing of a reversal: white on black, because the rebate is
-  /// the unexposed film and the letters are the developed image.
+  /// The edge printing of a reversal: clear film on black dye.
   static const Color edgeReversal = Color(0xFFF7F3EA);
 
-  /// A sprocket hole: clear film, and what is behind it.
+  /// A perforation on a reversal read on a light box. On a negative's print a
+  /// hole passes light like the rebate does and prints black, so there is no
+  /// mark to draw.
   static const Color clear = Color(0xFFE9E9E7);
-
-  /// The gate's own edge, around the picture.
-  static const Color gate = Color(0xFF2C2C2E);
 }
 
 /// What is written on a print's paper.

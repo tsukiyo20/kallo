@@ -19,15 +19,15 @@ abstract final class Exports {
   /// The name of the folder inside the pictures directory.
   static const String folder = 'Kallo';
 
-  /// The folder of finished film frames, inside the export folder.
+  /// The folder an earlier build wrote full-frame prints into, inside the
+  /// export folder.
   ///
-  /// A framed export is a second finished thing, not another print: the gallery
-  /// reads the export folder itself, and a frame beside a print would hang
-  /// twice. The subfolder is also where a person goes when they want the
-  /// version with the rebate.
+  /// The border is printed into the print now, so nothing writes here; the
+  /// name stays because a library moving to a new folder still carries what
+  /// those builds left, and a reader of the folder should know what it is.
   static const String frames = 'Frames';
 
-  /// Where a print's film frames are written.
+  /// Where an earlier build wrote a print's full-frame prints.
   static Directory framesFolder(Directory folder) =>
       Directory('${folder.path}${Platform.pathSeparator}$frames');
 

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../lab/edge_print.dart';
 import '../lab/roll.dart';
 import '../lab/stock.dart';
 
@@ -144,6 +145,25 @@ class KalloStrings {
   String get originalSize => zh ? '原尺寸' : 'Original';
   String get noUpscale => zh ? '只缩不放' : 'Never upscales';
   String get format => zh ? '格式' : 'FORMAT';
+
+  /// The edge a print can carry. A printing choice, not a viewing one: the
+  /// template is printed into the print, not kept as a second file.
+  String get border => zh ? '边框' : 'BORDER';
+
+  /// What a screen reader says about one edge. The picker draws pictures and
+  /// no words at all, so these names are spoken, never set.
+  String borderName(BorderTemplate template) => switch (template) {
+    BorderTemplate.none => zh ? '无边框' : 'No edge',
+    BorderTemplate.warm => zh ? '留边·暖' : 'Edge · warm',
+    BorderTemplate.neutral => zh ? '留边·中性' : 'Edge · neutral',
+    BorderTemplate.whiteAmber =>
+      zh ? '留边·白孔·琥珀字' : 'Edge · white holes · amber print',
+    BorderTemplate.white =>
+      zh ? '留边·白孔·白字' : 'Edge · white holes · white print',
+    BorderTemplate.whiteBlank =>
+      zh ? '留边·白孔·无字' : 'Edge · white holes · no print',
+  };
+
   String get cancel => zh ? '取消' : 'Cancel';
   String get done => zh ? '完成' : 'Done';
   String get view => zh ? '查看' : 'View';
@@ -372,15 +392,6 @@ class KalloStrings {
   /// The one scale worth naming: one image pixel on one device pixel.
   String get actualPixels => zh ? '1:1' : '1:1';
 
-  /// The finished product: the print as a 35 mm frame.
-  String get exportFrame => zh ? '导出胶片边框' : 'Export film frame';
-  String get exportingFrame => zh ? '正在导出…' : 'Exporting…';
-  String get exportedFrame => zh ? '已导出到 Frames' : 'Exported to Frames';
-  String get exportFailed => zh ? '导出失败' : 'Export failed';
-
-  /// What the edge of the film is called, when the frame needs a name.
-  String get filmFrame => zh ? '胶片边框' : 'FILM FRAME';
-
   // -- the drawer -----------------------------------------------------------
 
   String get close => zh ? '关闭' : 'CLOSE';
@@ -468,7 +479,8 @@ class KalloStrings {
   String get photoAccessAllowed => zh ? '已允许' : 'Allowed';
   String get photoAccessLimited => zh ? '部分照片' : 'Selected photos';
   String get photoAccessDenied => zh ? '未允许' : 'Not allowed';
-  String get photoAccessTitle => zh ? '允许 Kallo 访问照片？' : 'Let Kallo see your photos?';
+  String get photoAccessTitle =>
+      zh ? '允许 Kallo 访问照片？' : 'Let Kallo see your photos?';
 
   String get photoAccessNote => zh
       ? 'Kallo 把印好的照片放在系统相册的 Kallo 文件夹。允许访问后，它也能看到其他应用放进这个文件夹的照片；不允许也可以从系统选择照片。'

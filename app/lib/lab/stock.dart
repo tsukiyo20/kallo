@@ -108,6 +108,15 @@ String stockDisplayName(String? name) {
   return '$maker $product';
 }
 
+/// The name a film's edge carries, and the name a print's caption uses.
+///
+/// The record may carry the short product name (`GOLD 200`) or the whole
+/// catalogue label. Either way the edge says the manufacturer and the product,
+/// because a rebate is where a film says whose it is. A full data-sheet label is
+/// cut at its first comma; the chemistry and the exposure are not printed on the
+/// edge twice.
+String filmEdgeName(String? film) => stockDisplayName(film);
+
 /// Which chemistry a film is, and therefore which stages a print runs.
 ///
 /// A negative is developed, printed onto paper and scanned; a reversal is

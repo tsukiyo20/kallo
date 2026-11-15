@@ -22,8 +22,8 @@ down. This is not an oversight; the design language is the product.
 
 Read `app/README.md` before changing anything visible. Its seven rules — no
 shadows for depth, one accent, five type roles, six spacing steps, hairlines are
-one device pixel, nothing animates alone, the film is geometry — are the review
-checklist.
+one device pixel, nothing animates alone, nothing on screen is invented here —
+are the review checklist.
 
 ## Where things live
 
@@ -31,7 +31,9 @@ checklist.
   change usually belongs here, not in a widget.
 - `app/lib/design/scope.dart` — the two environments, and the `emissive` value
   the transition interpolates.
-- `app/lib/widgets/film_frame.dart` — 35 mm frame geometry and the film painter.
+- `app/lib/lab/edge_print.dart` — the full-frame print: the film edge's
+  geometry and the painter, drawn by chemistry.
+- `app/lib/widgets/wall.dart` — the paper a print is, and the wall it hangs on.
 - `app/test/goldens/<platform>/` — the studio pictures the design is held
   against; macOS has twelve, Windows draws its own.
 

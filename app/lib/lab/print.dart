@@ -191,10 +191,11 @@ class Print {
   /// the app does not have the roll's frame yet.
   final int printNumber;
 
-  /// Which chemistry the film is. The edge printing's colour follows it: warm
-  /// ivory for a silver film, amber for a colour negative, white for a
-  /// reversal. Null when an export came without a record; the edge is then
-  /// neutral.
+  /// Which chemistry the film is. The full-frame print is drawn from it: a
+  /// negative prints a black band with pale letters and no perforations; a
+  /// reversal is read on a light box, with black dye, clear letters and white
+  /// perforations. Null when an export came without a record: the print is
+  /// then read as a negative's.
   final FilmProcess? process;
 
   /// When the file was written, which is when the print was made.

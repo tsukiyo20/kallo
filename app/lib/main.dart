@@ -13,7 +13,9 @@ import 'design/chrome.dart';
 import 'design/scope.dart';
 import 'design/strings.dart';
 import 'design/tokens.dart';
+import 'lab/border_bake.dart';
 import 'lab/catalog.dart';
+import 'lab/edge_print.dart';
 import 'lab/exports.dart';
 import 'lab/folder_print_library.dart';
 import 'lab/ffi_model.dart';
@@ -780,6 +782,9 @@ class _KalloAppState extends State<KalloApp> {
         minutes: request.minutes,
         tempC: strip.tempC,
       );
+      if (request.border != BorderTemplate.none) {
+        await _printBorder(output, request);
+      }
       await library.addFile(output, meta);
       if (library.folder == null) {
         try {
@@ -801,6 +806,30 @@ class _KalloAppState extends State<KalloApp> {
           ],
         );
       }
+    }
+  }
+
+  /// Print the chosen edge into the finished print, in place.
+  ///
+  /// The edge is not a second file: a full-frame print is one sheet with the
+  /// rebate printed on it. A failure here leaves the paper print it already
+  /// was — the picture without an edge is still the picture — so it is logged
+  /// and the darkroom carries on.
+  Future<void> _printBorder(File output, PrintRequest request) async {
+    final TestStrip? strip = _strip;
+    if (strip == null) {
+      return;
+    }
+    try {
+      await bakeBorder(
+        print: output,
+        border: request.border,
+        format: request.format,
+        film: _catalogue?.film(strip.stockId)?.displayName ?? strip.stockLabel,
+        process: _catalogue?.film(strip.stockId)?.process,
+      );
+    } on Object catch (error) {
+      Model.log('the border was not printed: $error');
     }
   }
 

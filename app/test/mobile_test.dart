@@ -8,10 +8,12 @@ import 'package:kallo/lab/print.dart';
 import 'package:kallo/lab/render_mode.dart';
 import 'package:kallo/lab/settings.dart';
 import 'package:kallo/lab/stock.dart';
+import 'package:kallo/lab/edge_print.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/steps.dart';
+import 'package:kallo/widgets/border_tray.dart';
 
 Future<ui.Image> _card({int width = 1200, int height = 800}) async {
   final ui.PictureRecorder recorder = ui.PictureRecorder();
@@ -221,7 +223,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the print step shows four values', (WidgetTester tester) async {
+  testWidgets('the print step shows its values and the edge control', (
+    WidgetTester tester,
+  ) async {
     _phone(tester);
     final TestStrip strip = const TestStrip(photo: '/photographs/uji.jpg')
         .withPrint(
@@ -237,6 +241,34 @@ void main() {
     expect(find.text('BALANCE'), findsOneWidget);
     expect(find.text('HEAT GLASS'), findsOneWidget);
     expect(find.byKey(const Key('phone-print')), findsOneWidget);
+
+    // The border is a printing choice on the phone too: one row in the deck
+    // that opens the edges as pictures, with no words on them.
+    expect(find.text('BORDER'), findsOneWidget);
+    await tester.tap(find.text('BORDER'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone-border')), findsOneWidget);
+    expect(find.text('Edge · warm'), findsNothing);
+    for (final BorderTemplate template in BorderTemplate.values) {
+      expect(find.byKey(Key('phone-border-${template.name}')), findsOneWidget);
+    }
+
+    // A tap takes the edge; the sheet stays so the next one can be compared.
+    await tester.tap(find.byKey(const Key('phone-border-warm')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<BorderTile>(find.byKey(const Key('phone-border-warm')))
+          .selected,
+      isTrue,
+    );
+    expect(find.byKey(const Key('phone-border')), findsOneWidget);
+
+    // The phone's back closes the sheet.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone-border')), findsNothing);
+
     expect(tester.takeException(), isNull);
   });
 
@@ -244,8 +276,8 @@ void main() {
     WidgetTester tester,
   ) async {
     _phone(tester);
-    final TestStrip strip =
-        const TestStrip(photo: '/photographs/uji.jpg').withPrint(
+    final TestStrip strip = const TestStrip(photo: '/photographs/uji.jpg')
+        .withPrint(
           TestPrint(minutes: 9, tempC: 20, image: card, chart: _chart(9)),
         );
     await tester.pumpWidget(
@@ -282,28 +314,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the renderer is a setting on the phone, and the gpu is default', (
-    WidgetTester tester,
-  ) async {
-    _phone(tester, height: 1600);
-    await tester.pumpWidget(_app(card: card));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'the renderer is a setting on the phone, and the gpu is default',
+    (WidgetTester tester) async {
+      _phone(tester, height: 1600);
+      await tester.pumpWidget(_app(card: card));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('mobile-settings')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('mobile-settings')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('RENDERING'), findsOneWidget);
-    expect(find.text('GPU'), findsOneWidget);
-    expect(find.text('CPU'), findsOneWidget);
-    // No linked model in a widget test: the page still names the fallback.
-    expect(find.textContaining('cores'), findsWidgets);
+      expect(find.text('RENDERING'), findsOneWidget);
+      expect(find.text('GPU'), findsOneWidget);
+      expect(find.text('CPU'), findsOneWidget);
+      // No linked model in a widget test: the page still names the fallback.
+      expect(find.textContaining('cores'), findsWidgets);
 
-    await tester.tap(find.text('CPU'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('CPU'));
+      await tester.pumpAndSettle();
 
-    expect(RenderPreference.gpu, isFalse);
-    // The file is the settings tests' business; here the switch is the point.
-  });
+      expect(RenderPreference.gpu, isFalse);
+      // The file is the settings tests' business; here the switch is the point.
+    },
+  );
 
   testWidgets('the smallest phone does not overflow', (
     WidgetTester tester,

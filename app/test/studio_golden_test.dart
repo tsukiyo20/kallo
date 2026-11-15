@@ -16,7 +16,7 @@ import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/steps.dart';
-import 'package:kallo/widgets/film_frame.dart';
+import 'package:kallo/widgets/wall.dart';
 
 /// The studio's pictures.
 ///
@@ -452,6 +452,50 @@ void main() {
       );
     });
 
+    testWidgets('the print step, choosing an edge', (
+      WidgetTester tester,
+    ) async {
+      _window(tester);
+      final TestStrip strip =
+          const TestStrip(
+            photo: '/photographs/uji.jpg',
+            stockId: 'vision3_500t',
+            stockLabel: 'VISION3 500T',
+            paperId: 'portra_endura',
+            paperLabel: 'PORTRA ENDURA',
+          ).withPrint(
+            TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
+          );
+      await tester.pumpWidget(
+        KalloApp(
+          catalogue: _catalogue,
+          strip: strip,
+          photograph: card,
+          prints: const <Print>[],
+          initialStep: DarkroomStep.print,
+          appearance: Brightness.dark,
+          chrome: WindowChrome.mac,
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (int i = 0; i < 50; i++) {
+        if (find.byType(RawImage).evaluate().isNotEmpty) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      // The edge is chosen by looking at the proofs: the row is out, and the
+      // print is already wearing the warm one.
+      await tester.tap(find.byKey(const Key('border-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('border-warm')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(KalloApp),
+        matchesGoldenFile('goldens/$_platform/print-tray.png'),
+      );
+    });
+
     testWidgets('the drying rack', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
@@ -554,7 +598,7 @@ void main() {
       );
     });
 
-    testWidgets('a portrait frame', (WidgetTester tester) async {
+    testWidgets('a portrait print', (WidgetTester tester) async {
       _window(tester);
       final ui.Image portrait = await _card(width: 800, height: 1200);
       addTearDown(portrait.dispose);
@@ -588,7 +632,7 @@ void main() {
       );
     });
 
-    testWidgets('the lens on a frame', (WidgetTester tester) async {
+    testWidgets('the lens on a print', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
         KalloApp(
@@ -609,9 +653,9 @@ void main() {
       );
       addTearDown(mouse.removePointer);
       await mouse.addPointer(location: Offset.zero);
-      final Finder frame = find.byType(FilmFrame).first;
-      final Offset origin = tester.getTopLeft(frame);
-      final Size size = tester.getSize(frame);
+      final Finder sheet = find.byType(PrintSheet).first;
+      final Offset origin = tester.getTopLeft(sheet);
+      final Size size = tester.getSize(sheet);
       await mouse.moveTo(
         origin + Offset(size.width * 0.50, size.height * 0.40),
       );
@@ -622,7 +666,7 @@ void main() {
       );
     });
 
-    testWidgets('a frame under the loupe', (WidgetTester tester) async {
+    testWidgets('a print under the loupe', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
         KalloApp(
@@ -636,7 +680,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(FilmFrame).first);
+      await tester.tap(find.byType(PrintSheet).first);
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(KalloApp),
