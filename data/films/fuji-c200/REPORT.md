@@ -1,6 +1,6 @@
 # FUJICOLOR C200: the chart that is artwork
 
-*Kallotype film-data series, report 19 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 19 of 24. Version 1, 2026-11-09.
 Data: `fuji-c200.kalofilm` (5,920 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -123,5 +123,5 @@ No image of the data sheet is reproduced in this directory.
 ## References
 
 1. FUJIFILM, *FUJIFILM FUJICOLOR C200*, publication AF3-0249E, page 6.
-2. Kallotype, `films/fuji-200/REPORT.md` — the other consumer sheet read from
+2. Kallo, `films/fuji-200/REPORT.md` — the other consumer sheet read from
    the same kind of artwork.

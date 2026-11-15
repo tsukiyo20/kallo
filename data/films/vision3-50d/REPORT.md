@@ -1,6 +1,6 @@
 # KODAK VISION3 50D: the dotted curve and the axis that disagrees with its labels
 
-*Kallotype film-data series, report 14 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 14 of 24. Version 1, 2026-11-09.
 Data: `vision3-50d.kalofilm` (5,737 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -206,6 +206,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK VISION3 50D Color Negative Film 5203/7203 —
    Technical Data*, publication H-1-5203, pages 3 and 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/vision3-250d/REPORT.md` — the family's layout and the
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/vision3-250d/REPORT.md` — the family's layout and the
    raster-reading method this report shares.

@@ -1,6 +1,6 @@
 # KODAK VISION3 500T: the film the model started with
 
-*Kallotype film-data series, report 17 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 17 of 24. Version 1, 2026-11-09.
 Data: `vision3-500t.kalofilm` (5,297 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -166,6 +166,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK VISION3 500T Color Negative Film 5219/7219 —
    Technical Information*, publication H-1-5219, pages 3 and 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/vision3-250d/REPORT.md` — the first report of the family
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/vision3-250d/REPORT.md` — the first report of the family
    this film's spectra are borrowed by.

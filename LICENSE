@@ -1,4 +1,4 @@
-Kallotype is licensed under either of
+Kallo is licensed under either of
 
   * the Apache License, Version 2.0 (see LICENSE-APACHE)
   * the MIT license (see LICENSE-MIT)
@@ -9,7 +9,7 @@ The measurement data is not covered by those licences. The `.kalofilm` files,
 the `.kalopaper` files, the digitised curves, the figures and the prose around
 them, in `films/` and `data/`, are licensed CC BY-SA 4.0; see films/LICENSE.
 
-`crates/kallotype-raw` is LGPL-2.1-only, because camera raw decoding is built
+`crates/kallo-raw` is LGPL-2.1-only, because camera raw decoding is built
 on `rawler`. It sits outside the workspace and is off by default.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted

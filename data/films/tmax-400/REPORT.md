@@ -1,6 +1,6 @@
 # KODAK PROFESSIONAL T-MAX 400: the film that borrows nothing
 
-*Kallotype film-data series, report 12 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 12 of 24. Version 1, 2026-11-09.
 Data: `tmax-400.kalofilm` (5,769 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -239,6 +239,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK PROFESSIONAL T-MAX 400 Film Technical Data*,
    publication F-4043, October 2007, pages 8, 9 and 11.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/trix-400/REPORT.md` — the first silver film and the first
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/trix-400/REPORT.md` — the first silver film and the first
    absolute-axis speed check.

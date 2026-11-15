@@ -1,6 +1,6 @@
 # FUJICHROME VELVIA 50: three curves drawn on top of one another
 
-*Kallotype film-data series, report 4 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 4 of 24. Version 1, 2026-11-08.
 Data: `velvia-50.kalofilm` (6,006 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -252,4 +252,4 @@ No image of the data sheet is reproduced in this directory.
 
 1. FUJIFILM, *FUJICHROME Velvia RVP for Professionals*, data sheet AF3-960E,
    page 7.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.

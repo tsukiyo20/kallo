@@ -1,6 +1,6 @@
 # FUJICOLOR NPH 400: the emulsion PRO 400H replaced
 
-*Kallotype film-data series, report 18 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 18 of 24. Version 1, 2026-11-09.
 Data: `fuji-nph400.kalofilm` (5,620 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -124,5 +124,5 @@ No image of the data sheet is reproduced in this directory.
 ## References
 
 1. FUJIFILM, *FUJICOLOR NPH 400 PROFESSIONAL*, publication AF3-865E, page 6.
-2. Kallotype, `films/fuji-pro400h/REPORT.md` — the film that replaced it, and
+2. Kallo, `films/fuji-pro400h/REPORT.md` — the film that replaced it, and
    the scans its grain was measured on.

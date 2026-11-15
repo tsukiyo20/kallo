@@ -8,7 +8,7 @@ measured stock, each in the file format its own sheet produced.
 | [`films/`](films/) | the published series — twenty-four films, each a directory with its `.kalofilm`, its report, its digitised points and its figures. Start at [`films/README.md`](films/README.md). |
 | [`papers/`](papers/) | six measured papers, one `.kalopaper` each. [`papers/README.md`](papers/README.md) says which and why. |
 
-The crate holds none of these numbers. `crates/kallotype-core/build.rs` reads
+The crate holds none of these numbers. `crates/kallo-core/build.rs` reads
 the `.kalofilm` and `.kalopaper` files here when the crate is built and
 generates the stock tables from them, so the program text is MIT or Apache-2.0
 and this directory is CC BY-SA 4.0, with the boundary at a file read rather

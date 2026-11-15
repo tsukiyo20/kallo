@@ -1,6 +1,6 @@
 # KODAK EKTACHROME E100: a second reversal, and the anchor as a measurement
 
-*Kallotype film-data series, report 3 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 3 of 24. Version 1, 2026-11-08.
 Data: `ektachrome-e100.kalofilm` (5,667 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -286,6 +286,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Kodak Alaris, *KODAK PROFESSIONAL EKTACHROME Film E100 — Technical Data*,
    publication E-4000, revised 8-18, pages 3–4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, *FUJICHROME PROVIA 100F*, `../provia-100f/REPORT.md` §4 — the
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, *FUJICHROME PROVIA 100F*, `../provia-100f/REPORT.md` §4 — the
    anchor rule's first application.

@@ -92,5 +92,5 @@ and what is not redistributed.
 If a published result uses these files, cite the data sheet each film names in
 its own README and the file itself, e.g.
 
-> Kallotype `fuji-pro400h.kalofilm`, digitised from FUJIFILM product information
+> Kallo `fuji-pro400h.kalofilm`, digitised from FUJIFILM product information
 > bulletin AF3-176E (2026).

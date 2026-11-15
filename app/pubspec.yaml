@@ -1,8 +1,7 @@
 name: kallo
 description: >-
-  Kallo, the interface of Kallotype: a design language, a handful of primitives,
-  and the places a roll of film passes through. Not a widget library — this is
-  the app's vocabulary.
+  Kallo: a design language, a handful of primitives, and the places a roll of
+  film passes through. Not a widget library — this is the app's vocabulary.
 publish_to: none
 version: 0.1.0
 
@@ -49,7 +48,7 @@ flutter:
   # Material is not used anywhere in this app, and this is where that is said.
   uses-material-design: false
   assets:
-    # Written by `just view` from `kallotype-view`. A rendering of the model at
+    # Written by `just view` from `kallo-view`. A rendering of the model at
     # a commit, not a second model: regenerate it, never edit it.
     - assets/film_strip.json
     # The mark in About, written by `icon/generate.py`, and GitHub's mark for

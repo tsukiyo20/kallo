@@ -1,8 +1,8 @@
-# Kallotype
+# Kallo
 
 **A photographic film and print model, in Rust.**
 
-Kallotype takes a digital image and puts it through a physical model of a
+Kallo takes a digital image and puts it through a physical model of a
 negative, a development step and a print. Light is reconstructed as a spectrum,
 the spectrum exposes three emulsion layers, each layer's exposure runs through
 its published characteristic curve, the dyes are printed onto paper, and the
@@ -16,9 +16,9 @@ manufacturer's data sheet, and the numbers are data files rather than code.
 ![The model: one render hung as a strip of seven frames, with the four effects
 carried alongside.](assets/pipeline.png)
 
-> *Kallotype* — from the Greek **kalos** (beautiful) and **typos** (impression).
-> The name William Henry Fox Talbot gave his negative-positive process in 1841,
-> before English flattened it into "calotype".
+> *Kallo* — from the Greek **kalos** (beautiful). The short form of
+> *kallotype*, the name William Henry Fox Talbot gave his negative-positive
+> process in 1841 before English flattened it into "calotype".
 
 ## The model
 
@@ -126,7 +126,7 @@ cargo run --release --bin kalo -- render photo.png -o out/print.png \
 Or install it:
 
 ```bash
-cargo install kallotype-cli
+cargo install kallo-cli
 kalo stocks                       # every film and paper, with what is measured
 kalo stocks --json                # the same, as one document a program can read
 kalo curve --dev 9 --sweep        # what a development does, before any render
@@ -186,13 +186,13 @@ the CPU; a frame the device refuses is finished on the CPU either way.
 
 | Crate | Role |
 |---|---|
-| `kallotype-core` | The model: curves, development kinetics, the built-in stocks, render. No I/O, no unsafe. |
-| `kallotype-spectral` | Spectra, sensors, and the RGB → spectrum reconstruction. |
-| `kallotype-io` | Decoding and encoding. The only place that touches a file format. |
-| `kallotype-raw` | Camera raw to linear light, through FlashRaw. |
-| `kallotype-api` | The use case: read a photograph once, develop a roll, print a proof. |
-| `kallotype-cli` | The `kalo` binary, plus a library so the commands are testable. |
-| `kallotype-gpu` | The wgpu backend, feature-gated into the CLI. |
+| `kallo-core` | The model: curves, development kinetics, the built-in stocks, render. No I/O, no unsafe. |
+| `kallo-spectral` | Spectra, sensors, and the RGB → spectrum reconstruction. |
+| `kallo-io` | Decoding and encoding. The only place that touches a file format. |
+| `kallo-raw` | Camera raw to linear light, through FlashRaw. |
+| `kallo-api` | The use case: read a photograph once, develop a roll, print a proof. |
+| `kallo-cli` | The `kalo` binary, plus a library so the commands are testable. |
+| `kallo-gpu` | The wgpu backend, feature-gated into the CLI. |
 
 ## Licence
 
@@ -201,7 +201,7 @@ CC BY-SA 4.0** — share it, adapt it, sell it, but keep it open; the full text 
 in [`data/films/LICENSE`](data/films/LICENSE), and what is not redistributed is
 in [`data/films/NOTICE.md`](data/films/NOTICE.md).
 
-The boundary is a file read. `crates/kallotype-core/build.rs` reads the
+The boundary is a file read. `crates/kallo-core/build.rs` reads the
 `.kalofilm` and `.kalopaper` files at build time and generates the stock tables
 from them, so the program text holds no measurements and a checkout without
 [`data/`](data/README.md) does not compile.

@@ -1,6 +1,6 @@
 # KODAK PROFESSIONAL EKTAR 100: the sheet that prints its own aim
 
-*Kallotype film-data series, report 9 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 9 of 24. Version 1, 2026-11-09.
 Data: `ektar-100.kalofilm` (6,319 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -334,7 +334,7 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK PROFESSIONAL EKTAR 100 Film*, publication
    E-4046, revised 2-16, page 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/portra-400/REPORT.md` — the report that first argued the
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/portra-400/REPORT.md` — the report that first argued the
    printed anchor and the rising fit, and whose §3.4 this report's mask method
    follows.

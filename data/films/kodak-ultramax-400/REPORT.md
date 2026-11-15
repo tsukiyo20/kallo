@@ -1,6 +1,6 @@
 # KODAK ULTRA MAX 400: the consumer film that prints its own reference
 
-*Kallotype film-data series, report 22 of 24. Version 1, 2026-11-10.
+*Kallo film-data series, report 22 of 24. Version 1, 2026-11-10.
 Data: `kodak-ultramax400.kalofilm` (6,045 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -112,6 +112,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK ULTRA MAX 400 Film — Technical Data*,
    publication E-7023, revised 2/16, page 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/gold-200/REPORT.md` — the other consumer sheet that
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/gold-200/REPORT.md` — the other consumer sheet that
    borrows its dyes.

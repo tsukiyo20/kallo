@@ -1,6 +1,6 @@
 # ILFORD DELTA 400: the film the development times were fitted to
 
-*Kallotype film-data series, report 13 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 13 of 24. Version 1, 2026-11-09.
 Data: `delta-400.kalofilm` (5,568 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -197,6 +197,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. HARMAN technology, *ILFORD DELTA 400 PROFESSIONAL*, `d400_a.pdf`, November
    2018, pages 5 and 6.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/hp5-plus/REPORT.md` — the speed-point anchor this film
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/hp5-plus/REPORT.md` — the speed-point anchor this film
    shares, and the case for declaring absences rather than filling them.

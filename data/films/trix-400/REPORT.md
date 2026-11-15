@@ -1,6 +1,6 @@
 # KODAK TRI-X 400: one record, and two curves that are not its own
 
-*Kallotype film-data series, report 7 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 7 of 24. Version 1, 2026-11-08.
 Data: `trix-400.kalofilm` (5,527 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -265,7 +265,7 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK PROFESSIONAL TRI-X 400 / TRI-X 320*, Japanese
    edition, 2002, printed pages 10 to 12.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, *KODAK PROFESSIONAL T-MAX 400* — the compiled stock, for the
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, *KODAK PROFESSIONAL T-MAX 400* — the compiled stock, for the
    contrast between a tabular-grain emulsion's 0.61 grains/µm² and this film's
    0.11.
