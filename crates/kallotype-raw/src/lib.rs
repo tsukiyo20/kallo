@@ -10,7 +10,7 @@
 //! [`Image`] in scene-referred linear light, the same shape [`kallotype_io`]
 //! returns for a TIFF.
 //!
-//! The engine is [`flashraw`] 0.2, which is MIT OR Apache-2.0. The previous
+//! The engine is [`flashraw`] 0.3, which is MIT OR Apache-2.0. The previous
 //! engine, `rawler`, was LGPL-2.1 and kept this crate outside the workspace so
 //! that a default build carried no copyleft code; that fence is gone with the
 //! engine. Swapping decoders is a change to this file and its tests, not to the
