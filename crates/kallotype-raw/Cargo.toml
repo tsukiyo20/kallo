@@ -12,7 +12,7 @@ readme.workspace = true
 publish = false
 
 [dependencies]
-flashraw = { version = "0.2", default-features = false, features = [
+flashraw = { version = "0.3", default-features = false, features = [
     "rayon",
     "simd",
     "mmap",
