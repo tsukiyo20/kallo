@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'catalog.dart';
 import 'print_library.dart';
 import 'exports.dart';
+import 'path_name.dart';
 import 'print.dart';
 import 'print_marker.dart';
 import 'print_meta.dart';
@@ -539,15 +540,7 @@ class FolderPrintLibrary extends PrintLibrary {
         lower.endsWith('.jpeg');
   }
 
-  static String _basename(String path) {
-    final int slash = path.lastIndexOf(Platform.pathSeparator);
-    return slash < 0 ? path : path.substring(slash + 1);
-  }
+  static String _basename(String path) => baseName(path);
 
-  static String _stem(String path) {
-    final int slash = path.lastIndexOf(Platform.pathSeparator);
-    final String base = slash < 0 ? path : path.substring(slash + 1);
-    final int dot = base.lastIndexOf('.');
-    return dot <= 0 ? base : base.substring(0, dot);
-  }
+  static String _stem(String path) => stemOf(path);
 }

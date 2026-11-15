@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import 'clock.dart';
 import 'model.dart';
+import 'path_name.dart';
 import 'print_ref.dart';
 import 'stock.dart';
 
@@ -579,17 +580,10 @@ class Print {
   /// The path without its extension: where the record beside it lives.
   static String _stem(String path) {
     final int dot = path.lastIndexOf('.');
-    return dot <= path.lastIndexOf(Platform.pathSeparator)
-        ? path
-        : path.substring(0, dot);
+    return dot <= lastSeparator(path) ? path : path.substring(0, dot);
   }
 
   /// The file's own name, without the folder: what a print is called when
   /// nothing else knows what it is.
-  static String _name(String path) {
-    final int slash = path.lastIndexOf(Platform.pathSeparator);
-    final String base = slash < 0 ? path : path.substring(slash + 1);
-    final int dot = base.lastIndexOf('.');
-    return dot < 0 ? base : base.substring(0, dot);
-  }
+  static String _name(String path) => stemOf(path);
 }

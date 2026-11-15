@@ -11,4 +11,8 @@ targets = [
   "armv7-linux-androideabi",
   "x86_64-linux-android",
   "i686-linux-android",
+  # The desktop the last four targets were missing: native_toolchain_rust
+  # refuses to build for a target that is not in this list, so a Windows
+  # checkout could not link the model at all.
+  "x86_64-pc-windows-msvc",
 ]
