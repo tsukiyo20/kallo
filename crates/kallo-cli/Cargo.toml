@@ -43,5 +43,11 @@ kallo-spectral = { path = "../kallo-spectral", version = "0.1.0" }
 clap.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+# The film-file tests compare a `.kalofilm` file with the stock compiled from
+# it. The files are shipped by `kallo-data`, so the same tests run in a checkout
+# and in a crate downloaded from crates.io.
+kallo-data = { path = "../kallo-data", version = "0.1.0" }
+
 [lints]
 workspace = true

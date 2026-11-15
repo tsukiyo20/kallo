@@ -1,0 +1,23 @@
+[package]
+name = "kallo-data"
+description = "The measured film and paper files the model is generated from"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Not the code licence: the files are a digitisation of manufacturer data
+# sheets, and CC BY-SA 4.0 is what keeps them open. The crate holds nothing but
+# the files and the two lines that expose them.
+license = "CC-BY-SA-4.0"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+# Its own README: the repository README describes the renderer, and this crate
+# is the measurements it reads.
+readme = "README.md"
+keywords = ["film", "photography", "measurement", "data"]
+categories = ["multimedia::images", "science"]
+
+[dependencies]
+
+[lints]
+workspace = true

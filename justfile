@@ -32,6 +32,19 @@ stocks:
     PYTHONPATH=private/.pylib313 /opt/homebrew/bin/python3.13 \
         private/scripts/check_film_files.py
 
+# Copy the measurement files into the crate that ships them.
+#
+# `crates/kallo-data` carries the `.kalofilm` and `.kalopaper` files so that
+# `kallo-core` builds from crates.io without this repository. The copies must be
+# byte-identical to `data/` — the crate's tests compare them — so run this after
+# changing a stock file and commit the copies with it.
+sync-data:
+    rm -rf crates/kallo-data/data
+    mkdir -p crates/kallo-data/data/films crates/kallo-data/data/papers
+    for film in data/films/*/*.kalofilm; do id=$(basename "$$film" .kalofilm); mkdir -p "crates/kallo-data/data/films/$$id"; cp "$$film" "crates/kallo-data/data/films/$$id/$$id.kalofilm"; done
+    cp data/papers/*.kalopaper crates/kallo-data/data/papers/
+    cp data/films/LICENSE data/films/NOTICE.md crates/kallo-data/
+
 # Run the whole test suite.
 test:
     cargo test --workspace --all-features

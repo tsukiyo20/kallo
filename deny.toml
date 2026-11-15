@@ -41,6 +41,13 @@ confidence-threshold = 0.9
 # dependencies, not an inventory of today's.
 unused-allowed-license = "allow"
 
+# The one copyleft entry in the graph, and it is ours: `kallo-core`'s build
+# script reads the measured files from `kallo-data`, which is data under
+# CC BY-SA 4.0 on purpose. No program text in the graph may be copyleft.
+[[licenses.exceptions]]
+name = "kallo-data"
+allow = ["CC-BY-SA-4.0"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

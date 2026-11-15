@@ -7,7 +7,8 @@ at your option.
 
 The measurement data is not covered by those licences. The `.kalofilm` files,
 the `.kalopaper` files, the digitised curves, the figures and the prose around
-them, in `films/` and `data/`, are licensed CC BY-SA 4.0; see films/LICENSE.
+them, in `films/`, `data/` and `crates/kallo-data/`, are licensed CC BY-SA 4.0;
+see films/LICENSE.
 
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
