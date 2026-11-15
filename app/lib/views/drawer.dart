@@ -330,7 +330,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
           ],
         ),
-        const SizedBox(height: KalloSpace.step6),
+        const SizedBox(height: KalloSpace.step5),
+        SizedBox(
+          width: _fieldWidth(context),
+          child: Text(
+            s.openSourceNote,
+            style: KalloType.body.copyWith(color: colors.inkMuted),
+          ),
+        ),
+        const SizedBox(height: KalloSpace.step5),
         _RepositoryLink(
           onTap: _openRepository,
           label: s.openRepository,

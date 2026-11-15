@@ -461,7 +461,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('materials-line')));
+      await tester.tap(find.byKey(const Key('materials-film')));
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(KalloApp),

@@ -299,6 +299,10 @@ class KalloStrings {
   String get colourPaper => zh ? '彩色相纸' : 'COLOUR PAPER';
   String get silverPaper => zh ? '黑白相纸' : 'SILVER PAPER';
 
+  /// Said in the materials line when a slot has nothing in it: a reversal has
+  /// no paper, so the paper's handle says so before it is opened.
+  String get noMaterial => zh ? '无' : 'None';
+
   /// Said where the papers would be, for a film whose print stage is skipped.
   String get noPaper => zh
       ? '反转片自己就是照片，没有印相，也就不用选相纸。'
@@ -542,6 +546,14 @@ class KalloStrings {
       : 'The model writes sRGB; the system manages the display. Wide gamut depends on the screen.';
 
   String appVersion(String version) => zh ? '版本 $version' : 'Version $version';
+
+  /// What Kallo is, and where to say something about it. Three sentences: the
+  /// terms, the invitation, and the ask — a person reading About is already
+  /// looking for one of them.
+  String get openSourceNote => zh
+      ? 'Kallo 完全开源、免费，许可证是 MIT 或 Apache-2.0。模型和界面都在 GitHub 上：欢迎提 issue，也欢迎提 PR。喜欢的话，点个 star 就是最好的鼓励。'
+      : 'Kallo is entirely open source and free, under the MIT or Apache-2.0 licence. The model and the interface both live on GitHub: issues and pull requests are welcome, and a star is the best thanks if you like it.';
+
   String get openRepository =>
       zh ? '在 GitHub 上打开项目' : 'Open the project on GitHub';
 
