@@ -2,6 +2,7 @@
 
 #include <dwmapi.h>
 #include <flutter_windows.h>
+#include <windowsx.h>
 
 #include "resource.h"
 
@@ -16,7 +17,21 @@ namespace {
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
 
+/// Window attribute that asks DWM for rounded corners, which is what a window
+/// with no system frame would otherwise lose along with the frame. Named here
+/// rather than taken from the SDK: the value is stable, and the header that
+/// has it is newer than the one this project may be built against.
+constexpr DWORD kDwmwaWindowCornerPreference = 33;
+constexpr int kDwmwcpRound = 2;
+
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
+
+/// How thick the resize edge is, in device-independent pixels.
+///
+/// The whole window is client area -- the app draws the frame -- so Windows no
+/// longer knows where a window's edges are and will not start a resize on its
+/// own. This is the strip that answers WM_NCHITTEST with the edge codes.
+constexpr int kResizeEdge = 5;
 
 /// Registry key for app theme preference.
 ///
@@ -133,9 +148,17 @@ bool Win32Window::Create(const std::wstring& title,
   HMONITOR monitor = MonitorFromPoint(target_point, MONITOR_DEFAULTTONEAREST);
   UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
   double scale_factor = dpi / 96.0;
+  scale_factor_ = scale_factor;
+
+  // The window the app draws: no caption, but still a normal overlapped window,
+  // so it keeps its place in the taskbar and in Alt+Tab, and a thick frame, so
+  // Windows still knows it can be resized at all. What that frame would have
+  // drawn -- the border and the title bar -- is answered in WM_NCCALCSIZE below.
+  const DWORD style = WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
+                      WS_MAXIMIZEBOX | WS_CLIPCHILDREN;
 
   HWND window = CreateWindow(
-      window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
+      window_class, title.c_str(), style,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);
@@ -145,6 +168,15 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
+
+  // The corners are Windows 11's; the attribute is ignored where it does not
+  // exist. The shadow comes from the thick frame itself, so nothing has to be
+  // borrowed from DWM here -- and DwmExtendFrameIntoClientArea must stay away:
+  // it inflates a maximized window by the frame's thickness on every side,
+  // which is eleven pixels of the app under the screen's edges at 150 %.
+  int corner = kDwmwcpRound;
+  DwmSetWindowAttribute(window, kDwmwaWindowCornerPreference, &corner,
+                        sizeof(corner));
 
   return OnCreate();
 }
@@ -192,11 +224,51 @@ Win32Window::MessageHandler(HWND hwnd,
       LONG newWidth = newRectSize->right - newRectSize->left;
       LONG newHeight = newRectSize->bottom - newRectSize->top;
 
+      scale_factor_ = LOWORD(wparam) / 96.0;
+
       SetWindowPos(hwnd, nullptr, newRectSize->left, newRectSize->top, newWidth,
                    newHeight, SWP_NOZORDER | SWP_NOACTIVATE);
 
       return 0;
     }
+
+    case WM_NCCALCSIZE:
+      // The app draws every pixel of this window, so there is no non-client
+      // area to reserve. Returning 0 here is the whole frame removal: without
+      // it Windows keeps a border's worth of client missing, which is the two
+      // pixels of frame that used to sit along the edges of this window.
+      if (wparam == TRUE) {
+        return 0;
+      }
+      break;
+
+    case WM_NCHITTEST: {
+      // With no non-client area there is no edge Windows would resize from, so
+      // the edges are declared here instead. Everything else is client: the
+      // caption is the app's, and it drags the window itself.
+      if (IsZoomed(hwnd)) {
+        return HTCLIENT;
+      }
+      RECT frame;
+      GetWindowRect(hwnd, &frame);
+      const long x = GET_X_LPARAM(lparam);
+      const long y = GET_Y_LPARAM(lparam);
+      const long edge = static_cast<long>(kResizeEdge * scale_factor_);
+      const bool on_left = x < frame.left + edge;
+      const bool on_right = x >= frame.right - edge;
+      const bool on_top = y < frame.top + edge;
+      const bool on_bottom = y >= frame.bottom - edge;
+      if (on_top && on_left) return HTTOPLEFT;
+      if (on_top && on_right) return HTTOPRIGHT;
+      if (on_bottom && on_left) return HTBOTTOMLEFT;
+      if (on_bottom && on_right) return HTBOTTOMRIGHT;
+      if (on_left) return HTLEFT;
+      if (on_right) return HTRIGHT;
+      if (on_top) return HTTOP;
+      if (on_bottom) return HTBOTTOM;
+      return HTCLIENT;
+    }
+
     case WM_SIZE: {
       RECT rect = GetClientArea();
       if (child_content_ != nullptr) {

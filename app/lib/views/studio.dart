@@ -20,6 +20,7 @@ import '../widgets/stage_tabs.dart';
 import '../widgets/switch.dart';
 import '../widgets/studio_top_bar.dart';
 import '../widgets/studio_sidebar.dart';
+import '../widgets/window_grips.dart';
 import 'chambers.dart';
 import 'develop_stage.dart';
 import 'drawer.dart';
@@ -64,6 +65,7 @@ class Studio extends StatefulWidget {
     this.initialStep = DarkroomStep.select,
     this.chrome = WindowChrome.plain,
     this.onDragWindow,
+    this.onToggleMaximize,
   });
 
   final TestStrip strip;
@@ -98,6 +100,7 @@ class Studio extends StatefulWidget {
   final DarkroomStep initialStep;
   final WindowChrome chrome;
   final VoidCallback? onDragWindow;
+  final VoidCallback? onToggleMaximize;
 
   @override
   State<Studio> createState() => _StudioState();
@@ -224,7 +227,10 @@ class _StudioState extends State<Studio> {
             ),
           ],
         ),
-        if (widget.chrome == WindowChrome.mac &&
+        // The strip over the sidebar's own top edge drags the window. The Mac
+        // needs it around the traffic lights; Windows needs it because the
+        // sidebar runs to the window's corner and there is no bar above it.
+        if (widget.chrome != WindowChrome.plain &&
             widget.onDragWindow != null &&
             _sidebar)
           Positioned(
@@ -305,6 +311,10 @@ class _StudioState extends State<Studio> {
                   ),
           ),
         ),
+        // Last, so the grips are over the scrim as well: a window resizes on
+        // its border even with a sheet open over it.
+        if (widget.chrome == WindowChrome.windows)
+          const Positioned.fill(child: WindowGrips()),
       ],
     );
     if (!compact) {
@@ -438,8 +448,7 @@ class _StudioState extends State<Studio> {
       sidebarOpen: _sidebar,
       showSidebar: !_compact,
       onSidebar: () => setState(() => _sidebar = !_sidebar),
-      mac: widget.chrome == WindowChrome.mac,
-      inspectorOpen: _hasInspector ? _inspector : null,
+      chrome: widget.chrome,      inspectorOpen: _hasInspector ? _inspector : null,
       onInspector: _hasInspector
           ? () => setState(() => _inspector = !_inspector)
           : null,
@@ -469,6 +478,7 @@ class _StudioState extends State<Studio> {
           : null,
       center: center,
       onDragWindow: widget.onDragWindow,
+      onToggleMaximize: widget.onToggleMaximize,
       height: _topBarHeight,
       rightInset: _hasInspector && _inspector ? 304 : 0,
     );
