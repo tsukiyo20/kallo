@@ -4,7 +4,7 @@
 >
 > Boards: [workflow](board-1.png) · [printing and the two rooms](board-2.png) · [empty states and settings](board-3.png) · [interactive HTML](mockups.html)
 >
-> The screenshots down the page are of the shell as it was built; the step row is two segments now (the shelf moved onto the bench), and `current-select.png` is the old first page kept for the record.
+> The screenshots down the page are of the shell as it was built; the step row is two segments now (the shelf moved onto the bench), and the drying rack is gone — the gallery's wall holds the same files and its own viewer, so the tab bar has two places now (private ADR 0039). `current-select.png` is the old first page kept for the record.
 
 ---
 
@@ -12,7 +12,7 @@
 
 **Do not shrink the desktop studio. Put the darkroom in a pocket.**
 
-The desktop is organised as two rooms, a drying rack and an instrument panel on the right; the phone should not press that furniture into 390 pt at the same proportions. It should become:
+The desktop is organised as two rooms and an instrument panel on the right; the phone should not press that furniture into 390 pt at the same proportions. It should become:
 
 > One subject (a photograph or a sheet of paper), one instrument deck (the 2–3 controls of the current step), and a strip of steps (Develop / Print).
 
@@ -33,13 +33,13 @@ The compact branch today is not a phone layout; it is the desktop layout with th
 
 | Problem | What it looks like | Consequence |
 |---|---|---|
-| Two levels of navigation | a step pill at the top + "Darkroom / Drying rack / Gallery / Settings" at the bottom | the same thing said twice; 56 pt of top bar to hold one pill |
+| Two levels of navigation | a step pill at the top + "Darkroom / Gallery / Settings" at the bottom | the same thing said twice; 56 pt of top bar to hold one pill |
 | The panel is the desktop inspector | a fixed 46% / 50% height, scrolling inside | the photograph is small, the controls hide in a second scroll; "To the developer" is not on the first screen |
 | Touch targets are too small | buttons 30–36 pt, steppers ± 28 pt, chips about 24 pt, switches 30 pt | below iOS's 44 pt; one-handed taps miss |
 | The type sizes are desktop sizes | body 13, small 11.5, caption 10.5; tab bar 10.5 | on a phone it reads like a desktop view scaled down |
 | Choosing materials is a "shelf" | all 24 films plus paper laid out flat as chips, wedged into the 46% scroll area | a long scroll to find one film; selection is just an orange chip |
 | Landscape falls back to the desktop | the breakpoint only looks at width `< 700`; an iPhone in landscape is 844 pt | a 232 pt sidebar + a 304 pt inspector, leaving about 300 pt of content |
-| The rack and gallery are desktop geometry | gallery margins of 40 pt, one huge print per row; the rack fits at most one per row | one per screen; ten prints means ten screens of swiping |
+| The gallery is desktop geometry | gallery margins of 40 pt, one huge print per row | one per screen; ten prints means ten screens of swiping |
 | A loupe that only works on hover | `Gallery._lookAt` brings out the glass on hover; a touch has no hover | the phone's Loupe switch does nothing |
 | Settings are a drawer pressed over the workbench | the compact branch is still "horizontal tab rail + page" | not an iOS settings page, and it covers the work being done |
 | Changing materials silently clears the strip | `_chooseFilm` / `_choosePaper` / `_setTemperature` replace the strip outright | change film, paper or temperature with prints present and the strip vanishes, with no confirmation |
@@ -50,7 +50,7 @@ None of this is fixed by changing a few colours. It all comes from one premise: 
 
 ## 2. Design principles
 
-1. **One subject.** On the bench the subject is the test print being developed — the original is a row and a wipe, not a page; on Print it is the finished print; on the drying rack it is paper drying; in the gallery it is the same paper, hung. The subject takes most of the screen, and the controls give way.
+1. **One subject.** On the bench the subject is the test print being developed — the original is a row and a wipe, not a page; on Print it is the finished print; in the gallery it is paper on a wall. The subject takes most of the screen, and the controls give way.
 2. **Two levels of navigation at most.** A room is a bottom tab; a step is a top segmented control; a task is a sheet. Never again a room pill plus a room in the bottom bar.
 3. **The main action is always under the thumb.** Each working page has one filled CTA, pinned above the bottom safe area, never hidden in a scrolling panel.
 4. **Controls ≥ 44 pt, body ≥ 15 pt.** This is a phone, not a 27-inch display. Desktop type sizes do not enter the compact shell.
@@ -69,8 +69,6 @@ Kallo
 ├─ Darkroom (bottom tab)
 │  ├─ Develop       ← the bench: original + materials + time + strip
 │  └─ Print         ← finished print + time/exposure/balance/glass
-├─ Drying rack (bottom tab)
-│  └─ Print viewer (full screen, no tabs)
 ├─ Gallery (bottom tab)
 │  └─ Close view (full screen, no tabs)
 └─ Settings (gear, a whole page as a modal)
@@ -81,10 +79,10 @@ Kallo
    └─ About
 ```
 
-- **Three rooms, not four.** Settings is not a room; it is a whole page opened from the gear, and the bottom bar holds three places only. The tab labels are the short names: `Darkroom` / `Rack` / `Gallery` in English (`Rack`, not `Drying rack`), and two characters each in Chinese rather than the rooms' longer names — the rooms are the same; only the label is shortened so three fit under a thumb.
+- **Two rooms, not three.** Settings is not a room; it is a whole page opened from the gear, and the bottom bar holds two places only. The tab labels are the short names: `Darkroom` / `Gallery` in English, and two characters each in Chinese rather than the rooms' longer names — the rooms are the same; only the label is shortened so both fit under a thumb.
 - **Two steps, not three page stacks.** The segmented control switches steps, and state stays where it is. Come back to the Darkroom from the Gallery and you are still on the step you left.
 - **Tasks are sheets.** Film picker, paper picker, temperature, Details, print options, export, confirmation — all sheets; the desktop inspector is not pushed back into the main screen.
-- **Viewing is full screen.** Tapping a print on the rack or on the wall opens a tab-less full-screen viewer; going back keeps the scroll position.
+- **Viewing is full screen.** Tapping a print on the wall opens a tab-less full-screen close view; going back keeps the wall where it was.
 - **Back hierarchy (Android back button / iOS edge swipe):** close the sheet first → then one step back (Print → Develop) → finally leave the Darkroom; a viewer or Settings closes itself first and does not leave the app.
 
 ---
@@ -182,7 +180,7 @@ Still **Inter** (bundled; the goldens use it), no SF Pro, no new face. The phone
 
 | Role | Size / line height | Weight | Use |
 |---|---|---|---|
-| `largeTitle` | 32 / 38 | 600, -0.8 | drying rack, gallery, settings |
+| `largeTitle` | 32 / 38 | 600, -0.8 | gallery, settings |
 | `title` | 22 / 28 | 600, -0.4 | sheet titles, empty-state titles |
 | `headline` | 17 / 22 | 600, -0.2 | CTAs, list rows, buttons |
 | `body` | 17 / 24 | 400 | body text, note paragraphs |
@@ -222,7 +220,7 @@ Rules:
 
 ### 5.4 Icons
 
-- The room and step marks keep the existing `_DarkroomMark`, `_RackMark`, `_GalleryMark`, enlarged to 24 pt, stroke 1.6, round caps.
+- The room and step marks keep the existing `_DarkroomMark` and `_GalleryMark`, enlarged to 24 pt, stroke 1.6, round caps.
 - System symbols (chevron, gear, xmark, search, sun, back, share, check, info) are drawn by hand on the same 24 grid, 1.6 stroke, round caps; no Material Icons, and no relying on SF Symbols.
 - An icon always travels with a word (tabs excepted); nothing is left to be guessed.
 
@@ -231,8 +229,7 @@ Rules:
 - **Navigation / tab**: glass + hairline; no shadow.
 - **deck**: card fill + 0.5 hairline; no shadow. It is a control surface, not a floating card.
 - **Paper**: the `paper` object shadow is allowed (the existing `KalloShadowBox` paper shadow), because it is paper in a room, not a level of the layout.
-- **Rack cards**: paper + a light object shadow + wire + clip; allowed, because it is paper hanging in the air.
-- **Paper on every surface**: the wall hangs paper and the rack hangs paper; there is no film frame, no rebate and no sprocket hole anywhere on the phone. The film's edge is a printing choice, not a way of looking at a print.
+- **Paper on every surface**: the wall hangs paper; there is no film frame, no rebate and no sprocket hole anywhere on the phone. The film's edge is a printing choice, not a way of looking at a print.
 - **Segmented selection**: `card` fill + 0.5 hairline, no projection; in the dark, `fillStrong`.
 
 ### 5.6 Motion and haptics
@@ -273,7 +270,7 @@ deck 236  ╭──────────────────────�
           │ ├──────●───────────────────────┤│
           │ [        Develop 12:00        ] │
           ╰────────────────────────────────╯
-tab 49+34 [ Darkroom ] [ Rack ] [ Gallery ]
+tab 49+34 [ Darkroom ] [ Gallery ]
 ```
 
 - **The bench is the darkroom's first page.** There is no page before the developer: the film and the paper are chosen by looking at the print they make, so they live on the bench.
@@ -348,37 +345,12 @@ deck 192  ╭──────────────────────�
     - Heat glass: a `None / KG1 / KG2 / KG3 / KG5` list, 44 pt rows, with one line of explanation.
 - `Print` opens the print options sheet: size (Original / 6000 / 4000 px) and format (PNG/JPEG), each row 56, with `Print` at the bottom. The options sheet shows the expected pixels and file type.
 - The border is not in the sheet: it is a row on the deck (`边框`, between the heat glass row and the CTA) that carries a small print of the current edge and opens a wordless sheet of the edges as pictures — `无`, `留边·暖`, `留边·中性`, the three light-box reads (`琥珀字`, `白字`, `无字`) — in a 3 × 2 grid. A tap takes one and the sheet stays so the next can be compared; the print preview above updates live. The chosen edge is printed into the one file that goes to the album; there is no second file and no `Frames/` folder, so a phone print can carry a border.
-- While printing: the CTA says `Printing…` and the controls are disabled; on success a toast at the top, `Printed` + `View`, and View goes to the drying rack; on failure one red line above the CTA, no dialog.
+- While printing: the CTA says `Printing…` and the controls are disabled; on success a toast at the top, `Printed` + `View`, and View goes to the wall the print landed on; on failure one red line above the CTA, no dialog.
 - No prints: the whole page is an empty state + `To the developer`; do not leave the Print step tappable and empty.
 - Reversal: there is no Print; the Print segment in the step control shows as unavailable and says why.
 - Details: the same sheet as Develop, showing the paper curve for the current settings.
 
-### 6.3 Drying rack: two columns of paper
-
-```text
-status 47
-nav 98    Drying rack                     ⚙
-          4 prints · newest first
-content   ┌─────────┐  ┌─────────┐
-          │ 01 15:00│  │ 01 13:30│   two columns
-          │ paper   │  │ paper   │
-          └─────────┘  └─────────┘
-          ┌─────────┐  ┌─────────┐
-          │ 01 12:00│  │ 01 10:30│
-          └─────────┘  └─────────┘
-tab
-```
-
-- A large title at 32/600, the subtitle "4 prints · newest first"; the gear at the top right.
-- 2 columns, margin 16, gap 12; each sheet is about 171 wide, following the original's proportions, never cropped to a square.
-- A card = paper + a 6 pt white edge + 0.5 hairline + object shadow + a 9 × 13 clip at the top + a 1 pt wire; the wire is the room's, not a divider.
-- Under the image, at 10 pt: `01 · 15:00` (tabular) + the film's short name; no meaningless "1 of 1".
-- A job still developing sits at the top as one `Developing 15:00…` card with a 2 pt progress; it does not block the list.
-- Empty state: the wire + a clip icon, `Nothing on the rack`, `Make a print in the darkroom. It will hang here while it dries.`, `Open the Darkroom`.
-- Tap one → full-screen viewer: black, a 44 pt back/title/export bar at the top, the image `contain`, pinch to zoom, double-tap 1:1, swipe down to close; material/time/temperature/date at the bottom; no tab bar.
-- The desktop's existing `Rack` geometry (138 pt wire, 28 pt margins, 260 max width) stays for the desktop; the phone gets the new grid.
-
-### 6.4 Gallery: a wall
+### 6.3 Gallery: a wall
 
 ```text
 status 47
@@ -405,7 +377,7 @@ tab
 - Import is the wall's own act: the header's tray icon brings pictures into the library and onto the wall, and the wall glides to what arrived. It is not in Settings any more.
 - Sorting is still newest first; if the list is empty when the gallery opens, show the empty state, not an empty wall.
 
-### 6.5 Settings: a whole page, not a drawer
+### 6.4 Settings: a whole page, not a drawer
 
 ```text
 status 47
@@ -458,7 +430,7 @@ content   APPEARANCE
 | Component | Spec |
 |---|---|
 | `MobileNavBar` | 52 high; segment 34 high, 2 equal parts (196 wide), track `fill`, selected `card` + 0.5 hairline; gear 44 × 44; 16 on both sides; glass + hairline |
-| `MobileTabBar` | 49 + safe; 3 equal parts; icons 24, labels 10.5; selected accent; top hairline; no shadow |
+| `MobileTabBar` | 49 + safe; 2 equal parts; icons 24, labels 10.5; selected accent; top hairline; no shadow |
 | `MobileStageTabs` | 2 segments; touch area ≥ 44; `Semantics(selected:)`; step switch 160 ms |
 | `MobileCTA` | 50 high, radius 14, accent, onAccent, 17/600; disabled fill; min width 200 |
 | `InstrumentDeck` | 12 on both sides, 12 at the bottom, 192–236 high, radius 16, card, hairline; 10–14 padding inside; CTA pinned to the bottom |
@@ -470,9 +442,7 @@ content   APPEARANCE
 | `SettingsGroup` | 12–16 radius; rows 44; header 11 uppercase; footer 10.5–13; switch/segments use native semantics |
 | `EmptyState` | icon 76 on a rounded background; title 22; body 13; CTA 50; at most two lines of note |
 | `Toast` | 12 above the bottom tab bar; pill card; 17/500; disappears after 4 s; carries one action |
-| `PrintCard` (rack) | paper white, 6 pt edge, 0.5 hairline, object shadow, clip, wire; the image is never cropped |
 | `PrintSheet` (gallery) | the picture on paper; a margin of 3% of the sheet's width on the sides and 2.2× that at the bottom; paper and a hairline edge; the wall's 300-point landscape sheet (area-equal turned), so a felt width depends on the pinch |
-| `Viewer` | full screen, black; 44 at the top; pinch zoom, double-tap 1:1, swipe down to close; metadata at the bottom; no tab bar |
 
 ---
 
@@ -510,7 +480,6 @@ Confirmations use the iOS action-sheet shape: a title + one line of explanation 
 | Printing | CTA `Printing…`; controls disabled; success toast |
 | Print failed | red line in place + retry; current settings are not lost |
 | No test prints | empty state + go to Develop |
-| The rack is empty | empty state + go to the Darkroom |
 | The gallery is empty | an empty wall + go to Print |
 | Library permission limited | the settings/library rows explain; do not pretend all photographs are there |
 | No network | nothing depends on the network; only a failed GitHub link is handed to the system |
@@ -528,7 +497,7 @@ Confirmations use the iOS action-sheet shape: a title + one line of explanation 
 ### 8.5 Language and copy
 
 - The app has two languages: English and Chinese. Settings offers three options — `Follow the system`, `English`, `Chinese` — and the words follow the choice.
-- The Chinese tabs are two characters each where English needs `Darkroom` / `Rack` / `Gallery`; the shorter labels are why both languages fit the same three-slot bar, and the layout is measured against the longer English labels.
+- The Chinese tabs are two characters each where English needs `Darkroom` / `Gallery`; the shorter labels are why both languages fit the same two-slot bar, and the layout is measured against the longer English labels.
 - Buttons are verbs: `To the developer`, `Develop`, `Print`, `Choose a photograph…`, `Open the Darkroom`.
 - Destructive buttons name the thing: `Start a New Strip`, never `OK`.
 - Technical words stay: `C-41`, `RA-4`, `EV`, `CC`, `KG2`, `Gamma`, `D-max`, `sRGB`; numbers are not translated in either language.
@@ -559,7 +528,7 @@ app/lib/
     develop_stage.dart      ← compact branch: the bench — paper, materials sheet,
                               wipe, strip, clock/ruler/CTA
     print_stage.dart        ← compact branch: 2×2 controls + print options
-    rack.dart / gallery.dart ← compact grid, empty states, viewer callbacks
+    gallery.dart ← the wall, empty states, close-view callbacks
   main.dart                 ← portrait lock on phones; callback API unchanged
 ```
 
@@ -567,10 +536,10 @@ app/lib/
 - The phone's stages use the existing `TestStrip`, `Print`, `Catalogue` and `ui.Image` data; no model logic is copied, and the callback signatures in `main.dart` are unchanged.
 - The picker sheets are implemented by `MobileStudio` with `Overlay` + `AnimationController`; not Material's `showModalBottomSheet` (which would bring in Material semantics/theme).
 - The existing `KalloShadowBox` paper/sheet assets stay in use for paper and sheets; the deck and nav do not use them.
-- `Rack` / `Gallery`: the desktop implementation is untouched; the phone gets new `rack_view` / `gallery_view` that reuse the zoom/preview core of `Print`, `PrintThumbnailCache`, the wall's `PrintSheet` and `PrintViewer` (the pure image logic is extracted; the decode logic is not copied).
+- `Gallery`: the desktop implementation is untouched; the phone gets its own wall that reuses the zoom/preview core of `Print`, `PrintThumbnailCache` and the wall's `PrintSheet` (the pure image logic is extracted; the decode logic is not copied).
 - `SettingsDrawer`: kept on the desktop; the phone gets a new `settings_view` that reuses `ExportSetting`, `Settings` and `AppInfo`.
 - Phone status bar: `AnnotatedRegion<SystemUiOverlayStyle>`; on Android, `SystemChrome.setEnabledSystemUIMode(edgeToEdge)` already has a configuration check.
-- Performance: `BackdropFilter` is used only on the 52 pt nav and the 83 pt tab bar, never on a whole page or a whole photograph; the rack and gallery keep going through `PrintThumbnailCache` (512 thumbnails + the viewer's preview/detail two levels), so a two-column grid does not decode more originals; sheet animations change only transform/opacity, avoiding a whole-page relayout.
+- Performance: `BackdropFilter` is used only on the 52 pt nav and the 83 pt tab bar, never on a whole page or a whole photograph; the wall keeps going through `PrintThumbnailCache` (512 thumbnails + the close view's preview/detail two levels), so walking it does not decode more originals; sheet animations change only transform/opacity, avoiding a whole-page relayout.
 
 ### 9.2 Phases
 
@@ -580,7 +549,7 @@ app/lib/
 | **2. The bench** | the test print as the subject, the materials row and sheet, the wipe, the empty state, destructive confirmations | paper, materials and CTA fit in one screen; no 24 chips; material changes confirm first |
 | **3. Develop** | test print as the subject, deck, time ruler, strip, temperature/Details sheets | paper, time, prints and CTA fit in one screen; dragging is smooth; curves are off the main screen |
 | **4. Print** | 2×2 controls, four sheets, print options, success toast | all four values change and the image updates live; Print needs no panel scrolling |
-| **5. Rack / Gallery / Viewer** | two-column grid, empty states, lamp, pinch viewer, no hover loupe | at least two papers per screen; the viewer zooms and returns |
+| **5. Gallery** | the wall, empty state, lamp, pinch close view, no hover loupe | papers on a walkable wall; the close view zooms and returns |
 | **6. Settings / landscape / accessibility** | grouped settings, landscape workbench, Dynamic Type, VoiceOver, haptics | no overflow at 1.3×; landscape does not crash; tab/sheet back is correct |
 
 ### 9.3 Tests
@@ -593,8 +562,8 @@ app/lib/
   - changing film/paper/temperature with prints present asks for confirmation;
   - an empty state's CTA reaches the next step;
   - sheets close by pulling down or tapping the scrim.
-- New phone goldens: `test/goldens/macos/mobile/{select,develop,print,rack,gallery}.png`, drawn with the synthetic test card, with no photographs of people. They use the existing `studio-goldens` opt-in.
-- Integration test: on iPhone/Android, drive a **synthetic picture** through the bench → film → paper → develop 3/6/9 → print → drying rack → gallery → settings; personal photographs never enter the repository.
+- New phone goldens: `test/goldens/macos/mobile/{select,develop,print,gallery}.png`, drawn with the synthetic test card, with no photographs of people. They use the existing `studio-goldens` opt-in.
+- Integration test: on iPhone/Android, drive a **synthetic picture** through the bench → film → paper → develop 3/6/9 → print → gallery → settings; personal photographs never enter the repository.
 - Desktop: the existing macOS goldens and the widget tests all pass; the CI checks all pass.
 
 ### 9.4 Not doing
@@ -618,7 +587,7 @@ app/lib/
 - [ ] Changing film/paper/temperature/photograph confirms first when prints exist, and says how many will be cleared.
 - [ ] The main Develop screen holds only paper, time ruler, strip and CTA; curves are in the Details sheet.
 - [ ] The four Print values are visible at a glance; tapping any opens a sheet and the picture stays visible; Print opens the options sheet.
-- [ ] The rack and gallery are 2 columns on the phone; a single print is a centred sheet on the wall; the empty states have a CTA.
+- [ ] The wall walks and pinches on the phone; the empty state has a CTA.
 - [ ] The phone has no Loupe switch; the viewer supports pinch, double-tap 1:1, and swipe down to close.
 - [ ] Settings is a whole-page grouped list, not a horizontal tab rail + drawer.
 - [ ] 1.3× type does not overflow; VoiceOver can read steps/materials/time/CC/lamp.
@@ -642,7 +611,7 @@ Android photo permission is on demand too: the app reads the state at launch and
 
 - The existing design rules: `app/README.md` (no Material, no layout shadows, one accent, closed spacing/radius/type ramps, nothing on screen is invented here).
 - The existing desktop goldens: `app/test/goldens/macos/`.
-- The existing compact branch: `app/lib/views/studio.dart`, `develop_stage.dart`, `print_stage.dart`, `gallery.dart`, `rack.dart`, `drawer.dart`.
+- The existing compact branch: `app/lib/views/studio.dart`, `develop_stage.dart`, `print_stage.dart`, `gallery.dart`, `drawer.dart`.
 - The boards for this plan: [board-1.png](board-1.png), [board-2.png](board-2.png), [board-3.png](board-3.png), [mockups.html](mockups.html).
 
 > The boards are a direction, not final pixels: 390 × 844, Inter, real type sizes and touch targets. When building, the closed tokens of section 5 are the authority. The current implementation passes `flutter analyze`, the full widget tests and the fifteen desktop goldens; the phone tests live in `app/test/mobile_test.dart`.
