@@ -137,7 +137,10 @@ kalo contact photo.png -o out/proof.png --dev 3,6,9,12,15
 A camera raw file is read as linear light directly: ARW, NEF, CR2/CR3, RAF,
 ORF, RW2, PEF, DNG and the rest of what FlashRaw decodes, about thirty
 extensions in all. The decoder is on by default; build with
-`--no-default-features` for a binary that reads only ordinary images.
+`--no-default-features` for a binary that reads only ordinary images. The app
+reads the same files: the darkroom's photograph can be a camera raw, and the
+model develops it for the bench because the window's own decoder does not read
+a sensor mosaic.
 
 > **macOS:** if `cargo build` fails with *"You have not agreed to the Xcode
 > license agreements"*, run `sudo xcodebuild -license accept` once.
