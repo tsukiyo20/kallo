@@ -881,9 +881,14 @@ dependencies = [
 name = "kallo-core"
 version = "0.1.0"
 dependencies = [
+ "kallo-data",
  "kallo-spectral",
  "rayon",
 ]
+
+[[package]]
+name = "kallo-data"
+version = "0.1.0"
 
 [[package]]
 name = "kallo-gpu"
