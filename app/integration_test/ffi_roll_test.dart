@@ -31,7 +31,7 @@ void main() {
     expect(photograph.existsSync(), isTrue, reason: 'the test photograph');
 
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-ffi-');
+        await Directory.systemTemp.createTemp('kallo-ffi-');
     addTearDown(() => folder.delete(recursive: true));
 
     final List<File> frames = <File>[
@@ -96,7 +96,7 @@ void main() {
     final File photograph = File('../../file-test/DSC03315.ARW');
     expect(photograph.existsSync(), isTrue, reason: 'the raw fixture');
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-ffi-raw-');
+        await Directory.systemTemp.createTemp('kallo-ffi-raw-');
     addTearDown(() => folder.delete(recursive: true));
     final List<File> frames = <File>[
       for (int i = 0; i < 5; i++) File('${folder.path}/0${i + 1}.png'),
@@ -129,7 +129,7 @@ void main() {
     final bool loaded = await loadLinkedModel();
     expect(loaded, isTrue);
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-chart-');
+        await Directory.systemTemp.createTemp('kallo-chart-');
     addTearDown(() => folder.delete(recursive: true));
 
     final Roll roll = await develop(

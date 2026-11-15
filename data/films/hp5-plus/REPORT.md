@@ -1,6 +1,6 @@
 # ILFORD HP5 PLUS: one measurement out of five
 
-*Kallotype film-data series, report 8 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 8 of 24. Version 1, 2026-11-08.
 Data: `hp5-plus.kalofilm` (5,552 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -238,7 +238,7 @@ No image of the data sheet is reproduced in this directory.
    2018, pages 1–6.
 2. HARMAN technology Limited, *HP5 PLUS テクニカルインフォメーション*, February
    2023, a translation of the same document.
-3. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-4. Kallotype, *KODAK TRI-X 400: one record, and two curves that are not its own*,
+3. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+4. Kallo, *KODAK TRI-X 400: one record, and two curves that are not its own*,
    `../trix-400/REPORT.md` — the other silver film, whose sheet publishes four
    of the five fields.

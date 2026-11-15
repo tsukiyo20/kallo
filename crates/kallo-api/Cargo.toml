@@ -1,0 +1,31 @@
+[package]
+name = "kallo-api"
+description = "The use-case layer: load a photograph, develop it, print it"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+publish = false
+
+[features]
+default = ["gpu", "raw"]
+# Render on the device when there is one. The CLI's report names the backend.
+gpu = ["dep:kallo-gpu"]
+# Read camera raws. The decoder is MIT/Apache-2.0, so this is a default.
+raw = ["dep:kallo-raw"]
+
+[dependencies]
+kallo-core = { path = "../kallo-core", version = "0.1.0" }
+kallo-gpu = { path = "../kallo-gpu", version = "0.1.0", optional = true }
+kallo-io = { path = "../kallo-io", version = "0.1.0" }
+kallo-raw = { path = "../kallo-raw", version = "0.1.0", optional = true }
+kallo-spectral = { path = "../kallo-spectral", version = "0.1.0" }
+kallo-view = { path = "../kallo-view", version = "0.1.0" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

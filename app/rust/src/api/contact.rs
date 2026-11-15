@@ -1,6 +1,6 @@
 //! The proof, on its own: one exposure of the whole ladder.
 
-use kallotype_api::{contact, resolve, ContactOptions, Exposure, StockChoice};
+use kallo_api::{contact, resolve, ContactOptions, Exposure, StockChoice};
 
 /// What a proof asks for.
 #[derive(Debug, Clone)]
@@ -64,9 +64,9 @@ pub fn make_contact(job: ContactJob) -> Result<ContactReport, String> {
         ..StockChoice::default()
     };
     let selection = resolve(&choice).map_err(|error| error.to_string())?;
-    let source = kallotype_api::read_input(
+    let source = kallo_api::read_input(
         std::path::Path::new(&job.input),
-        kallotype_io::InputEncoding::Srgb,
+        kallo_io::InputEncoding::Srgb,
     )
     .map_err(|error| error.to_string())?;
     let options = ContactOptions {

@@ -1,6 +1,6 @@
 # KODAK PROFESSIONAL PORTRA 800: an axis printed out of order
 
-*Kallotype film-data series, report 6 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 6 of 24. Version 1, 2026-11-08.
 Data: `portra-800.kalofilm` (6,358 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -312,6 +312,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK PROFESSIONAL PORTRA 800 Film*, publication
    E-4040, revised 2-16, pages 4 and 5.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, *KODAK PROFESSIONAL PORTRA 400: the negative that rises*,
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, *KODAK PROFESSIONAL PORTRA 400: the negative that rises*,
    `../portra-400/REPORT.md` — the same `Log H Ref` anchor at ISO 400.

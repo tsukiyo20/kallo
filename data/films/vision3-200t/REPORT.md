@@ -1,6 +1,6 @@
 # KODAK VISION3 200T: the note inside the plot
 
-*Kallotype film-data series, report 15 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 15 of 24. Version 1, 2026-11-09.
 Data: `vision3-200t.kalofilm` (5,651 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -180,5 +180,5 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK VISION3 200T Color Negative Film 5213/7213 —
    Technical Data*, publication H-1-5213, pages 3 and 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/vision3-250d/REPORT.md` — the family's layout and method.
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/vision3-250d/REPORT.md` — the family's layout and method.

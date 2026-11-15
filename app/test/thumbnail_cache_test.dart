@@ -22,7 +22,7 @@ void main() {
 
   test('a scanned print has a shape but no pixels', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-scan-',
+      'kallo-scan-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final ui.Image card = await _card();
@@ -39,7 +39,7 @@ void main() {
 
   test('a thumbnail is made once and kept on disk', () async {
     final Directory folder = await Directory.systemTemp.createTemp(
-      'kallotype-thumb-',
+      'kallo-thumb-',
     );
     addTearDown(() => folder.delete(recursive: true));
     final Directory cacheDirectory = Directory('${folder.path}/thumbs');

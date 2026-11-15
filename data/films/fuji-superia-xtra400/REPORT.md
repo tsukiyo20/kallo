@@ -1,6 +1,6 @@
 # FUJICOLOR SUPERIA X-TRA 400: the bitmap consumer 400
 
-*Kallotype film-data series, report 24 of 24. Version 1, 2026-11-10.
+*Kallo film-data series, report 24 of 24. Version 1, 2026-11-10.
 Data: `fuji-superia-xtra400.kalofilm` (6,119 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -211,7 +211,7 @@ points they produce are here.
 
 1. Fuji Photo Film Co., *FUJICOLOR SUPERIA X-TRA 400 — Product Information
    Bulletin*, publication AF3-0217E, page 6.
-2. Kallotype, `films/gold-200/REPORT.md` — the 200-speed sheet of the same
+2. Kallo, `films/gold-200/REPORT.md` — the 200-speed sheet of the same
    drawing system.
-3. Kallotype, `films/kodak-ultramax-400/REPORT.md` — the sheet that prints a
+3. Kallo, `films/kodak-ultramax-400/REPORT.md` — the sheet that prints a
    reference exposure this one does not.

@@ -1,6 +1,6 @@
 # KODAK T-MAX 100: the slow panchromatic film
 
-*Kallotype film-data series, report 23 of 24. Version 1, 2026-11-10.
+*Kallo film-data series, report 23 of 24. Version 1, 2026-11-10.
 Data: `kodak-tmax-100.kalofilm` (5,564 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -97,4 +97,4 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK PROFESSIONAL T-MAX 100 Film — Technical Data*,
    publication F-4016, page 8.
-2. Kallotype, `films/tmax-400/REPORT.md` — its faster sibling.
+2. Kallo, `films/tmax-400/REPORT.md` — its faster sibling.

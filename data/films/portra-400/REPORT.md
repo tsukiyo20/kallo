@@ -1,6 +1,6 @@
 # KODAK PROFESSIONAL PORTRA 400: the negative that rises
 
-*Kallotype film-data series, report 5 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 5 of 24. Version 1, 2026-11-08.
 Data: `portra-400.kalofilm` (6,268 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -407,6 +407,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK PROFESSIONAL PORTRA 400 Film*, publication
    E-4050, revised 2-16, page 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
 3. Eastman Kodak Company, *KODAK PROFESSIONAL EKTAR 100 Film*, publication
    E-4046 (the second sheet confirming that the dye panel is neutral + D-min).

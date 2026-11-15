@@ -1,5 +1,5 @@
 # Kallo
-The interface of Kallotype.
+The interface of Kallo.
 
 This is not a widget library and not a design system for other people to use.
 It is **this app's vocabulary**, written down once so that every screen after it
@@ -18,7 +18,7 @@ sheets.
 
 ## Name and mark
 
-The app is **Kallo**; the model, the CLI and the repository are **Kallotype**.
+The app, the model, the CLI, the crates and the repository are all **Kallo**.
 The window titles, the sidebar wordmark and every platform's display name say
 Kallo. The Dart package is `kallo`; the iOS bundle identifier is
 `io.github.tsukiyo20.kallo`, and the other platforms still use `com.kallo.app`
@@ -235,7 +235,7 @@ the desktop does not use the phone's.
 | **The print step is the enlarger dialled** | The chosen development is printed again at the photograph's size, balanced on its own negative, with the timer, the CC pack and the heat glass. It is not a copy of the strip's print: the strip is one exposure; the finished print is the one dialled for this photograph. The panel draws the paper's curve under those settings — the timer, the pack and the glass move it — so the picture and the instrument are the same enlarger. Pressing *print* opens a sheet for the size (original, 6000 or 4000 pixels) and the file format (PNG or JPEG). |
 | **The drying rack is what came out** | A place beside the darkroom, not a fourth step: lines of wire across the room, each print held by a clip, newest first, wrapping into as many columns as the window holds and scrolling down to the next line. The paper has a shadow because it is in the air; clicking one takes it into the room's own viewer, where it can be pinched or scrolled. The sidebars are the window's and keep their own switches; the viewer sits on the rack's ground in the current appearance, not in a fixed black room. The print fades up; closing fades it away and puts the same line back, with its scroll position kept. A corner says what is still being made. The gallery is the same files looked at properly, as film. |
 | **The path is a choice** | Exposure, print and scan go through the spectrum — 71 wavelengths, reconstructed from the input and integrated against each layer's sensitivity — or through one number per channel. It is a setting because the model keeps it opt-in: the structure is physical end to end, and the data under it is mixed — the curves and layer sensitivities of twenty-one films are measured, the papers are, the illuminant is CIE D50, and fifteen films still borrow their dye shapes because their sheets print a neutral instead of three dyes. The select panel and the catalogue say per film which is which. The two paths are different photographs, not different labels, and the strip remembers which made it: a print of that strip is made the same way. |
-| **The model is the app's own library** | The app's Dart package (`kallo`) links `kallotype-api` through `flutter_rust_bridge`; a strip print is one call, and a finished print is the same pipeline at the photograph's size. A roll and its contact proof are one call for the CLI, from one read of the photograph. The `kalo` binary is still underneath as the fallback when the library cannot load — tests run that way — and both answer the same `Model`, because the binding was written to the shape the subprocess already had. |
+| **The model is the app's own library** | The app's Dart package (`kallo`) links `kallo-api` through `flutter_rust_bridge`; a strip print is one call, and a finished print is the same pipeline at the photograph's size. A roll and its contact proof are one call for the CLI, from one read of the photograph. The `kalo` binary is still underneath as the fallback when the library cannot load — tests run that way — and both answer the same `Model`, because the binding was written to the shape the subprocess already had. |
 | **Two rooms, a rack, three steps** | The darkroom and the gallery are rooms; the drying rack is the place between them. In the darkroom: select, develop, print — the photograph, the strip and the finished print. The rack has no steps and neither does the gallery: a line is hung, a wall is looked at. The old six places are gone; the shelf's job is the select step, the bench's is develop and print, the rack's is the paper. |
 | **The test strip is the proof, made one print at a time** | A proof is the film laid on paper and exposed once. The strip is that idea with the person's hand in it: one print per development, all on the first print's exposure, laid side by side. Each print is scaled to the strip's height and takes the width its own shape asks for, so a portrait and a landscape print sit on the same strip without being cropped or overflowing. A longer development makes a denser negative, so on one exposure it prints lighter; the strip says that before the finished print is dialled. The prints are rendered, not drawn: each is a real 1200 px print, and the densitometer reads its chart. |
 | **A frame can be looked through, then walked up to** | The loupe is a switch beside the lamp, put away by default. With it out, hovering a frame brings a loupe to the pointer: three times the wall, from the print's own file decoded wide enough to be sharp, with the 35 mm rebate still in the glass. The picture under the lens bows slightly at its edge — glass is not a window — while the rebate and the sprocket holes stay flat. The switch belongs to the wall, so it goes when a print fills the window; the lamp stays. Clicking opens the frame at the file's own size: the film keeps its size and shape — this is a loupe on film, not a picture viewer — and the picture is magnified *inside* the aperture, clipped by the gate, up to 1:1, one image pixel per device pixel, which is as far as the file goes. That close view is flat: it moves the picture under the gate and never bends the file. The label under it says the file's pixels and the scale; escape puts it back on the wall, and the lamp comes with you. The same view opens an export sheet: the size is the print's own by default or 4096 pixels, and the format is JPEG, PNG or TIFF. |
@@ -340,7 +340,7 @@ translates.
 ## What is deliberately not here
 
 - **The model.** The nine densities on every frame are read from
-  `assets/film_strip.json`, written by `just view` from `kallotype-view`. The
+  `assets/film_strip.json`, written by `just view` from `kallo-view`. The
   roll is VISION3 500T developed five times, not a shape invented to look like
   one. Regenerate it; never edit it.
 - **A developed roll's chart is the film's, not the picture's.** The library

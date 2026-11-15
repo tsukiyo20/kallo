@@ -1,0 +1,352 @@
+// The spatial effects, as a separable blur split over two passes.
+//
+// Halation and the DIR couplers are different physics with the same shape: a
+// quantity produced at one pixel arrives, reduced, at its neighbours. Both are a
+// Gaussian whose width is given in micrometres of film, so the kernels arrive
+// precomputed and normalised — the shader neither builds nor normalises one, it
+// only applies them.
+//
+// A separable blur is two dispatches: this file's horizontal pass writes the
+// half-blurred plane, its vertical pass reads it back. That is the whole reason
+// the chain exists.
+//
+// Edges repeat the border pixel rather than renormalising the kernel, which is
+// what keeps a uniform field flat right up to the border — the same choice
+// `kallo_core::psf` makes, and it has to be the same one or the two backends
+// disagree in a band a few pixels wide.
+
+// How much inhibitor a layer releases at a density: saturating, because the
+// coupler is consumed.
+fn coupler_release(value: f32, half: f32) -> f32 {
+    let density = max(value, 0.0);
+    return density / (density + half);
+}
+
+// The light that reaches the base is what the scene threw at the film, not the
+// density it produced: the halo source is the exposure averaged over the layers.
+fn halo_source(pixel: vec3<f32>) -> f32 {
+    return (exp2(pixel.x * LOG2_10) + exp2(pixel.y * LOG2_10) + exp2(pixel.z * LOG2_10)) / 3.0;
+}
+
+fn image_width() -> u32 {
+    return params.grain.z;
+}
+
+fn image_height() -> u32 {
+    return params.band.y;
+}
+
+fn tap_index(value: i32, limit: u32) -> u32 {
+    return u32(clamp(value, 0, i32(limit) - 1));
+}
+
+// A lane of a `vec3`, by index. WGSL will not index a vector with a runtime
+// value in a uniform-control-flow context, and the loop over layers is exactly
+// that.
+fn channel(value: vec3<f32>, layer: u32) -> f32 {
+    if (layer == 0u) {
+        return value.x;
+    }
+    if (layer == 1u) {
+        return value.y;
+    }
+    return value.z;
+}
+
+fn with_channel(value: vec3<f32>, layer: u32, replacement: f32) -> vec3<f32> {
+    var out = value;
+    if (layer == 0u) {
+        out.x = replacement;
+    } else if (layer == 1u) {
+        out.y = replacement;
+    } else {
+        out.z = replacement;
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// The emulsion's own blur, before development: the film's point spread.
+//
+// It is a separable Gaussian per layer, and it runs on the exposure — light
+// that has already been scattered in the emulsion, not density. The three
+// layers have their own width, which is why the kernels are indexed by layer
+// and a layer with no kernel is passed over rather than convolved with zero.
+// ---------------------------------------------------------------------------
+
+@compute @workgroup_size(64)
+fn blur_horizontal(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&scratch)) {
+        return;
+    }
+    let width = image_width();
+    let x = i32(index % width);
+    let row = index - u32(x);
+
+    var blurred = vec3<f32>(0.0);
+    for (var layer = 0u; layer < 3u; layer = layer + 1u) {
+        let length = params.blur_lengths[layer];
+        if (length == 0u) {
+            continue;
+        }
+        let radius = i32(length / 2u);
+        let offset = params.blur_offsets[layer];
+        var sum = 0.0;
+        for (var tap = 0u; tap < length; tap = tap + 1u) {
+            let source_x = tap_index(x + i32(tap) - radius, width);
+            let source = exposure[row + source_x].xyz;
+            sum = sum + kernels[offset + tap] * exp2(channel(source, layer) * LOG2_10);
+        }
+        blurred = with_channel(blurred, layer, sum);
+    }
+    scratch[index] = vec4<f32>(blurred, 0.0);
+}
+
+@compute @workgroup_size(64)
+fn blur_vertical(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&exposure)) {
+        return;
+    }
+    let width = image_width();
+    let height = image_height();
+    let x = index % width;
+    let y = i32(index / width);
+
+    var updated = exposure[index].xyz;
+    for (var layer = 0u; layer < 3u; layer = layer + 1u) {
+        let length = params.blur_lengths[layer];
+        if (length == 0u) {
+            continue;
+        }
+        let radius = i32(length / 2u);
+        let offset = params.blur_offsets[layer];
+        var sum = 0.0;
+        for (var tap = 0u; tap < length; tap = tap + 1u) {
+            let source_y = tap_index(y + i32(tap) - radius, height);
+            sum = sum + kernels[offset + tap] * channel(scratch[source_y * width + x].xyz, layer);
+        }
+        updated = with_channel(updated, layer, log10_cpu(max(sum, 1e-10)));
+    }
+    exposure[index] = vec4<f32>(updated, 0.0);
+}
+
+// ---------------------------------------------------------------------------
+// Halation, before development: it is light exposing the emulsion.
+// ---------------------------------------------------------------------------
+
+@compute @workgroup_size(64)
+fn halation_horizontal(@builtin(global_invocation_id) id: vec3<u32>) {
+    // One workgroup row per image row: 65 535 workgroups per dispatch
+    // dimension is the WebGPU limit, which a 4 MP image already exceeds
+    // in one dimension.
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&scratch)) {
+        return;
+    }
+    let width = image_width();
+    let x = i32(index % width);
+    let row = index - u32(x);
+
+    var scatter = 0.0;
+    let scatter_length = u32(params.halation_scatter.w);
+    if (scatter_length > 0u) {
+        let radius = i32(scatter_length / 2u);
+        let offset = u32(params.halation_offsets.x);
+        for (var tap = 0u; tap < scatter_length; tap = tap + 1u) {
+            let source_x = tap_index(x + i32(tap) - radius, width);
+            scatter = scatter + kernels[offset + tap] * halo_source(exposure[row + source_x].xyz);
+        }
+    }
+
+    var reflection = 0.0;
+    let reflection_length = u32(params.halation_reflection.w);
+    if (reflection_length > 0u) {
+        let radius = i32(reflection_length / 2u);
+        let offset = u32(params.halation_offsets.y);
+        for (var tap = 0u; tap < reflection_length; tap = tap + 1u) {
+            let source_x = tap_index(x + i32(tap) - radius, width);
+            reflection = reflection + kernels[offset + tap] * halo_source(exposure[row + source_x].xyz);
+        }
+    }
+
+    scratch[index] = vec4<f32>(scatter, reflection, 0.0, 0.0);
+}
+
+@compute @workgroup_size(64)
+fn halation_vertical(@builtin(global_invocation_id) id: vec3<u32>) {
+    // One workgroup row per image row: 65 535 workgroups per dispatch
+    // dimension is the WebGPU limit, which a 4 MP image already exceeds
+    // in one dimension.
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&exposure)) {
+        return;
+    }
+    let width = image_width();
+    let height = image_height();
+    let x = index % width;
+    let y = i32(index / width);
+
+    var scatter = 0.0;
+    let scatter_length = u32(params.halation_scatter.w);
+    if (scatter_length > 0u) {
+        let radius = i32(scatter_length / 2u);
+        let offset = u32(params.halation_offsets.x);
+        for (var tap = 0u; tap < scatter_length; tap = tap + 1u) {
+            let source_y = tap_index(y + i32(tap) - radius, height);
+            scatter = scatter + kernels[offset + tap] * scratch[source_y * width + x].x;
+        }
+    }
+
+    var reflection = 0.0;
+    let reflection_length = u32(params.halation_reflection.w);
+    if (reflection_length > 0u) {
+        let radius = i32(reflection_length / 2u);
+        let offset = u32(params.halation_offsets.y);
+        for (var tap = 0u; tap < reflection_length; tap = tap + 1u) {
+            let source_y = tap_index(y + i32(tap) - radius, height);
+            reflection = reflection + kernels[offset + tap] * scratch[source_y * width + x].y;
+        }
+    }
+
+    // The halo is light, so it adds to the exposure and then goes back through
+    // the logarithm: a black area next to a highlight really does get exposed.
+    let log_e = exposure[index].xyz;
+    var updated = vec3<f32>(0.0);
+    for (var layer = 0u; layer < 3u; layer = layer + 1u) {
+        let current = max(exp2(log_e[layer] * LOG2_10), 1e-10);
+        let added = params.halation_scatter[layer] * scatter
+            + params.halation_reflection[layer] * reflection;
+        updated[layer] = log10_cpu(current + added);
+    }
+    exposure[index] = vec4<f32>(updated, 0.0);
+}
+
+// ---------------------------------------------------------------------------
+// Development, between the two effects.
+// ---------------------------------------------------------------------------
+
+@compute @workgroup_size(64)
+fn develop_pass(@builtin(global_invocation_id) id: vec3<u32>) {
+    // One workgroup row per image row: 65 535 workgroups per dispatch
+    // dimension is the WebGPU limit, which a 4 MP image already exceeds
+    // in one dimension.
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&density)) {
+        return;
+    }
+    // Grain is a function of the global pixel, not of this dispatch's buffer:
+    // a band starts at `band.x` and every body row must draw the same number
+    // the whole-frame render would have drawn.
+    let global = index + params.band.x * params.grain.z;
+    density[index] = vec4<f32>(develop(global, exposure[index].xyz), 0.0);
+}
+
+// ---------------------------------------------------------------------------
+// DIR couplers, after development: the inhibitor acts on what has already formed.
+// ---------------------------------------------------------------------------
+
+@compute @workgroup_size(64)
+fn couplers_horizontal(@builtin(global_invocation_id) id: vec3<u32>) {
+    // One workgroup row per image row: 65 535 workgroups per dispatch
+    // dimension is the WebGPU limit, which a 4 MP image already exceeds
+    // in one dimension.
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&scratch)) {
+        return;
+    }
+    let length = u32(params.couplers2.w);
+    if (length == 0u) {
+        scratch[index] = vec4<f32>(0.0);
+        return;
+    }
+
+    let width = image_width();
+    let x = i32(index % width);
+    let row = index - u32(x);
+    let half = max(params.couplers.w, 1e-9);
+    let radius = i32(length / 2u);
+    let offset = u32(params.couplers3.w);
+
+    var blurred = vec3<f32>(0.0);
+    for (var tap = 0u; tap < length; tap = tap + 1u) {
+        let source_x = tap_index(x + i32(tap) - radius, width);
+        let neighbour = density[row + source_x].xyz;
+        let released = vec3<f32>(
+            coupler_release(neighbour.x, half),
+            coupler_release(neighbour.y, half),
+            coupler_release(neighbour.z, half),
+        );
+        blurred = blurred + kernels[offset + tap] * released;
+    }
+    scratch[index] = vec4<f32>(blurred, 0.0);
+}
+
+@compute @workgroup_size(64)
+fn couplers_vertical(@builtin(global_invocation_id) id: vec3<u32>) {
+    // One workgroup row per image row: 65 535 workgroups per dispatch
+    // dimension is the WebGPU limit, which a 4 MP image already exceeds
+    // in one dimension.
+    if (id.x >= params.grain.z) {
+        return;
+    }
+    let index = id.y * params.grain.z + id.x;
+    if (index >= arrayLength(&density)) {
+        return;
+    }
+    let length = u32(params.couplers2.w);
+    if (length == 0u) {
+        return;
+    }
+
+    let width = image_width();
+    let height = image_height();
+    let x = index % width;
+    let y = i32(index / width);
+    let radius = i32(length / 2u);
+    let offset = u32(params.couplers3.w);
+
+    var diffused = vec3<f32>(0.0);
+    for (var tap = 0u; tap < length; tap = tap + 1u) {
+        let source_y = tap_index(y + i32(tap) - radius, height);
+        diffused = diffused + kernels[offset + tap] * scratch[source_y * width + x].xyz;
+    }
+
+    // `M[i][j]`: how much layer `j` suppresses layer `i`. The diagonal is the
+    // highlight compression, the off-diagonal the interimage correction, and the
+    // diffusion is what turns a local suppression into an edge effect.
+    let suppressions = vec3<f32>(
+        params.couplers.x * diffused.x + params.couplers.y * diffused.y
+            + params.couplers.z * diffused.z,
+        params.couplers2.x * diffused.x + params.couplers2.y * diffused.y
+            + params.couplers2.z * diffused.z,
+        params.couplers3.x * diffused.x + params.couplers3.y * diffused.y
+            + params.couplers3.z * diffused.z,
+    );
+
+    let current = density[index].xyz;
+    var inhibited = vec3<f32>(0.0);
+    for (var layer = 0u; layer < 3u; layer = layer + 1u) {
+        inhibited[layer] = max(current[layer] * max(1.0 - suppressions[layer], 0.0), 0.0);
+    }
+    density[index] = vec4<f32>(inhibited, 0.0);
+}

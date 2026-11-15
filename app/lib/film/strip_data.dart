@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 /// The strip, as the model drew it.
 ///
-/// Written by `kaloview` from `kallotype-view` and committed as an asset, so
+/// Written by `kaloview` from `kallo-view` and committed as an asset, so
 /// that building the app needs no Rust toolchain. It is a rendering of the
 /// model at a commit, not a second model: regenerate it with `just view`, never
 /// edit it.

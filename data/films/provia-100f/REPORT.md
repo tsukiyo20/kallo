@@ -1,6 +1,6 @@
 # FUJICHROME PROVIA 100F: a colour reversal, digitised from vector artwork
 
-*Kallotype film-data series, report 1 of 24. Version 1, 2026-11-08.
+*Kallo film-data series, report 1 of 24. Version 1, 2026-11-08.
 Data: `provia-100f.kalofilm` (5,444 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -219,4 +219,4 @@ No image of the data sheet is reproduced in this directory.
 
 1. FUJIFILM, *FUJICHROME PROVIA 100F Professional (RDP III)*, product
    information bulletin AF3-036E, page 6.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.

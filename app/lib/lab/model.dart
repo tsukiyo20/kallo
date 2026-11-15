@@ -446,7 +446,7 @@ class ProcessModel implements Model {
   /// looking for a built binary. The walk is a development convenience and not
   /// a contract — a shipped app carries the library instead.
   static ProcessModel find() {
-    final String? named = Platform.environment['KALLOTYPE_MODEL'];
+    final String? named = Platform.environment['KALLO_MODEL'];
     if (named != null && named.isNotEmpty && File(named).existsSync()) {
       return ProcessModel(named);
     }

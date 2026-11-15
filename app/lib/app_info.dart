@@ -6,5 +6,5 @@
 abstract final class KalloInfo {
   static const String name = 'Kallo';
   static const String version = '0.1.0';
-  static const String repository = 'https://github.com/tsukiyo20/kallotype';
+  static const String repository = 'https://github.com/tsukiyo20/kallo';
 }

@@ -36,7 +36,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: build
-        run: cargo build --release --locked --target ${{ matrix.target }} -p kallotype-cli
+        run: cargo build --release --locked --target ${{ matrix.target }} -p kallo-cli
 
       - name: package
         shell: bash
@@ -44,7 +44,7 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
-          name="kallotype-${GITHUB_REF_NAME}-${TARGET}"
+          name="kallo-${GITHUB_REF_NAME}-${TARGET}"
           bin="kalo"
           if [ "${RUNNER_OS}" = "Windows" ]; then
             bin="kalo.exe"

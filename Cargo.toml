@@ -7,9 +7,9 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
-authors = ["Kallotype contributors"]
-repository = "https://github.com/tsukiyo20/kallotype"
-homepage = "https://github.com/tsukiyo20/kallotype"
+authors = ["Kallo contributors"]
+repository = "https://github.com/tsukiyo20/kallo"
+homepage = "https://github.com/tsukiyo20/kallo"
 readme = "README.md"
 
 [workspace.lints.rust]

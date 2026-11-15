@@ -47,7 +47,7 @@ void main() {
     late ui.Image card;
     final Directory folder = (await tester.runAsync(() async {
       final Directory folder = await Directory.systemTemp.createTemp(
-        'kallotype-gallery-',
+        'kallo-gallery-',
       );
       final ui.Image card = await _card();
       final File file = File('${folder.path}/print-01.png');

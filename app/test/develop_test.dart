@@ -28,7 +28,7 @@ void main() {
 
   test('a photograph becomes a roll, and the roll comes back', () async {
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-roll-');
+        await Directory.systemTemp.createTemp('kallo-roll-');
     addTearDown(() => folder.delete(recursive: true));
 
     final Roll roll = await develop(
@@ -100,7 +100,7 @@ void main() {
     final Catalogue catalogue = await Catalogue.load(model);
     final Stock paper = catalogue.paper('portra_endura') ?? Stocks.crystal;
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-paper-');
+        await Directory.systemTemp.createTemp('kallo-paper-');
     addTearDown(() => folder.delete(recursive: true));
 
     final Roll roll = await develop(
@@ -182,7 +182,7 @@ void main() {
 
   test('the spectral path is a different photograph', () async {
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-spectral-');
+        await Directory.systemTemp.createTemp('kallo-spectral-');
     addTearDown(() => folder.delete(recursive: true));
 
     Future<Roll> developInto(String name, {required bool spectral}) =>
@@ -237,7 +237,7 @@ void main() {
 
   test('a frame becomes a print, with the record that labels it', () async {
     final Directory folder =
-        await Directory.systemTemp.createTemp('kallotype-print-');
+        await Directory.systemTemp.createTemp('kallo-print-');
     addTearDown(() => folder.delete(recursive: true));
     final Directory roll = Directory('${folder.path}/roll')
       ..createSync(recursive: true);

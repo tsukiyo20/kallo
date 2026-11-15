@@ -650,74 +650,74 @@ dependencies = [
 ]
 
 [[package]]
-name = "kallotype-api"
+name = "kallo-api"
 version = "0.1.0"
 dependencies = [
- "kallotype-core",
- "kallotype-gpu",
- "kallotype-io",
- "kallotype-raw",
- "kallotype-spectral",
- "kallotype-view",
+ "kallo-core",
+ "kallo-gpu",
+ "kallo-io",
+ "kallo-raw",
+ "kallo-spectral",
+ "kallo-view",
  "serde_json",
 ]
 
 [[package]]
-name = "kallotype-cli"
+name = "kallo-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "kallotype-api",
- "kallotype-core",
- "kallotype-gpu",
- "kallotype-io",
- "kallotype-raw",
- "kallotype-spectral",
+ "kallo-api",
+ "kallo-core",
+ "kallo-gpu",
+ "kallo-io",
+ "kallo-raw",
+ "kallo-spectral",
  "serde_json",
 ]
 
 [[package]]
-name = "kallotype-core"
+name = "kallo-core"
 version = "0.1.0"
 dependencies = [
- "kallotype-spectral",
+ "kallo-spectral",
  "rayon",
 ]
 
 [[package]]
-name = "kallotype-gpu"
+name = "kallo-gpu"
 version = "0.1.0"
 dependencies = [
- "kallotype-core",
+ "kallo-core",
  "pollster",
  "wgpu",
 ]
 
 [[package]]
-name = "kallotype-io"
+name = "kallo-io"
 version = "0.1.0"
 dependencies = [
  "image",
- "kallotype-core",
+ "kallo-core",
 ]
 
 [[package]]
-name = "kallotype-raw"
+name = "kallo-raw"
 version = "0.1.0"
 dependencies = [
  "flashraw",
- "kallotype-io",
+ "kallo-io",
 ]
 
 [[package]]
-name = "kallotype-spectral"
+name = "kallo-spectral"
 version = "0.1.0"
 
 [[package]]
-name = "kallotype-view"
+name = "kallo-view"
 version = "0.1.0"
 dependencies = [
- "kallotype-core",
+ "kallo-core",
  "serde",
  "serde_json",
 ]

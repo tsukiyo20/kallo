@@ -1,6 +1,6 @@
 # KODAK GOLD 200: the negative base density
 
-*Kallotype film-data series, report 11 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 11 of 24. Version 1, 2026-11-09.
 Data: `gold-200.kalofilm` (6,237 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -302,6 +302,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK GOLD 200 Film*, publication E-7022, revised
    06-23, page 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/portra-400/REPORT.md` — the report that introduced the
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/portra-400/REPORT.md` — the report that introduced the
    rising fit.

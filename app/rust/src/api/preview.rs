@@ -5,7 +5,7 @@
 //! a decode, a PNG write and a second decode.
 
 use flutter_rust_bridge::frb;
-use kallotype_api::preview::{PreviewRequest, PreviewSession as CoreSession};
+use kallo_api::preview::{PreviewRequest, PreviewSession as CoreSession};
 
 /// What a preview session is opened on.
 #[derive(Debug, Clone)]
@@ -56,7 +56,7 @@ impl PreviewSession {
     pub fn open(job: PreviewJob) -> Result<PreviewSession, String> {
         let request = PreviewRequest {
             input: job.input.into(),
-            encoding: kallotype_io::InputEncoding::Srgb,
+            encoding: kallo_io::InputEncoding::Srgb,
             film: job.film,
             paper: job.paper,
             temp_c: job.temp_c,

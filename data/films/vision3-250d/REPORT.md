@@ -1,6 +1,6 @@
 # KODAK VISION3 250D: the family baseline, and the chart that will not be read
 
-*Kallotype film-data series, report 16 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 16 of 24. Version 1, 2026-11-09.
 Data: `vision3-250d.kalofilm` (5,727 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -205,6 +205,6 @@ No image of the data sheet is reproduced in this directory.
 
 1. Eastman Kodak Company, *KODAK VISION3 250D Color Negative Film 5207/7207 —
    Technical Data*, publication H-1-5207, pages 3 and 4.
-2. Kallotype, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
-3. Kallotype, `films/vision3-50d/REPORT.md` and `films/vision3-200t/REPORT.md` —
+2. Kallo, *The `.kalofilm` format, version 1*, `../FORMAT.md`.
+3. Kallo, `films/vision3-50d/REPORT.md` and `films/vision3-200t/REPORT.md` —
    the family's other two sheets.

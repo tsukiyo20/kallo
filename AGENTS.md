@@ -9,7 +9,7 @@ Two build units, one tree.
 
 ## The one law
 
-`app/assets/film_strip.json` is written by `just view` from `kallotype-view` and
+`app/assets/film_strip.json` is written by `just view` from `kallo-view` and
 committed, so that building the interface needs no Rust toolchain. It is a
 rendering of the model at a commit, not a second model: regenerate it, never
 edit it, and never re-derive a curve, a density or a grain in Dart.

@@ -1,6 +1,6 @@
 # FUJIFILM 200: the coarse chart
 
-*Kallotype film-data series, report 20 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 20 of 24. Version 1, 2026-11-09.
 Data: `fuji-200.kalofilm` (5,499 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -112,4 +112,4 @@ No image of the data sheet is reproduced in this directory.
 ## References
 
 1. FUJIFILM, *FUJIFILM 200 Color Negative Film*, publication AF3-0261E, page 5.
-2. Kallotype, `films/fuji-400/REPORT.md` — its faster sibling.
+2. Kallo, `films/fuji-400/REPORT.md` — its faster sibling.

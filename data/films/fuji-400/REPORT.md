@@ -1,6 +1,6 @@
 # FUJIFILM 400: the faster sheet, the same two charts
 
-*Kallotype film-data series, report 21 of 24. Version 1, 2026-11-09.
+*Kallo film-data series, report 21 of 24. Version 1, 2026-11-09.
 Data: `fuji-400.kalofilm` (5,498 bytes). Code: `films/tools/`.*
 
 ## Abstract
@@ -102,4 +102,4 @@ No image of the data sheet is reproduced in this directory.
 ## References
 
 1. FUJIFILM, *FUJIFILM 400 Color Negative Film*, publication AF3-0262E, page 6.
-2. Kallotype, `films/fuji-200/REPORT.md` — its slower sibling.
+2. Kallo, `films/fuji-200/REPORT.md` — its slower sibling.

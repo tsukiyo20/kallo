@@ -81,7 +81,7 @@ second emulsion.
 
 Paper files live in `data/papers/`, one per paper; film files live in
 `data/films/`, one directory per film. The crate's stock tables are generated
-from both at build time (`crates/kallotype-core/build.rs`), and
+from both at build time (`crates/kallo-core/build.rs`), and
 `tools/kalofilm.py` reads either kind by its magic.
 
 ## The source file: a stock before it is packed
