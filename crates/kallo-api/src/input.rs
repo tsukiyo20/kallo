@@ -37,7 +37,7 @@ pub fn read_input(path: &Path, encoding: InputEncoding) -> Result<Image, Error> 
     })
 }
 
-/// Whether [path] is a camera raw this build can read.
+/// Whether `path` is a camera raw this build can read.
 ///
 /// The decoder owns the answer, so this is the one extension list in the
 /// program that matters. An interface asks before it hands the bytes to a
