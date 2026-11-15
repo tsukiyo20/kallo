@@ -32,7 +32,6 @@ import 'mobile/mobile_settings.dart';
 import 'gallery.dart';
 import 'rack.dart';
 import 'print_stage.dart';
-import 'select_stage.dart';
 import 'steps.dart';
 
 /// The window: two rooms, a rack between them, and the steps of the room that
@@ -69,7 +68,7 @@ class Studio extends StatefulWidget {
     required this.onRenderMode,
     this.initiallyOpen = false,
     this.initialChamber = Chamber.darkroom,
-    this.initialStep = DarkroomStep.select,
+    this.initialStep = DarkroomStep.develop,
     this.chrome = WindowChrome.plain,
     this.onDragWindow,
     this.onToggleMaximize,
@@ -162,7 +161,7 @@ class _StudioState extends State<Studio> {
   }
 
   void _stage(DarkroomStep step) {
-    if (widget.strip.photo == null && step != DarkroomStep.select) {
+    if (widget.strip.photo == null && step != DarkroomStep.develop) {
       return;
     }
     HapticFeedback.selectionClick();
@@ -182,10 +181,8 @@ class _StudioState extends State<Studio> {
         const SingleActivator(LogicalKeyboardKey.escape): _closeDrawer,
         if (_chamber == Chamber.darkroom) ...<ShortcutActivator, VoidCallback>{
           const SingleActivator(LogicalKeyboardKey.digit1): () =>
-              _stage(DarkroomStep.select),
-          const SingleActivator(LogicalKeyboardKey.digit2): () =>
               _stage(DarkroomStep.develop),
-          const SingleActivator(LogicalKeyboardKey.digit3): () =>
+          const SingleActivator(LogicalKeyboardKey.digit2): () =>
               _stage(DarkroomStep.print),
         },
         const SingleActivator(LogicalKeyboardKey.keyD): () =>
@@ -480,7 +477,7 @@ class _StudioState extends State<Studio> {
         canPop:
             !_open &&
             _chamber == Chamber.darkroom &&
-            _step == DarkroomStep.select,
+            _step == DarkroomStep.develop,
         onPopInvokedWithResult: (bool didPop, void result) {
           if (didPop) {
             return;
@@ -493,7 +490,7 @@ class _StudioState extends State<Studio> {
             _room(Chamber.darkroom);
             return;
           }
-          if (_step != DarkroomStep.select) {
+          if (_step != DarkroomStep.develop) {
             _stage(DarkroomStep.values[_step.index - 1]);
           }
         },
@@ -565,13 +562,16 @@ class _StudioState extends State<Studio> {
 
   static const double _topBarHeight = 56;
 
-  /// The inspector exists only where a step has a panel. The print step with
-  /// nothing to print has no panel, and a control that toggles nothing is a
-  /// control that lies.
+  /// The inspector exists only where a step has a panel. The bench with no
+  /// photograph has no instruments, and the print step with nothing to print
+  /// has no panel; a control that toggles nothing is a control that lies.
   bool get _hasInspector =>
       !_compact &&
       _chamber == Chamber.darkroom &&
-      !(_step == DarkroomStep.print && widget.strip.prints.isEmpty);
+      switch (_step) {
+        DarkroomStep.develop => widget.strip.photo != null,
+        DarkroomStep.print => widget.strip.prints.isNotEmpty,
+      };
 
   Widget _topBar() {
     final KalloStrings s = KalloStrings.of(context);
@@ -627,24 +627,12 @@ class _StudioState extends State<Studio> {
 
   Widget _darkroom() {
     return switch (_step) {
-      DarkroomStep.select => SelectStage(
+      DarkroomStep.develop => DevelopStage(
         strip: widget.strip,
-        photograph: widget.photograph,
         catalogue: widget.catalogue,
         onChoosePhoto: widget.onChoosePhoto,
         onFilm: widget.onFilm,
         onPaper: widget.onPaper,
-        onGoDevelop: () => _stage(DarkroomStep.develop),
-        onClear: widget.onClearStrip,
-        showInspector: _inspector && !_compact,
-        topInset: _compact ? 0 : _topBarHeight,
-      ),
-      DarkroomStep.develop => DevelopStage(
-        key: ValueKey<String>(
-          'develop-${widget.strip.photo}-${widget.strip.stockId}-'
-          '${widget.strip.paperId}-${widget.strip.tempC}',
-        ),
-        strip: widget.strip,
         onTemperature: widget.onTemperature,
         onDevelop: widget.onDevelop,
         onRemove: widget.onRemove,

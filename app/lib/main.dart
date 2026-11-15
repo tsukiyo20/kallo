@@ -136,7 +136,7 @@ class KalloApp extends StatefulWidget {
     this.spectral = false,
     this.drawerOpen = false,
     this.initialChamber = Chamber.darkroom,
-    this.initialStep = DarkroomStep.select,
+    this.initialStep = DarkroomStep.develop,
     this.chrome = WindowChrome.plain,
     this.onDragWindow,
     this.onToggleMaximize,

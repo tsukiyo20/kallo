@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/design/chrome.dart';
@@ -14,8 +15,8 @@ import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/develop_stage.dart';
 import 'package:kallo/views/rack.dart';
-import 'package:kallo/views/select_stage.dart';
 import 'package:kallo/views/steps.dart';
+import 'package:kallo/widgets/chip.dart';
 import 'package:kallo/widgets/stage_tabs.dart';
 import 'package:kallo/widgets/stepper.dart';
 import 'package:kallo/widgets/print_image.dart';
@@ -68,7 +69,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
       ),
     );
@@ -77,11 +78,12 @@ void main() {
     expect(find.byType(StudioSidebar), findsOneWidget);
     expect(find.text('KALLO'), findsOneWidget);
     expect(find.byType(StageTabs), findsOneWidget);
-    expect(find.byType(SelectStage), findsOneWidget);
+    expect(find.byType(DevelopStage), findsOneWidget);
     expect(find.text('暗房'), findsOneWidget);
     expect(find.text('晾片架'), findsOneWidget);
     expect(find.text('观景台'), findsOneWidget);
     expect(find.text('原片'), findsOneWidget);
+    expect(find.text('换一张'), findsOneWidget);
   });
 
   testWidgets('a double click on the band fills the screen', (
@@ -98,7 +100,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         chrome: WindowChrome.windows,
         onToggleMaximize: () => asked++,
@@ -133,7 +135,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         chrome: WindowChrome.windows,
         onDragWindow: () => dragged++,
@@ -168,7 +170,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         chrome: WindowChrome.windows,
         onDragWindow: () => dragged++,
@@ -249,7 +251,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         chrome: WindowChrome.windows,
         onToggleMaximize: () => asked++,
@@ -277,7 +279,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         chrome: WindowChrome.mac,
         onToggleMaximize: () => asked++,
@@ -311,7 +313,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         chrome: WindowChrome.mac,
         onDragWindow: () => dragged++,
@@ -345,7 +347,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
       ),
     );
@@ -369,7 +371,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
       ),
     );
@@ -378,12 +380,11 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(StudioSidebar), findsNothing);
     expect(find.byType(StageTabs), findsNothing);
-    expect(find.byType(SelectStage), findsOneWidget);
+    expect(find.byType(DevelopStage), findsOneWidget);
     expect(find.text('暗房'), findsOneWidget);
     expect(find.text('晾片'), findsOneWidget);
     expect(find.text('观景'), findsOneWidget);
-    expect(find.byKey(const Key('phone-film-row')), findsOneWidget);
-    expect(find.byKey(const Key('phone-paper-row')), findsOneWidget);
+    expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('mobile-settings')));
     await tester.pumpAndSettle();
@@ -475,6 +476,108 @@ void main() {
     expect(find.text('9:00'), findsWidgets);
   });
 
+  testWidgets('the shelf lies on the bench', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    const Catalogue catalogue = Catalogue(
+      films: <Stock>[
+        Stocks.vision,
+        Stock(
+          id: 'kodak_portra_400',
+          short: 'PORTRA 400',
+          label: 'KODAK PROFESSIONAL PORTRA 400',
+          process: FilmProcess.negative,
+        ),
+      ],
+      papers: <Stock>[Stocks.crystal],
+    );
+    final TestStrip strip = const TestStrip(photo: '/photographs/uji.jpg')
+        .withPrint(
+          TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
+        );
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: catalogue,
+        strip: strip,
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.develop,
+        locale: const Locale('zh'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('materials-card')), findsNothing);
+    await tester.tap(find.byKey(const Key('materials-line')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('materials-card')), findsOneWidget);
+    expect(find.text('PORTRA 400'), findsOneWidget);
+
+    // A strip with a print on it asks before another box clears it.
+    await tester.tap(find.text('PORTRA 400'));
+    await tester.pumpAndSettle();
+    expect(find.text('换胶片？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('materials-card')), findsOneWidget);
+    expect(
+      tester
+          .widget<KalloChip>(
+            find.widgetWithText(KalloChip, 'VISION3 500T'),
+          )
+          .selected,
+      isTrue,
+    );
+  });
+
+  testWidgets('the print can be read against the original', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final ui.Image original = await _card();
+    final TestStrip strip = const TestStrip(photo: '/photographs/uji.jpg')
+        .withPrint(
+          TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
+        );
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: strip,
+        photograph: original,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.develop,
+        locale: const Locale('zh'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('对比'), findsOneWidget);
+    final int before = find.byType(RawImage).evaluate().length;
+    await tester.tap(find.text('对比'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(RawImage).evaluate().length,
+      before + 1,
+      reason: 'the original is laid behind the wipe',
+    );
+
+    // The wipe follows the pointer inside the picture, with no divider to grab.
+    final Offset centre = tester.getCenter(find.byKey(const Key('bench-print')));
+    final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(pointer.hover(centre));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('对比'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RawImage).evaluate().length, before);
+  });
+
   testWidgets('the temperature dial asks for the next step', (
     WidgetTester tester,
   ) async {
@@ -483,10 +586,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     double? chosen;
-    final TestStrip strip =
-        const TestStrip(photo: '/photographs/uji.jpg', tempC: 20).withPrint(
-          TestPrint(minutes: 9, tempC: 20, image: card, chart: _chart(9)),
-        );
+    const TestStrip strip = TestStrip(photo: '/photographs/uji.jpg', tempC: 20);
     await tester.pumpWidget(
       KalloScope(
         colors: KalloColors.dark,
@@ -502,6 +602,11 @@ void main() {
             textDirection: TextDirection.ltr,
             child: DevelopStage(
               strip: strip,
+              catalogue: Catalogue.carried,
+              photograph: card,
+              onChoosePhoto: () {},
+              onFilm: (_) {},
+              onPaper: (_) {},
               onTemperature: (double value) => chosen = value,
               onDevelop: (_) async {},
               onRemove: (_) async {},
@@ -531,7 +636,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
       ),
     );
@@ -553,7 +658,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
       ),
     );
@@ -571,14 +676,14 @@ void main() {
       tester.getCenter(find.byKey(const Key('sidebar-toggle'))).dy,
       tester.getCenter(find.byKey(const Key('inspector-toggle'))).dy,
     );
-    expect(find.byKey(const Key('select-inspector')), findsOneWidget);
-    expect(find.text('彩色负片'), findsOneWidget);
+    expect(find.byKey(const Key('develop-inspector')), findsOneWidget);
+    expect(find.text('温度  ·  °C'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('sidebar-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('studio-sidebar')), findsNothing);
     expect(find.byType(StudioSidebar), findsNothing);
-    expect(find.byType(SelectStage), findsOneWidget);
+    expect(find.byType(DevelopStage), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('sidebar-toggle')));
     await tester.pumpAndSettle();
@@ -586,12 +691,12 @@ void main() {
 
     await tester.tap(find.byKey(const Key('inspector-toggle')));
     await tester.pumpAndSettle();
-    expect(find.text('彩色负片'), findsNothing);
-    expect(find.byType(SelectStage), findsOneWidget);
+    expect(find.text('温度  ·  °C'), findsNothing);
+    expect(find.byType(DevelopStage), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('inspector-toggle')));
     await tester.pumpAndSettle();
-    expect(find.text('彩色负片'), findsOneWidget);
+    expect(find.text('温度  ·  °C'), findsOneWidget);
   });
 
   testWidgets('settings opens on About, without a drawer title', (
@@ -607,7 +712,7 @@ void main() {
         strip: const TestStrip(photo: '/photographs/uji.jpg'),
         photograph: card,
         prints: const <Print>[],
-        initialStep: DarkroomStep.select,
+        initialStep: DarkroomStep.develop,
         locale: const Locale('zh'),
         drawerOpen: true,
       ),

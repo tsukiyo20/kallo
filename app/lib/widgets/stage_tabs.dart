@@ -40,7 +40,6 @@ class StageTabs extends StatelessWidget {
               _StepMark(
                 step: step,
                 label: switch (step) {
-                  DarkroomStep.select => s.selectStep,
                   DarkroomStep.develop => s.developStep,
                   DarkroomStep.print => s.printStep,
                 },

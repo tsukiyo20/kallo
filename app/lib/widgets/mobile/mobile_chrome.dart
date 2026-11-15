@@ -52,9 +52,9 @@ class KalloMobileDarkroomBar extends StatelessWidget {
                   ),
                 ),
               SizedBox(
-                width: constraints.maxWidth >= 356 ? 224 : 196,
+                width: constraints.maxWidth >= 356 ? 196 : 172,
                 child: KalloSegmented(
-                  options: <String>[s.selectStep, s.developStep, s.printStep],
+                  options: <String>[s.developStep, s.printStep],
                   selected: current.index,
                   onSelect: (int index) => onStep(DarkroomStep.values[index]),
                 ),

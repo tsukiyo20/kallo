@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/mobile.dart';
@@ -20,6 +22,7 @@ import '../lab/strip_develop.dart';
 import '../widgets/button.dart';
 import '../widgets/curves.dart';
 import '../widgets/inspector.dart';
+import '../widgets/materials_card.dart';
 import '../widgets/mobile/mobile_controls.dart';
 import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/mobile/mobile_sheet.dart';
@@ -27,17 +30,23 @@ import '../widgets/shadow_box.dart';
 import '../widgets/stepper.dart';
 import '../widgets/time_slider.dart';
 import '../widgets/wall.dart';
+import 'mobile/mobile_picker.dart';
 
-/// The second step: one photograph, one time, one print at a time.
+/// The first step: the bench, the photograph, and the print it becomes.
 ///
-/// The print on the easel is the time in hand; the ruler under it moves the
-/// time; the strip below it is what has been printed. A print is only added
-/// when the button is pressed — dragging the ruler changes what the print
-/// *would* be, it does not develop anything.
+/// The materials are on the bench, not on a page before it: a film or a paper
+/// is chosen by looking at the print it makes, so the shelf lies under the
+/// easel and the print answers every tap. The time in hand is the ruler; a
+/// print is only added when the button is pressed. The print can be read
+/// against the original with a wipe — the one comparison the bench makes.
 class DevelopStage extends StatefulWidget {
   const DevelopStage({
     super.key,
     required this.strip,
+    required this.catalogue,
+    required this.onChoosePhoto,
+    required this.onFilm,
+    required this.onPaper,
     required this.onTemperature,
     required this.onDevelop,
     required this.onRemove,
@@ -48,6 +57,19 @@ class DevelopStage extends StatefulWidget {
   });
 
   final TestStrip strip;
+
+  /// What the model carries. The shelf is the model's, not the app's: the card
+  /// cannot show a film the model does not have.
+  final Catalogue catalogue;
+
+  /// Bring another photograph into the darkroom. A different photograph is a
+  /// different strip.
+  final VoidCallback onChoosePhoto;
+
+  /// Take another box off the shelf. A strip is one material, so a new choice
+  /// starts a new strip; the stage asks before it loses prints.
+  final ValueChanged<Stock> onFilm;
+  final ValueChanged<Stock?> onPaper;
 
   /// Change the developer's temperature. A strip is one development, so the
   /// app starts a new strip when it changes.
@@ -60,11 +82,12 @@ class DevelopStage extends StatefulWidget {
   final Future<void> Function(double minutes) onRemove;
 
   /// The original photograph, when the caller has it. The phone shows it on
-  /// the easel before the first test print exists.
+  /// the easel before the first test print exists, and the wipe reads the
+  /// print against it.
   final ui.Image? photograph;
 
-  /// Forget every print and keep the photograph and materials. A phone asks
-  /// before this runs; the desktop keeps its existing gesture.
+  /// Forget every print and keep the photograph and materials. The stage asks
+  /// before this runs when there is anything to lose.
   final VoidCallback? onClearStrip;
 
   /// Whether the instrument panel is open.
@@ -93,6 +116,14 @@ class _DevelopStageState extends State<DevelopStage> {
 
   bool _busy = false;
   String? _error;
+
+  /// Whether the shelf is lying on the bench.
+  bool _cardOpen = false;
+
+  /// Whether the print is read against the original, and where the wipe is.
+  /// The wipe is the bench's own tool: not a setting, and not kept.
+  bool _compareOn = false;
+  double _compareAt = 0.5;
 
   Timer? _timer;
   int _generation = 0;
@@ -149,7 +180,10 @@ class _DevelopStageState extends State<DevelopStage> {
     if (old.strip.paperId != widget.strip.paperId) {
       _loadPaper();
     }
-    if (_benchKey != _benchKeyFor(widget.strip)) {
+    final String session = _sessionKeyFor(widget.strip);
+    if (_benchKey != session) {
+      // Another photograph, or another engine: another session, and the time
+      // in hand belonged to the last one.
       _generation++;
       final ui.Image? oldImage = _preview;
       final bool owned = _ownsPreview;
@@ -158,6 +192,7 @@ class _DevelopStageState extends State<DevelopStage> {
       _chart = null;
       _curves.clear();
       _chartCache.clear();
+      _compareOn = false;
       _minutes = widget.strip.latest?.minutes ?? 9;
       _showPrint(_minutes);
       _openBench();
@@ -165,6 +200,23 @@ class _DevelopStageState extends State<DevelopStage> {
       if (owned) {
         _disposeAfterFrame(oldImage);
       }
+    } else if (_materialsKeyFor(old.strip) != _materialsKeyFor(widget.strip)) {
+      // Another box on the same photograph: the session keeps the negative and
+      // only the print changes. The time in hand stays where it was, so two
+      // boxes are compared at the same development.
+      _generation++;
+      _chart = null;
+      _curves.clear();
+      _chartCache.clear();
+      final Future<void>? materials = _previewBench?.setMaterials(
+        film: widget.strip.stockId,
+        paper: widget.strip.paperId ?? Stocks.paper,
+        tempC: widget.strip.tempC,
+      );
+      if (materials != null) {
+        unawaited(materials);
+      }
+      _schedule();
     } else if (old.strip.balanceFrom != widget.strip.balanceFrom &&
         _printAt(_minutes) == null) {
       // The first print fixed the enlarger's exposure; a preview that was
@@ -173,7 +225,6 @@ class _DevelopStageState extends State<DevelopStage> {
     }
     unawaited(_loadFilmCurves());
   }
-
   @override
   void dispose() {
     _timer?.cancel();
@@ -185,16 +236,17 @@ class _DevelopStageState extends State<DevelopStage> {
     super.dispose();
   }
 
-  String _benchKeyFor(TestStrip strip) =>
-      '${strip.photo}|${strip.stockId}|${strip.paperId}|'
-      '${strip.tempC}|${strip.spectral}|${RenderPreference.mode.name}';
+  String _sessionKeyFor(TestStrip strip) =>
+      '${strip.photo}|${strip.spectral}|${RenderPreference.mode.name}';
+
+  String _materialsKeyFor(TestStrip strip) =>
+      '${strip.stockId}|${strip.paperId}|${strip.tempC}';
 
   /// The session is the strip's, not the time's: changing the ruler does not
-  /// touch it. A material or a photograph is a different session, and so is the
-  /// engine: frames drawn by the device are not frames the CPU drew, and a
-  /// switch has to start again rather than mix the two.
+  /// touch it. A material or a temperature is the same session with another
+  /// print; a photograph, or the engine, is another session.
   void _openBench() {
-    final String key = _benchKeyFor(widget.strip);
+    final String key = _sessionKeyFor(widget.strip);
     if (_benchKey == key) {
       return;
     }
@@ -277,6 +329,149 @@ class _DevelopStageState extends State<DevelopStage> {
         curve: KalloMotion.enter,
       );
     });
+  }
+
+  /// Whether a new strip may replace this one, asking when there are prints.
+  Future<bool> _mayReplace(String question) async {
+    if (!widget.strip.hasPrints) {
+      return true;
+    }
+    final KalloStrings s = KalloStrings.of(context);
+    return showKalloConfirm(
+      context,
+      title: question,
+      message: s.clearsPrints(widget.strip.prints.length),
+      confirm: s.changeAction,
+    );
+  }
+
+  Future<void> _chooseFilm(Stock film) async {
+    if (film.id == widget.strip.stockId) {
+      return;
+    }
+    if (!await _mayReplace(KalloStrings.of(context).changeFilmQuestion) ||
+        !mounted) {
+      return;
+    }
+    widget.onFilm(film);
+  }
+
+  Future<void> _choosePaper(Stock? paper) async {
+    if (paper != null && paper.id == widget.strip.paperId) {
+      return;
+    }
+    if (!await _mayReplace(KalloStrings.of(context).changePaperQuestion) ||
+        !mounted) {
+      return;
+    }
+    widget.onPaper(paper);
+  }
+
+  Future<void> _changePhoto() async {
+    if (!await _mayReplace(KalloStrings.of(context).changePhotoQuestion) ||
+        !mounted) {
+      return;
+    }
+    widget.onChoosePhoto();
+  }
+
+  Future<void> _changeTemperature(double delta) async {
+    final double next = _nextTemp(delta);
+    if (next == widget.strip.tempC) {
+      return;
+    }
+    if (!await _mayReplace(KalloStrings.of(context).changeTemperatureQuestion) ||
+        !mounted) {
+      return;
+    }
+    widget.onTemperature(next);
+  }
+
+  void _toggleCard() => setState(() => _cardOpen = !_cardOpen);
+
+  void _closeCard() {
+    if (!_cardOpen) {
+      return;
+    }
+    setState(() => _cardOpen = false);
+  }
+
+  void _toggleCompare() {
+    if (_preview == null) {
+      return;
+    }
+    setState(() {
+      _compareOn = !_compareOn;
+      if (_compareOn) {
+        _compareAt = 0.5;
+      }
+    });
+  }
+
+  /// The wipe follows the pointer (or the finger) inside the picture, and the
+  /// seam is the only mark it leaves: there is no divider to grab.
+  void _setCompareAt(double fraction) {
+    if (!(_compareOn && _preview != null)) {
+      return;
+    }
+    final double next = fraction.clamp(0.04, 0.96).toDouble();
+    if ((next - _compareAt).abs() < 0.001) {
+      return;
+    }
+    setState(() => _compareAt = next);
+  }
+
+  Future<void> _openMaterialsPhone() async {
+    final KalloStrings s = KalloStrings.of(context);
+    final Stock? film = widget.catalogue.film(widget.strip.stockId);
+    final Stock? paper = widget.catalogue.paper(widget.strip.paperId ?? '');
+    final _MaterialsAction? action =
+        await showKalloMobileSheet<_MaterialsAction>(
+          context,
+          builder: (BuildContext sheetContext) => _PhoneMaterialsSheet(
+            film: film?.productName ?? stockDisplayName(widget.strip.stockLabel),
+            filmNote: film == null
+                ? ''
+                : '${film.maker} · ${s.processName(film.process ?? FilmProcess.negative)}',
+            paper: paper?.productName ??
+                stockDisplayName(widget.strip.paperLabel ?? ''),
+            paperNote: paper == null
+                ? ''
+                : '${paper.maker} · '
+                      '${(paper.emulsion ?? PaperEmulsion.colour) == PaperEmulsion.silver ? s.silverPaper : s.colourPaper}',
+            photo: widget.strip.name ?? s.noPhotograph,
+            onFilm: () => Navigator.of(sheetContext).pop(_MaterialsAction.film),
+            onPaper: () => Navigator.of(sheetContext).pop(_MaterialsAction.paper),
+            onPhoto: () => Navigator.of(sheetContext).pop(_MaterialsAction.photo),
+          ),
+        );
+    if (action == null || !mounted) {
+      return;
+    }
+    if (action == _MaterialsAction.film) {
+      final Stock? choice = await showKalloFilmPicker(
+        context,
+        catalogue: widget.catalogue,
+        selectedId: widget.strip.stockId,
+      );
+      if (choice != null) {
+        await _chooseFilm(choice);
+      }
+    } else if (action == _MaterialsAction.paper) {
+      final List<Stock> papers = widget.catalogue.papersFor(
+        widget.catalogue.film(widget.strip.stockId)?.process,
+      );
+      final Stock? choice = await showKalloPaperPicker(
+        context,
+        papers: papers,
+        selectedId: widget.strip.paperId,
+      );
+      if (choice != null) {
+        await _choosePaper(choice);
+      }
+    } else {
+      await _changePhoto();
+    }
   }
 
   void _setPreview(ui.Image image, {required bool owned}) {
@@ -580,20 +775,52 @@ class _DevelopStageState extends State<DevelopStage> {
     if (KalloLayout.isCompact(context)) {
       return _phone(colors, s);
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Expanded(child: _bench(colors, s)),
-        InspectorPane(
-          key: const Key('develop-inspector'),
-          open: widget.showInspector,
-          child: _panel(colors, s),
+    if (widget.strip.photo == null) {
+      return _benchEmpty(colors, s);
+    }
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        if (_cardOpen)
+          const SingleActivator(LogicalKeyboardKey.escape): _closeCard,
+        if (!_cardOpen && _compareOn)
+          const SingleActivator(LogicalKeyboardKey.escape): _toggleCompare,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(child: _bench(colors, s)),
+            InspectorPane(
+              key: const Key('develop-inspector'),
+              open: widget.showInspector,
+              child: _panel(colors, s),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _phone(KalloColors colors, KalloStrings s) {
+    if (widget.strip.photo == null) {
+      return ColoredBox(
+        color: colors.ground,
+        child: KalloMobileEmpty(
+          glyph: KalloGlyph.photo,
+          title: s.startWithPhoto,
+          message: s.choosePhotoNote,
+          action: SizedBox(
+            width: 240,
+            child: KalloMobileButton(
+              label: s.choosePhoto,
+              onTap: widget.onChoosePhoto,
+            ),
+          ),
+          footnote: s.originalNote,
+        ),
+      );
+    }
     return ColoredBox(
       color: colors.ground,
       child: Column(
@@ -620,96 +847,132 @@ class _DevelopStageState extends State<DevelopStage> {
           children: <Widget>[
             Expanded(
               child: Center(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: image == null
-                      ? null
-                      : () => showKalloImageViewer(
-                          context,
-                          image: image,
-                          semanticLabel: widget.strip.name ?? s.testPrint,
-                          caption:
-                              '${s.testPrint} · ${darkroomClock(_minutes)}',
-                        ),
-                  child: KalloShadowBox(
-                    kind: KalloShadowKind.paper,
-                    child: PrintSheet(
-                      width: math.max(180, width),
-                      aspect: aspect,
-                      paper: colors.print,
-                      outline: colors.hairline,
-                      child: image == null
-                          ? Center(
-                              child: Text(
-                                _busy ? s.developing : s.noTestPrintShort,
-                                textAlign: TextAlign.center,
-                                style: KalloMobileType.footnote.copyWith(
-                                  color: KalloInk.muted,
-                                ),
-                              ),
-                            )
-                          : Stack(
-                              fit: StackFit.expand,
-                              children: <Widget>[
-                                RawImage(
-                                  image: image,
-                                  fit: BoxFit.cover,
-                                  filterQuality: FilterQuality.high,
-                                ),
-                                if (!developed)
-                                  Positioned(
-                                    left: 8,
-                                    top: 8,
-                                    child: Container(
-                                      height: 24,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      alignment: Alignment.center,
-                                      color: const Color(0x991D1D1F),
-                                      child: Text(
-                                        s.noTestPrintShort,
-                                        style: KalloMobileType.micro.copyWith(
-                                          color: const Color(0xFFF5F5F7),
-                                          fontSize: 8,
-                                        ),
-                                      ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: image == null
+                          ? null
+                          : () {
+                              if (_compareOn) {
+                                _toggleCompare();
+                                return;
+                              }
+                              showKalloImageViewer(
+                                context,
+                                image: image,
+                                semanticLabel:
+                                    widget.strip.name ?? s.testPrint,
+                                caption:
+                                    '${s.testPrint} · ${darkroomClock(_minutes)}',
+                              );
+                            },
+                      child: KalloShadowBox(
+                        kind: KalloShadowKind.paper,
+                        child: PrintSheet(
+                          width: math.max(180, width),
+                          aspect: aspect,
+                          paper: colors.print,
+                          outline: colors.hairline,
+                          child: image == null
+                              ? Center(
+                                  child: Text(
+                                    _busy ? s.developing : s.noTestPrintShort,
+                                    textAlign: TextAlign.center,
+                                    style: KalloMobileType.footnote.copyWith(
+                                      color: KalloInk.muted,
                                     ),
                                   ),
-                              ],
-                            ),
+                                )
+                              : Stack(
+                                  fit: StackFit.expand,
+                                  children: <Widget>[
+                                    _picture(image),
+                                    if (!developed)
+                                      Positioned(
+                                        left: 8,
+                                        top: 8,
+                                        child: Container(
+                                          height: 24,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          alignment: Alignment.center,
+                                          color: const Color(0x991D1D1F),
+                                          child: Text(
+                                            s.noTestPrintShort,
+                                            style: KalloMobileType.micro
+                                                .copyWith(
+                                                  color: const Color(
+                                                    0xFFF5F5F7,
+                                                  ),
+                                                  fontSize: 8,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (developed && widget.photograph != null)
+                      Positioned(
+                        left: 10,
+                        top: 10,
+                        child: _ComparePill(
+                          key: const Key('phone-compare'),
+                          on: _compareOn,
+                          onTap: _toggleCompare,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 KalloMobileSpace.screen,
-                KalloMobileSpace.step1,
+                0,
                 KalloMobileSpace.screen,
-                KalloMobileSpace.step2,
+                KalloMobileSpace.step1,
               ),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      stockDisplayName(widget.strip.stockLabel),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: KalloMobileType.footnote.copyWith(
-                        color: colors.inkMuted,
+              child: GestureDetector(
+                key: const Key('phone-materials-row'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _openMaterialsPhone,
+                child: SizedBox(
+                  height: KalloMobileSpace.touch,
+                  child: Row(
+                    children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '${stockDisplayName(widget.strip.stockLabel)}  ·  '
+                        '${stockDisplayName(widget.strip.paperLabel ?? '')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: KalloMobileType.footnote.copyWith(
+                          color: colors.inkMuted,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: KalloMobileSpace.step2),
-                  Text(
-                    s.testPrint,
-                    style: KalloMobileType.footnote.copyWith(
-                      color: colors.inkFaint,
+                    const SizedBox(width: 6),
+                    KalloGlyphView(
+                      KalloGlyph.chevronRight,
+                      size: 9,
+                      color: colors.inkMuted,
                     ),
+                    const SizedBox(width: 10),
+                    Text(
+                      s.testPrint,
+                      style: KalloMobileType.footnote.copyWith(
+                        color: colors.inkFaint,
+                      ),
+                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -878,6 +1141,7 @@ class _DevelopStageState extends State<DevelopStage> {
     );
   }
 
+  /// Start again on the same photograph and materials.
   Future<void> _newStrip() async {
     if (widget.onClearStrip == null || widget.strip.prints.isEmpty) {
       return;
@@ -889,7 +1153,7 @@ class _DevelopStageState extends State<DevelopStage> {
       message: s.clearsPrints(widget.strip.prints.length),
       confirm: s.newStripAction,
     );
-    if (go) {
+    if (go && mounted) {
       widget.onClearStrip!();
     }
   }
@@ -1072,104 +1336,297 @@ class _DevelopStageState extends State<DevelopStage> {
     );
   }
 
+  Widget _benchEmpty(KalloColors colors, KalloStrings s) {
+    return ColoredBox(
+      color: colors.content,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.accent,
+              ),
+            ),
+            const SizedBox(height: KalloSpace.step4),
+            Text(
+              s.choosePhotoNote,
+              textAlign: TextAlign.center,
+              style: KalloType.body.copyWith(color: colors.inkMuted),
+            ),
+            const SizedBox(height: KalloSpace.step5),
+            SizedBox(
+              width: 240,
+              child: KalloButton(
+                label: s.choosePhoto,
+                onTap: widget.onChoosePhoto,
+                filled: true,
+                height: 34,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _bench(KalloColors colors, KalloStrings s) {
     final ui.Image? image = _preview;
     final double aspect = image == null ? 1.5 : image.width / image.height;
-    final bool hasPrints = widget.strip.prints.isNotEmpty;
+    final TestStrip strip = widget.strip;
     return ColoredBox(
       color: colors.content,
       child: Padding(
-        // The capsule floats over the room. The work starts below it, so a
-        // tall print cannot slide under the chrome and lose its top edge.
+        // The step capsule floats over the bench; the work starts below it.
         padding: EdgeInsets.only(top: widget.topInset),
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints room) {
-            // The print and its controls are one object on the bench. They are
-            // laid together and centred, so a tall window puts the ruler under
-            // the picture instead of at the bottom of an empty field.
-            final double reserve = hasPrints ? 248 : 174;
-            final double width = math.max(
-              160,
-              math.min(
-                math.max(240, room.maxWidth - 96),
-                math.max(
-                  160,
-                  (room.maxHeight - reserve) /
-                      PrintSheet.heightPerWidth(aspect: aspect),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(32, 18, 32, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _originalRow(colors, s),
+              const SizedBox(height: 10),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints room) {
+                    final double width = math.max(
+                      160,
+                      math.min(
+                        room.maxWidth,
+                        (room.maxHeight - 8) /
+                            PrintSheet.heightPerWidth(aspect: aspect),
+                      ),
+                    );
+                    return Center(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _cardOpen ? _closeCard : null,
+                        child: PrintSheet(
+                          key: const Key('bench-print'),
+                          width: width,
+                          aspect: aspect,
+                          paper: colors.print,
+                          outline: colors.hairline,
+                          child: image == null
+                              ? Center(
+                                  child: Text(
+                                    _busy ? s.developing : s.noTestPrints,
+                                    textAlign: TextAlign.center,
+                                    style: KalloType.small.copyWith(
+                                      color: KalloInk.muted,
+                                    ),
+                                  ),
+                                )
+                              : _picture(image),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            );
-            return Center(
-              child: SizedBox(
-                width: width,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    PrintSheet(
-                      width: width,
-                      aspect: aspect,
-                      paper: colors.print,
-                      outline: colors.hairline,
-                      child: image == null
-                          ? Center(
-                              child: Text(
-                                _busy ? s.developing : s.noTestPrints,
-                                textAlign: TextAlign.center,
-                                style: KalloType.small.copyWith(
-                                  color: KalloInk.muted,
-                                ),
-                              ),
-                            )
-                          : RawImage(
-                              image: image,
-                              fit: BoxFit.cover,
-                              filterQuality: FilterQuality.high,
-                            ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        SizedBox(
-                          width: 104,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                darkroomClock(_minutes),
-                                style: KalloType.plate.copyWith(
-                                  color: colors.ink,
-                                ),
-                              ),
-                              Text(
-                                '${widget.strip.tempC.toStringAsFixed(1)} °C',
-                                style: KalloType.small.copyWith(
-                                  color: colors.inkFaint,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: KalloSpace.step3),
-                        Expanded(
-                          child: TimeSlider(
-                            value: _minutes,
-                            ticks: _ladder,
-                            onChanged: _changed,
-                            onSettled: _settled,
-                          ),
-                        ),
-                      ],
-                    ),
-                    _strip(colors, s),
-                  ],
+              const SizedBox(height: 6),
+              _materialsLine(colors, s),
+              if (_cardOpen) ...<Widget>[
+                const SizedBox(height: 10),
+                LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints room) {
+                    return MaterialsCard(
+                      key: const Key('materials-card'),
+                      catalogue: widget.catalogue,
+                      filmId: strip.stockId,
+                      paperId: strip.paperId,
+                      time: darkroomClock(_minutes),
+                      height: math.min(
+                        MaterialsCard.maxHeight,
+                        math.max(160, room.maxHeight * 0.45),
+                      ),
+                      onFilm: (Stock film) => unawaited(_chooseFilm(film)),
+                      onPaper: (Stock? paper) => unawaited(_choosePaper(paper)),
+                    );
+                  },
                 ),
-              ),
-            );
-          },
+              ] else ...<Widget>[
+                const SizedBox(height: 8),
+                _clockRow(colors, s),
+                const SizedBox(height: 10),
+                _strip(colors, s),
+              ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _originalRow(KalloColors colors, KalloStrings s) {
+    final bool canCompare = _preview != null && widget.photograph != null;
+    return SizedBox(
+      height: 24,
+      child: Row(
+        children: <Widget>[
+          Text(
+            s.theOriginal,
+            style: KalloType.caption.copyWith(
+              color: colors.inkFaint,
+              letterSpacing: 0.7,
+            ),
+          ),
+          const SizedBox(width: KalloSpace.step3),
+          Expanded(
+            child: Text(
+              widget.strip.name ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KalloType.small.copyWith(color: colors.inkMuted),
+            ),
+          ),
+          if (canCompare) ...<Widget>[
+            _Quiet(
+              label: s.compare,
+              onTap: _toggleCompare,
+              accent: _compareOn,
+            ),
+            const SizedBox(width: KalloSpace.step5),
+          ],
+          _Quiet(
+            label: s.changePhoto,
+            onTap: () => unawaited(_changePhoto()),
+            accent: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The materials under the print are the print's caption and the shelf's
+  /// handle: a tap lays the shelf on the bench, another tap takes it away.
+  Widget _materialsLine(KalloColors colors, KalloStrings s) {
+    final Color colour = _cardOpen ? colors.inkMuted : colors.inkFaint;
+    final String paper = stockDisplayName(widget.strip.paperLabel ?? '');
+    final String names = paper.isEmpty
+        ? stockDisplayName(widget.strip.stockLabel)
+        : '${stockDisplayName(widget.strip.stockLabel)}   ·   $paper';
+    return SizedBox(
+      height: 22,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          key: const Key('materials-line'),
+          behavior: HitTestBehavior.opaque,
+          onTap: _toggleCard,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  names,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: KalloType.small.copyWith(color: colour),
+                ),
+              ),
+              const SizedBox(width: 6),
+              AnimatedRotation(
+                turns: _cardOpen ? 0.25 : 0,
+                duration: KalloMotion.quick,
+                curve: KalloMotion.enter,
+                child: KalloGlyphView(
+                  KalloGlyph.chevronRight,
+                  size: 9,
+                  color: colour,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _clockRow(KalloColors colors, KalloStrings s) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: 104,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(darkroomClock(_minutes), style: KalloType.plate.copyWith(color: colors.ink)),
+              Text(
+                '${widget.strip.tempC.toStringAsFixed(1)} °C',
+                style: KalloType.small.copyWith(color: colors.inkFaint),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: KalloSpace.step3),
+        Expanded(
+          child: TimeSlider(
+            value: _minutes,
+            ticks: _ladder,
+            onChanged: _changed,
+            onSettled: _settled,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The picture in the paper, with the original behind the wipe when the
+  /// bench is reading the two against each other.
+  Widget _picture(ui.Image image) {
+    final ui.Image? original = widget.photograph;
+    if (!_compareOn || original == null) {
+      return RawImage(
+        image: image,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+      );
+    }
+    final Widget wiped = Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        RawImage(
+          image: image,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+        ),
+        ClipRect(
+          clipper: _WipeClipper(_compareAt),
+          child: RawImage(
+            image: original,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
+          ),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints box) {
+        if (box.maxWidth <= 0) {
+          return wiped;
+        }
+        if (KalloLayout.isCompact(context)) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: (DragStartDetails details) =>
+                _setCompareAt(details.localPosition.dx / box.maxWidth),
+            onHorizontalDragUpdate: (DragUpdateDetails details) =>
+                _setCompareAt(details.localPosition.dx / box.maxWidth),
+            child: wiped,
+          );
+        }
+        return MouseRegion(
+          cursor: SystemMouseCursors.resizeLeftRight,
+          onHover: (PointerHoverEvent event) =>
+              _setCompareAt(event.localPosition.dx / box.maxWidth),
+          child: wiped,
+        );
+      },
     );
   }
 
@@ -1204,6 +1661,13 @@ class _DevelopStageState extends State<DevelopStage> {
                     Text(
                       s.noTestPrints,
                       style: KalloType.small.copyWith(color: colors.inkFaint),
+                    ),
+                  ] else ...<Widget>[
+                    const SizedBox(height: 12),
+                    _Quiet(
+                      label: s.newStrip,
+                      onTap: () => unawaited(_newStrip()),
+                      accent: true,
                     ),
                   ],
                 ],
@@ -1256,24 +1720,16 @@ class _DevelopStageState extends State<DevelopStage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text(
-                    '${stockDisplayName(widget.strip.stockLabel)}   ·   '
-                    '${stockDisplayName(widget.strip.paperLabel)}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: KalloType.small.copyWith(color: colors.inkFaint),
-                  ),
-                  const SizedBox(height: KalloSpace.step4),
                   KalloStepper(
                     label: '${s.temperature}  ·  °C',
                     value: widget.strip.tempC.toStringAsFixed(1),
                     width: 264,
                     onMinus: _busy || widget.strip.tempC <= _tempLow
                         ? null
-                        : () => widget.onTemperature(_nextTemp(-_tempStep)),
+                        : () => unawaited(_changeTemperature(-_tempStep)),
                     onPlus: _busy || widget.strip.tempC >= _tempHigh
                         ? null
-                        : () => widget.onTemperature(_nextTemp(_tempStep)),
+                        : () => unawaited(_changeTemperature(_tempStep)),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1529,10 +1985,11 @@ class _Fact extends StatelessWidget {
 }
 
 class _Quiet extends StatelessWidget {
-  const _Quiet({required this.label, required this.onTap});
+  const _Quiet({required this.label, this.onTap, this.accent = false});
 
   final String label;
   final VoidCallback? onTap;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
@@ -1547,10 +2004,171 @@ class _Quiet extends StatelessWidget {
         child: Text(
           label,
           style: KalloType.small.copyWith(
-            color: onTap == null ? colors.inkFaint : colors.inkMuted,
+            color: onTap == null
+                ? colors.inkFaint
+                : accent
+                ? colors.accent
+                : colors.inkMuted,
+            fontWeight: accent && onTap != null ? FontWeight.w500 : null,
           ),
         ),
       ),
     );
   }
+}
+
+/// What the phone's materials sheet was asked for.
+enum _MaterialsAction { film, paper, photo }
+
+/// The three things a strip is made of, on a phone.
+///
+/// The deck is full of the strip's instruments, so the materials are one row
+/// under the paper that opens this sheet: the film, the paper, and the
+/// photograph the strip is of.
+class _PhoneMaterialsSheet extends StatelessWidget {
+  const _PhoneMaterialsSheet({
+    required this.film,
+    required this.filmNote,
+    required this.paper,
+    required this.paperNote,
+    required this.photo,
+    required this.onFilm,
+    required this.onPaper,
+    required this.onPhoto,
+  });
+
+  final String film;
+  final String filmNote;
+  final String paper;
+  final String paperNote;
+  final String photo;
+
+  final VoidCallback onFilm;
+  final VoidCallback onPaper;
+  final VoidCallback onPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final KalloStrings s = KalloStrings.of(context);
+    return KalloMobileSheet(
+      title: s.materials,
+      onClose: () => Navigator.of(context).pop(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          KalloMobileRow(
+            title: film,
+            subtitle: filmNote.isEmpty ? s.film : filmNote,
+            minHeight: 64,
+            leading: const _SheetGlyph(glyph: KalloGlyph.film),
+            onTap: onFilm,
+          ),
+          const KalloMobileDivider(inset: 64),
+          KalloMobileRow(
+            title: paper,
+            subtitle: paperNote.isEmpty ? s.paper : paperNote,
+            minHeight: 64,
+            leading: const _SheetGlyph(glyph: KalloGlyph.paper, accent: true),
+            onTap: onPaper,
+          ),
+          const KalloMobileDivider(inset: 64),
+          KalloMobileRow(
+            title: photo,
+            subtitle: s.theOriginal,
+            minHeight: 64,
+            leading: const _SheetGlyph(glyph: KalloGlyph.photo),
+            onTap: onPhoto,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Text(
+              s.materialsNote,
+              style: KalloMobileType.footnote.copyWith(color: colors.inkFaint),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetGlyph extends StatelessWidget {
+  const _SheetGlyph({required this.glyph, this.accent = false});
+
+  final KalloGlyph glyph;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: accent ? colors.accentSoft : colors.fill,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Center(
+        child: KalloGlyphView(
+          glyph,
+          size: 18,
+          color: accent ? colors.accent : colors.inkMuted,
+          stroke: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// The bench's compare switch, on the print.
+class _ComparePill extends StatelessWidget {
+  const _ComparePill({super.key, required this.on, required this.onTap});
+
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: on ? colors.accent : const Color(0x8A121214),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            KalloStrings.of(context).compare,
+            style: KalloMobileType.micro.copyWith(
+              color: on ? colors.onAccent : const Color(0xFFF5F5F7),
+              fontSize: 9,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The wipe: the original fills the left of the picture, the print the right,
+/// and the seam between them is the only line and the whole control.
+class _WipeClipper extends CustomClipper<Rect> {
+  const _WipeClipper(this.fraction);
+
+  final double fraction;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTWH(0, 0, size.width * fraction, size.height);
+
+  @override
+  bool shouldReclip(_WipeClipper old) => old.fraction != fraction;
 }

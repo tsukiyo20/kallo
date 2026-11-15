@@ -66,7 +66,7 @@ void _phone(WidgetTester tester, {double width = 390, double height = 844}) {
 
 Widget _app({
   required ui.Image card,
-  DarkroomStep step = DarkroomStep.select,
+  DarkroomStep step = DarkroomStep.develop,
   Chamber chamber = Chamber.darkroom,
   TestStrip? strip,
   List<Print> prints = const <Print>[],
@@ -113,14 +113,13 @@ void main() {
     expect(find.byKey(const Key('mobile-tab-rack')), findsOneWidget);
     expect(find.byKey(const Key('mobile-tab-gallery')), findsOneWidget);
     expect(find.byKey(const Key('mobile-settings')), findsOneWidget);
-    expect(find.byKey(const Key('phone-film-row')), findsOneWidget);
-    expect(find.byKey(const Key('phone-paper-row')), findsOneWidget);
+    expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    final Size filmRow = tester.getSize(
-      find.byKey(const Key('phone-film-row')),
+    final Size materials = tester.getSize(
+      find.byKey(const Key('phone-materials-row')),
     );
-    expect(filmRow.height, greaterThanOrEqualTo(56));
+    expect(materials.height, greaterThanOrEqualTo(44));
     final Size gear = tester.getSize(find.byKey(const Key('mobile-settings')));
     expect(gear.shortestSide, greaterThanOrEqualTo(44));
   });
@@ -132,7 +131,12 @@ void main() {
     await tester.pumpWidget(_app(card: card));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('phone-film-row')));
+    await tester.tap(find.byKey(const Key('phone-materials-row')));
+    await tester.pumpAndSettle();
+    expect(find.text('MATERIALS'), findsOneWidget);
+    expect(find.text('VISION3 500T'), findsOneWidget);
+
+    await tester.tap(find.text('VISION3 500T'));
     await tester.pumpAndSettle();
     expect(find.text('FILM'), findsOneWidget);
     expect(find.byType(EditableText), findsOneWidget);
@@ -210,7 +214,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('phone-film-row')));
+    await tester.tap(find.byKey(const Key('phone-materials-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('VISION3 500T'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pick-kodak_portra_400')));
     await tester.pumpAndSettle();
@@ -290,9 +296,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('phone-develop')), findsOneWidget);
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('phone-film-row')), findsOneWidget);
+    // The bench is the first page of the darkroom now: one step back from the
+    // strip is the bench, and the next back leaves the room.
+    expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -346,7 +352,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.pumpWidget(_app(card: card, step: DarkroomStep.select));
+    await tester.pumpWidget(_app(card: card, step: DarkroomStep.develop));
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpAndSettle();
