@@ -20,6 +20,7 @@ import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/print_image.dart';
 import '../widgets/shadow_box.dart';
 import '../widgets/wall.dart';
+import 'wall_places.dart';
 
 /// The gallery: the last place. One wall, every print, one lamp.
 ///
@@ -42,23 +43,42 @@ import '../widgets/wall.dart';
 /// full-frame print is asked for when the print is made, and it is not the
 /// thing that hangs here.
 ///
-/// The wall is arranged in a grid and not hung like a salon, because a grid is
-/// the only arrangement that says nothing about the pictures: five developments
-/// of one negative are five equal things, and the wall should not pretend to
-/// prefer one.
+/// The wall is longer than the window. It used to be a grid inside one window,
+/// as if the room ended at the edge of the screen, and the arrangement was the
+/// app's: a grid says nothing about the pictures, and five developments of one
+/// negative are five equal things. It still says that until a person touches
+/// it. The wall hangs the work in that same grid, and the first sheet a person
+/// moves freezes the whole hanging; after that the wall is theirs. It can be
+/// walked — dragged, pinched, scrolled — a sheet can be hung anywhere on it,
+/// and work that arrives later is hung in a fresh line beneath what is already
+/// there. Hanging the wall back in its own grid is one quiet word at the bottom
+/// of it.
 class Gallery extends StatefulWidget {
   const Gallery({
     super.key,
     required this.prints,
-    required this.light,
+    required this.hanging,
+    this.onHang,
+    this.onRehang,
+    this.light = 1,
     this.loupe = false,
     this.onNear,
     this.topInset = 0,
     this.onOpenDarkroom,
   });
 
-  /// Everything exported, oldest first.
+  /// Everything exported, newest first: the wall reads the way the rack does.
   final List<Print> prints;
+
+  /// Where the wall hangs each print, by the print's id.
+  ///
+  /// Empty means nobody has hung this wall: the gallery arranges its own grid.
+  final Map<String, Offset> hanging;
+
+  /// Called with the whole hanging when a sheet has been hung somewhere, and
+  /// when the wall is hung back in its grid.
+  final ValueChanged<Map<String, Offset>>? onHang;
+  final VoidCallback? onRehang;
 
   /// The lamp on the wall, from off to all of it. It is the room's, and it
   /// takes the wall and the work with it — not the window around them.
@@ -74,7 +94,7 @@ class Gallery extends StatefulWidget {
   /// while a print fills the window.
   final ValueChanged<bool>? onNear;
 
-  /// The transparent chrome over the wall: the grid starts below it.
+  /// The transparent chrome over the wall: the wall is opened below it.
   final double topInset;
 
   /// The one way out of an empty phone wall. Null on the desktop, where the
@@ -85,7 +105,7 @@ class Gallery extends StatefulWidget {
   State<Gallery> createState() => _GalleryState();
 }
 
-class _GalleryState extends State<Gallery> {
+class _GalleryState extends State<Gallery> with SingleTickerProviderStateMixin {
   /// The print being looked at closely, if one is.
   Print? _near;
 
@@ -105,7 +125,324 @@ class _GalleryState extends State<Gallery> {
   /// The wall's box, which is where the lens is placed.
   final GlobalKey _field = GlobalKey(debugLabel: 'wall');
 
-  void _lookAt(Print print, Offset local, double width, Offset global) {
+  /// The hanging as the wall shows it. It is the widget's, except while a
+  /// sheet is being dragged and until the room has written the move down.
+  late Map<String, Offset> _hanging = widget.hanging;
+
+  /// Where the wall is looked at from: a translation and one scale.
+  final TransformationController _view = TransformationController();
+
+  /// The glide between one view of the wall and another: home, or work that
+  /// has just arrived.
+  late final AnimationController _glide;
+  Matrix4Tween? _glideTween;
+  int _glideRun = 0;
+
+  /// Whether the app is moving the view rather than the person.
+  bool _quiet = false;
+
+  /// Whether a person has walked the wall, zoomed it, or hung a sheet. Until
+  /// they have, the wall keeps putting the work where it belongs.
+  bool _touched = false;
+
+  /// The window the wall is looked through, and whether it has been opened
+  /// once. The wall opens at its beginning; it is not re-centred on every
+  /// frame.
+  Size _viewport = Size.zero;
+  bool _opened = false;
+
+  /// The sheet in hand: which one, where it was picked up, and where the
+  /// pointer was at that moment.
+  String? _dragKey;
+  Print? _dragPrint;
+  Offset _dragFrom = Offset.zero;
+  Offset _dragPointer = Offset.zero;
+  Offset? _dragAt;
+
+  /// The print hung last, which lies on top of the others.
+  String? _topKey;
+
+  /// The wall's coordinate space, in wall points. The stack that holds the
+  /// sheets starts at zero, so wall coordinates are shifted by half of it.
+  static const double _extent = WallPlaces.reach;
+  static const double _world = WallPlaces.reach * 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _view.addListener(_viewChanged);
+    _glide = AnimationController(vsync: this, duration: KalloMotion.slow)
+      ..addListener(_glideTick);
+  }
+
+  @override
+  void dispose() {
+    _lensTimer?.cancel();
+    _lens?.dispose();
+    _glide.dispose();
+    _view.dispose();
+    super.dispose();
+  }
+
+  void _viewChanged() {
+    if (!_quiet) {
+      _touched = true;
+    }
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _glideTick() {
+    final Matrix4Tween? tween = _glideTween;
+    if (tween == null) {
+      return;
+    }
+    _quiet = true;
+    _view.value = tween.lerp(KalloMotion.enter.transform(_glide.value));
+    _quiet = false;
+  }
+
+  /// Stop walking the wall under a person who has taken hold of it.
+  void _stopGlide() {
+    if (!_glide.isAnimating) {
+      return;
+    }
+    _glide.stop();
+  }
+
+  void _glideTo(Matrix4 target) {
+    if (_viewport.isEmpty) {
+      _quiet = true;
+      _view.value = target;
+      _quiet = false;
+      return;
+    }
+    final int run = ++_glideRun;
+    _glideTween = Matrix4Tween(begin: _view.value.clone(), end: target);
+    _quiet = true;
+    _glide.forward(from: 0).whenCompleteOrCancel(() {
+      if (run != _glideRun || !mounted) {
+        return;
+      }
+      _quiet = false;
+      _glideTween = null;
+    });
+  }
+
+  /// The wall's zoom: the length of the first basis vector of its transform.
+  ///
+  /// The transform is a translation and one scale, so this is the whole story.
+  /// `getMaxScaleOnAxis` is not: it also weighs the w axis, which is 1 for an
+  /// affine transform and would answer 1 at every zoom.
+  static double _zoomOf(Matrix4 view) => view.storage[0];
+
+  /// The room the wall is looked through: the window, less its chrome.
+  Rect _usable(Size size) {
+    final bool compact = KalloLayout.isCompact(context);
+    final double margin = compact ? 16 : 40;
+    final double top = compact
+        ? KalloMobileSpace.step3
+        : widget.topInset + margin;
+    final double floor = compact ? KalloMobileSpace.step5 : 96;
+    return Rect.fromLTRB(
+      margin,
+      top,
+      math.max(margin + 1, size.width - margin),
+      math.max(top + 1, size.height - floor),
+    );
+  }
+
+  /// The view the wall opens on: its beginning when the whole hanging fits,
+  /// and the newest work when it does not.
+  Matrix4 _homeMatrix({WallPlaces? hanging}) {
+    final WallPlaces wall = hanging ?? WallPlaces(_hanging);
+    final Rect usable = _usable(_viewport);
+    final Offset origin = const Offset(_extent, _extent);
+    if (widget.prints.isEmpty) {
+      final Offset spot = usable.center - origin;
+      return Matrix4.identity()..translateByDouble(spot.dx, spot.dy, 0, 1);
+    }
+    final Map<String, Offset> places = wall.resolve(widget.prints);
+    final Rect content = wall.bounds(widget.prints, places);
+    final double fit = math.min(
+      usable.width / math.max(1, content.width),
+      usable.height / math.max(1, content.height),
+    );
+    final double step = KalloLayout.isCompact(context) ? 0.5 : 0.25;
+    final double scale = fit.clamp(step, 1.0);
+    final Offset spot;
+    if (fit < step) {
+      // Bigger than the window at the furthest step back: show the wall's
+      // beginning, where the newest print hangs.
+      spot = usable.topLeft - (content.topLeft + origin) * scale;
+    } else {
+      spot = usable.center - (content.center + origin) * scale;
+    }
+    return Matrix4.identity()
+      ..translateByDouble(spot.dx, spot.dy, 0, 1)
+      ..scaleByDouble(scale, scale, 1, 1);
+  }
+
+  void _goHome({bool animate = true, WallPlaces? hanging}) {
+    if (_viewport.isEmpty) {
+      return;
+    }
+    final Matrix4 target = _homeMatrix(hanging: hanging);
+    if (!animate) {
+      _quiet = true;
+      _view.value = target;
+      _quiet = false;
+      return;
+    }
+    _glideTo(target);
+  }
+
+  /// Open the wall once the window it is looked through has a size.
+  void _open(Size size) {
+    _viewport = size;
+    if (_opened) {
+      return;
+    }
+    _opened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _goHome(animate: false);
+      }
+    });
+  }
+
+  /// Glide to work that has just arrived, so a person sees what they brought
+  /// in.
+  void _reveal(List<Print> added) {
+    if (_viewport.isEmpty) {
+      _goHome();
+      return;
+    }
+    final WallPlaces wall = WallPlaces(_hanging);
+    final Map<String, Offset> places = wall.resolve(widget.prints);
+    final Rect usable = _usable(_viewport);
+    final Offset origin = const Offset(_extent, _extent);
+    final Set<Print> fresh = Set<Print>.identity()..addAll(added);
+    Rect? rect;
+    for (int i = 0; i < widget.prints.length; i++) {
+      final Print print = widget.prints[i];
+      if (!fresh.contains(print)) {
+        continue;
+      }
+      final Offset? at = places[WallPlaces.keyOf(print, i)];
+      if (at == null) {
+        continue;
+      }
+      final Rect one = WallPlaces.rectOf(print, at);
+      rect = rect == null ? one : rect.expandToInclude(one);
+    }
+    if (rect == null) {
+      _goHome();
+      return;
+    }
+    final double fit = math.min(
+      usable.width / math.max(1, rect.width),
+      usable.height / math.max(1, rect.height),
+    );
+    final double scale = (fit * 0.9).clamp(0.5, 1.0);
+    final Offset spot = usable.center - (rect.center + origin) * scale;
+    _glideTo(
+      Matrix4.identity()
+        ..translateByDouble(spot.dx, spot.dy, 0, 1)
+        ..scaleByDouble(scale, scale, 1, 1),
+    );
+  }
+
+  /// Where every print is, with the sheet in hand at the pointer.
+  Map<String, Offset> _places() {
+    final Map<String, Offset> places = WallPlaces(_hanging)
+        .resolve(widget.prints);
+    final Offset? at = _dragAt;
+    final String? key = _dragKey;
+    if (at != null && key != null) {
+      places[key] = at;
+    }
+    return places;
+  }
+
+  Offset _clampPlace(Print print, Offset at) {
+    final Size paper = WallPlaces.sizeOf(print);
+    const double edge = 40;
+    return Offset(
+      at.dx.clamp(-_extent + edge, _extent - paper.width - edge),
+      at.dy.clamp(
+        -_extent + edge,
+        _extent - paper.height - WallPlaces.labelSpace - edge,
+      ),
+    );
+  }
+
+  void _pickUp(Print print, String key, Offset place, Offset pointer) {
+    setState(() {
+      _dragKey = key;
+      _dragPrint = print;
+      _dragFrom = place;
+      _dragPointer = pointer;
+      _dragAt = place;
+      _topKey = key;
+    });
+  }
+
+  void _dragTo(Offset pointer) {
+    final Print? print = _dragPrint;
+    if (print == null) {
+      return;
+    }
+    final double scale = _zoomOf(_view.value);
+    if (scale <= 0) {
+      return;
+    }
+    final Offset next = _dragFrom + (pointer - _dragPointer) / scale;
+    setState(() => _dragAt = _clampPlace(print, next));
+  }
+
+  void _hangUp() {
+    final String? key = _dragKey;
+    final Offset? at = _dragAt;
+    if (key == null || at == null) {
+      _cancelDrag();
+      return;
+    }
+    final Map<String, Offset> next = WallPlaces(_hanging)
+        .moved(widget.prints, key, at)
+        .byId;
+    setState(() {
+      _hanging = next;
+      _dragKey = null;
+      _dragPrint = null;
+      _dragAt = null;
+      _topKey = key;
+    });
+    widget.onHang?.call(next);
+  }
+
+  void _cancelDrag() {
+    setState(() {
+      _dragKey = null;
+      _dragPrint = null;
+      _dragAt = null;
+    });
+  }
+
+  /// Put the hanging back in the wall's own grid.
+  void _rehang() {
+    setState(() {
+      _hanging = const <String, Offset>{};
+      _dragKey = null;
+      _dragPrint = null;
+      _dragAt = null;
+    });
+    widget.onRehang?.call();
+    _goHome(hanging: const WallPlaces());
+  }
+
+  void _lookAt(Print print, Offset local, double paperWidth, Offset global) {
     if (!widget.loupe) {
       return;
     }
@@ -114,6 +451,7 @@ class _GalleryState extends State<Gallery> {
     if (box == null) {
       return;
     }
+    final double scale = _zoomOf(_view.value);
     if (!identical(print, _lensFor)) {
       _lensFor = print;
       _dropLens();
@@ -127,8 +465,8 @@ class _GalleryState extends State<Gallery> {
     }
     setState(() {
       _lensAt = box.globalToLocal(global);
-      _lensPoint = local;
-      _lensWidth = width;
+      _lensPoint = local * scale;
+      _lensWidth = paperWidth * scale;
     });
   }
 
@@ -174,15 +512,11 @@ class _GalleryState extends State<Gallery> {
   }
 
   @override
-  void dispose() {
-    _lensTimer?.cancel();
-    _lens?.dispose();
-    super.dispose();
-  }
-
-  @override
   void didUpdateWidget(Gallery old) {
     super.didUpdateWidget(old);
+    if (!identical(old.hanging, widget.hanging)) {
+      _hanging = widget.hanging;
+    }
     // Prints are re-read when the folder changes, and the one in hand is about
     // to be disposed: a loupe cannot look at a texture that no longer exists.
     final Print? near = _near;
@@ -201,6 +535,34 @@ class _GalleryState extends State<Gallery> {
       _lensFor = null;
       _dropLens();
     }
+    // Work that arrived while the wall was being looked at: a picture brought
+    // in is worth seeing, and a wall nobody has walked is put right.
+    final Set<String> before = <String>{
+      for (int i = 0; i < old.prints.length; i++)
+        WallPlaces.keyOf(old.prints[i], i),
+    };
+    final Set<String> after = <String>{
+      for (int i = 0; i < widget.prints.length; i++)
+        WallPlaces.keyOf(widget.prints[i], i),
+    };
+    if (before.length == after.length && before.containsAll(after)) {
+      return;
+    }
+    final List<Print> added = <Print>[
+      for (int i = 0; i < widget.prints.length; i++)
+        if (!before.contains(WallPlaces.keyOf(widget.prints[i], i)))
+          widget.prints[i],
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (added.isNotEmpty && _touched) {
+        _reveal(added);
+      } else if (!_touched) {
+        _goHome(animate: false);
+      }
+    });
   }
 
   @override
@@ -232,6 +594,9 @@ class _GalleryState extends State<Gallery> {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints room) {
         final bool compact = KalloLayout.isCompact(context);
+        final Size size = Size(room.maxWidth, room.maxHeight);
+        _open(size);
+
         if (compact && prints.isEmpty) {
           return Stack(
             fit: StackFit.expand,
@@ -254,122 +619,133 @@ class _GalleryState extends State<Gallery> {
             ],
           );
         }
-        final double gap = compact ? 12 : 28;
-        final double margin = compact ? 16 : 40;
-        // The wall fades into the floor, and the grid stops above it.
-        final double floor = compact ? 24 : 96;
-        final double available = math.max(200, room.maxWidth - margin * 2);
-        // Three prints across a 1280 window, four across a wide one, and never
-        // fewer columns than there are prints to put in them.
-        final int fitting = math.max(
-          1,
-          math.min(
-            compact ? 2 : 5,
-            ((available + gap) / (compact ? 180 : 328)).floor(),
-          ),
-        );
-        final int columns = math.max(1, math.min(prints.length, fitting));
-        // A wall hangs one sheet, and a sheet is a picture plus the margin the
-        // paper gives it, so a portrait print and a landscape one cannot be
-        // both the same width and the same amount of paper: a portrait sheet
-        // would be nearly twice the area of a landscape one. They are given the
-        // same **area** instead, and `sheet` is the width a landscape 3:2 sheet
-        // of that area would have.
-        final double perWidth = prints.isEmpty
-            ? PrintSheet.heightPerWidth(aspect: 1.5)
-            : prints
-                  .map(
-                    (Print print) =>
-                        PrintSheet.heightPerWidth(aspect: print.aspect),
-                  )
-                  .fold(PrintSheet.heightPerWidth(aspect: 1.5), math.max);
-        final double sheet = math.min(
-          math.min(
-            (available - gap * (columns - 1)) / columns,
-            (room.maxHeight - floor - (compact ? 8 : 40)) / perWidth,
-          ),
-          compact ? 240 : KalloWall.largest,
-        );
-        // A landscape 3:2 sheet gets the full `sheet` width; a portrait gets
-        // the same area, so it is the same paper turned.
-        final double area = sheet * PrintSheet.heightOf(sheet, aspect: 1.5);
-        double widthOf(Print print) =>
-            math.sqrt(area / PrintSheet.heightPerWidth(aspect: print.aspect));
-        double heightOf(Print print) =>
-            PrintSheet.heightOf(widthOf(print), aspect: print.aspect);
-        final int rows = (prints.length / columns).ceil();
-        final double tallest = prints.isEmpty
-            ? 0.0
-            : prints.map(heightOf).reduce(math.max);
-        final double height =
-            math.max(sheet * PrintSheet.heightPerWidth(aspect: 1.5), tallest) +
-            (compact ? 0 : 48);
-        final double content = rows * height + math.max(0, rows - 1) * gap;
-        final double top = compact
-            ? KalloMobileSpace.step2
-            : math.max(
-                margin + widget.topInset,
-                (room.maxHeight - content) / 2,
-              );
 
-        final List<List<Print>> lines = <List<Print>>[
-          for (int i = 0; i < prints.length; i += columns)
-            prints.sublist(i, math.min(i + columns, prints.length)),
-        ];
+        final double margin = compact ? 16 : 40;
+        final double floor = compact ? KalloMobileSpace.step5 : 96;
+        final Map<String, Offset> places = _places();
+        final Matrix4 view = _view.value;
+        final double scale = _zoomOf(view);
+        final double tx = view.getTranslation().x;
+        final double ty = view.getTranslation().y;
+        final Rect drawn = Rect.fromLTWH(
+          -tx / scale,
+          -ty / scale,
+          size.width / scale,
+          size.height / scale,
+        ).inflate(240);
+
+        final List<({Print print, String key, Offset at, Size paper})> sheets =
+            <({Print print, String key, Offset at, Size paper})>[];
+        for (int i = 0; i < prints.length; i++) {
+          final Print print = prints[i];
+          final String key = WallPlaces.keyOf(print, i);
+          final Offset? at = places[key];
+          if (at == null) {
+            continue;
+          }
+          final Size paper = WallPlaces.sizeOf(print);
+          final Rect rect = WallPlaces.rectOf(
+            print,
+            at,
+          ).shift(const Offset(_extent, _extent));
+          if (key != _dragKey && !rect.overlaps(drawn)) {
+            continue;
+          }
+          sheets.add((print: print, key: key, at: at, paper: paper));
+        }
+
+        final List<Widget> hung = <Widget>[];
+        for (final ({Print print, String key, Offset at, Size paper}) sheet
+            in sheets) {
+          if (sheet.key == _dragKey || sheet.key == _topKey) {
+            continue;
+          }
+          hung.add(
+            _sheet(
+              sheet.print,
+              sheet.key,
+              sheet.at,
+              sheet.paper,
+              wall,
+              light,
+              printed,
+              compact,
+              scale,
+            ),
+          );
+        }
+        for (final ({Print print, String key, Offset at, Size paper}) sheet
+            in sheets) {
+          if (sheet.key != _topKey || sheet.key == _dragKey) {
+            continue;
+          }
+          hung.add(
+            _sheet(
+              sheet.print,
+              sheet.key,
+              sheet.at,
+              sheet.paper,
+              wall,
+              light,
+              printed,
+              compact,
+              scale,
+            ),
+          );
+        }
+        for (final ({Print print, String key, Offset at, Size paper}) sheet
+            in sheets) {
+          if (sheet.key != _dragKey) {
+            continue;
+          }
+          hung.add(
+            _sheet(
+              sheet.print,
+              sheet.key,
+              sheet.at,
+              sheet.paper,
+              wall,
+              light,
+              printed,
+              compact,
+              scale,
+            ),
+          );
+        }
+
+        final WallPlaces hanging = WallPlaces(_hanging);
 
         return Stack(
           key: _field,
           fit: StackFit.expand,
           children: <Widget>[
             Wall(wall: wall, light: light),
-            if (prints.isNotEmpty)
-              ListView.builder(
-                key: const PageStorageKey<String>('gallery-wall'),
-                padding: EdgeInsets.fromLTRB(margin, top, margin, floor),
-                itemCount: lines.length,
-                itemBuilder: (BuildContext context, int row) {
-                  final List<Print> line = lines[row];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: row == lines.length - 1 ? 0 : gap,
-                    ),
-                    child: SizedBox(
-                      height: height,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          for (int i = 0; i < line.length; i++) ...<Widget>[
-                            if (i > 0) SizedBox(width: gap),
-                            _Hung(
-                              print: line[i],
-                              printNumber: line[i].printNumber,
-                              wall: wall,
-                              width: widthOf(line[i]),
-                              showLabel: !compact,
-                              light: light,
-                              printed: printed,
-                              cursor: widget.loupe && _lensFor != null
-                                  ? SystemMouseCursors.none
-                                  : SystemMouseCursors.click,
-                              onHover: widget.loupe
-                                  ? (Offset local, Offset global) => _lookAt(
-                                      line[i],
-                                      local,
-                                      widthOf(line[i]),
-                                      global,
-                                    )
-                                  : null,
-                              onLeave: widget.loupe ? _leaveLens : null,
-                              onTap: () => _walkUp(line[i]),
-                            ),
-                          ],
-                        ],
+            InteractiveViewer(
+              transformationController: _view,
+              constrained: false,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              minScale: 0.15,
+              maxScale: 1.6,
+              onInteractionStart: (_) => _stopGlide(),
+              child: SizedBox(
+                width: _world,
+                height: _world,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Positioned.fill(
+                      child: MouseRegion(
+                        cursor: _dragKey == null
+                            ? SystemMouseCursors.grab
+                            : SystemMouseCursors.grabbing,
+                        child: const SizedBox.expand(),
                       ),
                     ),
-                  );
-                },
+                    ...hung,
+                  ],
+                ),
               ),
+            ),
             if (widget.loupe &&
                 _lensFor != null &&
                 (_lens ?? _lensFor!.image) != null)
@@ -404,9 +780,168 @@ class _GalleryState extends State<Gallery> {
                 ),
               ),
             ),
+            if (prints.isNotEmpty && (_touched || hanging.isHung))
+              Positioned(
+                left: margin,
+                bottom: compact ? KalloMobileSpace.step4 : 28,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (_touched)
+                      _Pill(
+                        key: const Key('wall-home'),
+                        label: s.wallHome,
+                        control: wall.controlAt(light),
+                        onTap: () => _goHome(),
+                      ),
+                    if (_touched && hanging.isHung)
+                      const SizedBox(width: KalloSpace.step2),
+                    if (hanging.isHung)
+                      _Pill(
+                        key: const Key('wall-rehang'),
+                        label: s.rehang,
+                        control: wall.controlAt(light),
+                        onTap: _rehang,
+                      ),
+                  ],
+                ),
+              ),
           ],
         );
       },
+    );
+  }
+
+  /// One sheet on the wall: the paper, its label, and what a pointer does to
+  /// it — a click walks up to the print, a drag hangs it somewhere else.
+  Widget _sheet(
+    Print print,
+    String key,
+    Offset at,
+    Size paper,
+    KalloWall wall,
+    double light,
+    double printed,
+    bool compact,
+    double scale,
+  ) {
+    final bool held = key == _dragKey;
+    final MouseCursor cursor = widget.loupe
+        ? (held ? SystemMouseCursors.grabbing : SystemMouseCursors.none)
+        : (held ? SystemMouseCursors.grabbing : SystemMouseCursors.grab);
+    return Positioned(
+      left: at.dx + _extent,
+      top: at.dy + _extent,
+      width: paper.width,
+      child: MouseRegion(
+        cursor: cursor,
+        onHover: widget.loupe
+            ? (PointerHoverEvent event) => _lookAt(
+                print,
+                event.localPosition,
+                paper.width,
+                event.position,
+              )
+            : null,
+        onExit: widget.loupe ? (_) => _leaveLens() : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _walkUp(print),
+          onPanStart: (DragStartDetails details) =>
+              _pickUp(print, key, at, details.globalPosition),
+          onPanUpdate: (DragUpdateDetails details) =>
+              _dragTo(details.globalPosition),
+          onPanEnd: (_) => _hangUp(),
+          onPanCancel: _cancelDrag,
+          child: _Hung(
+            print: print,
+            wall: wall,
+            width: paper.width,
+            light: light,
+            printed: printed,
+            showLabel: !compact,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One print on the wall: a sheet of paper, with the label under it.
+class _Hung extends StatelessWidget {
+  const _Hung({
+    required this.print,
+    required this.wall,
+    required this.width,
+    required this.light,
+    required this.printed,
+    this.showLabel = true,
+  });
+
+  final Print print;
+
+  /// Which wall: the light one in a light appearance, the dark one after dark.
+  final KalloWall wall;
+
+  /// The sheet's width on the wall: the picture and the paper around it.
+  final double width;
+
+  /// The light on the wall, which the label is on.
+  final double light;
+
+  /// The light on the print, which holds a little longer.
+  final double printed;
+
+  /// A phone wall is only the paper. The label would be four points tall at
+  /// this width; the viewer carries it instead.
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final String stock = filmEdgeName(print.film);
+    final String number = print.printNumber.toString().padLeft(2, '0');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Semantics(
+          label: stock.isEmpty ? '${print.name} · $number' : '$stock · $number',
+          child: KalloShadowBox(
+            kind: KalloShadowKind.paper,
+            child: PrintSheet(
+              width: width,
+              aspect: print.aspect,
+              paper: colors.print,
+              outline: colors.hairline.withValues(alpha: 0.35),
+              light: printed,
+              child: PrintImage(print: print),
+            ),
+          ),
+        ),
+        if (showLabel) ...<Widget>[
+          const SizedBox(height: KalloSpace.step3 - 2),
+          Text.rich(
+            TextSpan(
+              children: wallLabel(
+                light: light,
+                wall: wall,
+                film: filmEdgeName(print.film),
+                clock: print.clock,
+                paper: print.paperDisplay,
+                fallback: print.name,
+              ),
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: KalloType.small.copyWith(
+              letterSpacing: 0.2,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -864,121 +1399,6 @@ class _PillState extends State<_Pill> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// One print on the wall: a sheet of paper, with the label under it.
-class _Hung extends StatelessWidget {
-  const _Hung({
-    required this.print,
-    required this.printNumber,
-    required this.wall,
-    required this.width,
-    required this.light,
-    required this.printed,
-    required this.cursor,
-    this.showLabel = true,
-    required this.onHover,
-    required this.onLeave,
-    required this.onTap,
-  });
-
-  final Print print;
-  final int printNumber;
-
-  /// Which wall: the light one in a light appearance, the dark one after dark.
-  final KalloWall wall;
-
-  /// The sheet's width on the wall: the picture and the paper around it.
-  final double width;
-
-  /// The light on the wall, which the label is on.
-  final double light;
-
-  /// The light on the print, which holds a little longer.
-  final double printed;
-
-  /// What the pointer is over the print: a hand until the loupe is up, and
-  /// then nothing — the glass is where the pointer is, and a hand inside it is
-  /// a hand on the picture.
-  final MouseCursor cursor;
-
-  /// A phone wall is only the paper. The label would be four points tall at
-  /// this width; the viewer carries it instead.
-  final bool showLabel;
-
-  /// The lens: the pointer over the print, its place on the sheet, and where
-  /// it is on the wall. Null when the loupe is put away.
-  final void Function(Offset local, Offset global)? onHover;
-  final VoidCallback? onLeave;
-
-  /// Walking up to the print: the loupe.
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final KalloColors colors = KalloScope.colorsOf(context);
-    final String stock = filmEdgeName(print.film);
-    final String number = printNumber.toString().padLeft(2, '0');
-    return SizedBox(
-      width: width,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          MouseRegion(
-            cursor: cursor,
-            onHover: onHover == null
-                ? null
-                : (PointerHoverEvent event) =>
-                      onHover!(event.localPosition, event.position),
-            onExit: onLeave == null ? null : (_) => onLeave!(),
-            child: GestureDetector(
-              onTap: onTap,
-              behavior: HitTestBehavior.opaque,
-              child: Semantics(
-                label: stock.isEmpty
-                    ? '${print.name} · $number'
-                    : '$stock · $number',
-                child: KalloShadowBox(
-                  kind: KalloShadowKind.paper,
-                  child: PrintSheet(
-                    width: width,
-                    aspect: print.aspect,
-                    paper: colors.print,
-                    outline: colors.hairline.withValues(alpha: 0.35),
-                    light: printed,
-                    child: PrintImage(print: print),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (showLabel) ...<Widget>[
-            const SizedBox(height: KalloSpace.step3 - 2),
-            Text.rich(
-              TextSpan(
-                children: wallLabel(
-                  light: light,
-                  wall: wall,
-                  film: filmEdgeName(print.film),
-                  clock: print.clock,
-                  paper: print.paperDisplay,
-                  fallback: print.name,
-                ),
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: KalloType.small.copyWith(
-                letterSpacing: 0.2,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
