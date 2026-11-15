@@ -452,6 +452,50 @@ void main() {
       );
     });
 
+    testWidgets('the print step, choosing an edge', (
+      WidgetTester tester,
+    ) async {
+      _window(tester);
+      final TestStrip strip =
+          const TestStrip(
+            photo: '/photographs/uji.jpg',
+            stockId: 'vision3_500t',
+            stockLabel: 'VISION3 500T',
+            paperId: 'portra_endura',
+            paperLabel: 'PORTRA ENDURA',
+          ).withPrint(
+            TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
+          );
+      await tester.pumpWidget(
+        KalloApp(
+          catalogue: _catalogue,
+          strip: strip,
+          photograph: card,
+          prints: const <Print>[],
+          initialStep: DarkroomStep.print,
+          appearance: Brightness.dark,
+          chrome: WindowChrome.mac,
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (int i = 0; i < 50; i++) {
+        if (find.byType(RawImage).evaluate().isNotEmpty) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      // The edge is chosen by looking at the proofs: the row is out, and the
+      // print is already wearing the warm one.
+      await tester.tap(find.byKey(const Key('border-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('border-warm')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(KalloApp),
+        matchesGoldenFile('goldens/$_platform/print-tray.png'),
+      );
+    });
+
     testWidgets('the drying rack', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(

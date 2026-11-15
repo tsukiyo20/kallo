@@ -29,23 +29,38 @@ import 'stock.dart';
 ///   edge printing is clear film, and the perforations are holes the light
 ///   comes through — the only white in the edge.
 ///
+/// The light box has two more readings, kept because an edge is also a mood.
+/// Its edge printing can be given the mask's amber ([whiteAmber]), so the type
+/// is warm while the holes stay lit; or it can be left off altogether
+/// ([whiteBlank]), which is the clean edge a film border is often wanted for.
+/// Amber ink needs the mask and white holes need it gone, so `whiteAmber` is
+/// the one template that is not one strip of film — a reading, not a chemistry.
+///
 /// The proportions are the film's, not a graphic's: a 35 mm frame is 36 mm
 /// along the film and 24 mm across it, the film is 35 mm wide, so the rebate is
 /// 5.5 mm on each long edge; the frames sit about 1 mm apart on the short ones.
-/// The perforations are 1.98 mm by 2.79 mm on a 4.75 mm pitch, centred in the
-/// rebate — which is where they are drawn.
+/// A perforation is 2.79 mm **along** the film and 1.98 mm **across** it, on a
+/// 4.75 mm pitch, centred in the rebate — wider than it is tall, which is where
+/// they are drawn.
 /// Which edge a print is given, when it is given one.
 ///
-/// These are readings of the same film edge, not filters: the three film
+/// These are readings of the same film edge, not filters: the five film
 /// templates differ in what happened to the edge, and a person chooses which
 /// one the print carries. [neutral] is the paper print a standard carrier makes;
 /// [warm] is the same negative scanned with its orange mask left in; [white] is
-/// a reversal read on a light box.
+/// a reversal read on a light box; [whiteAmber] is that light box with the
+/// mask's amber ink for the edge printing; [whiteBlank] is the reversal's edge
+/// with no edge printing at all.
+///
+/// The order is the picker's: a print, the two paper prints, then the three
+/// light-box readings, which are adjacent because they differ only in ink.
 enum BorderTemplate {
   none,
   warm,
   neutral,
-  white;
+  whiteAmber,
+  white,
+  whiteBlank;
 
   /// The rebate's ink, before the room's lamp: black for a print and a
   /// reversal, brown where the orange mask was kept.
@@ -53,22 +68,31 @@ enum BorderTemplate {
     BorderTemplate.warm => KalloFilm.rebateMasked,
     BorderTemplate.none ||
     BorderTemplate.neutral ||
-    BorderTemplate.white => KalloFilm.rebate,
+    BorderTemplate.whiteAmber ||
+    BorderTemplate.white ||
+    BorderTemplate.whiteBlank => KalloFilm.rebate,
   };
 
   /// What a perforation is drawn in — a hole is black on a lifted warm band and
   /// white on a light box, and not a mark at all on a neutral print.
   Color? get hole => switch (this) {
     BorderTemplate.warm => KalloFilm.rebate,
-    BorderTemplate.white => KalloFilm.clear,
+    BorderTemplate.whiteAmber ||
+    BorderTemplate.white ||
+    BorderTemplate.whiteBlank => KalloFilm.clear,
     BorderTemplate.none || BorderTemplate.neutral => null,
   };
 
-  /// The edge printing's ink.
-  Color get ink => switch (this) {
-    BorderTemplate.warm => KalloFilm.edgeMasked,
+  /// The edge printing's ink, or null where the edge carries no printing.
+  ///
+  /// On a light box the printing is clear film, so it is the light itself:
+  /// white on [white]. [whiteAmber] keeps the mask's amber instead, and
+  /// [whiteBlank] has none of it.
+  Color? get ink => switch (this) {
+    BorderTemplate.warm || BorderTemplate.whiteAmber => KalloFilm.edgeMasked,
     BorderTemplate.white => KalloFilm.edgeReversal,
-    BorderTemplate.none || BorderTemplate.neutral => KalloFilm.edgePrint,
+    BorderTemplate.neutral => KalloFilm.edgePrint,
+    BorderTemplate.none || BorderTemplate.whiteBlank => null,
   };
 }
 
@@ -199,6 +223,11 @@ class EdgePrintPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (template == BorderTemplate.none) {
+      // A print with no edge is the picture, and there is no rebate to paint.
+      _image(canvas, Offset.zero & size);
+      return;
+    }
     final EdgePrintMetrics metrics = EdgePrintMetrics.fromWidth(
       size.width,
       aspect: image.width / image.height,
@@ -225,7 +254,10 @@ class EdgePrintPainter extends CustomPainter {
     _image(canvas, m.aperture);
     canvas.restore();
 
-    _edgeInk(canvas, m, _lit(template.ink));
+    final Color? inkColour = template.ink;
+    if (inkColour != null) {
+      _edgeInk(canvas, m, _lit(inkColour));
+    }
   }
 
   /// The picture, flat. The edge print is a print: a lens is how you look, not
@@ -265,13 +297,15 @@ class EdgePrintPainter extends CustomPainter {
     );
   }
 
-  /// The perforations, centred in each long rebate: 1.98 mm by 2.79 mm on a
-  /// 4.75 mm pitch, which is the pitch a 36 mm frame fits eight of.
+  /// The perforations, centred in each long rebate: 2.79 mm along the film and
+  /// 1.98 mm across it, on a 4.75 mm pitch, which is the pitch a 36 mm frame
+  /// fits eight of. The hole is wider than it is tall — the long side runs
+  /// along the film — and that is how it is drawn.
   Iterable<RRect> _sprockets(EdgePrintMetrics m) sync* {
     final double pitch = m.longEdge / m.sprockets;
-    final double length = pitch * 0.42;
-    final double thickness = m.band * 0.51;
-    final Radius radius = Radius.circular(thickness * 0.18);
+    final double length = m.band * (2.79 / 5.5);
+    final double thickness = m.band * (1.98 / 5.5);
+    final Radius radius = Radius.circular(thickness * 0.22);
     final double across = m.band * 0.5;
     if (m.horizontal) {
       final double top = m.aperture.top - across;

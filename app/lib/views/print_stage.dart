@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/mobile.dart';
@@ -20,6 +21,7 @@ import '../lab/print_request.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
+import '../widgets/border_tray.dart';
 import '../widgets/button.dart';
 import '../widgets/chip.dart';
 import '../widgets/curves.dart';
@@ -94,6 +96,9 @@ class _PrintStageState extends State<PrintStage> {
   /// The edge printed into the print. A print without one is cropped to the
   /// frame; the templates are readings of the same film edge.
   BorderTemplate _border = BorderTemplate.none;
+
+  /// Whether the row of edge proofs is out on the bench.
+  bool _trayOpen = false;
 
   Timer? _timer;
   Timer? _toastTimer;
@@ -354,6 +359,7 @@ class _PrintStageState extends State<PrintStage> {
       _busy = true;
       _printed = false;
       _error = null;
+      _trayOpen = false;
     });
     try {
       await widget.onPrint(
@@ -420,16 +426,25 @@ class _PrintStageState extends State<PrintStage> {
     if (KalloLayout.isCompact(context)) {
       return _phone(colors, s);
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Expanded(child: _bench(colors, s)),
-        InspectorPane(
-          key: const Key('print-inspector'),
-          open: widget.showInspector,
-          child: _panel(colors, s),
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        if (_trayOpen)
+          const SingleActivator(LogicalKeyboardKey.escape): _closeTray,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(child: _bench(colors, s)),
+            InspectorPane(
+              key: const Key('print-inspector'),
+              open: widget.showInspector,
+              child: _panel(colors, s),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -611,9 +626,12 @@ class _PrintStageState extends State<PrintStage> {
             ],
           ),
           const SizedBox(height: KalloMobileSpace.step2),
-          _PhoneControl(
+          _PhoneBorderRow(
             label: s.border,
-            value: _borderLabel(s, _border),
+            image: _preview,
+            template: _border,
+            film: widget.filmName,
+            process: widget.filmProcess,
             onTap: _showBorderPhone,
           ),
           if (_error != null) ...<Widget>[
@@ -860,29 +878,24 @@ class _PrintStageState extends State<PrintStage> {
 
   Future<void> _showBorderPhone() async {
     final KalloStrings s = KalloStrings.of(context);
-    final String? choice = await showKalloMobileChoices(
+    await showKalloMobileSheet<void>(
       context,
-      title: s.border,
-      choices: <KalloMobileChoice>[
-        for (final BorderTemplate template in BorderTemplate.values)
-          KalloMobileChoice(
-            value: template.name,
-            label: _borderLabel(s, template),
-            selected: _border == template,
-          ),
-      ],
+      builder: (BuildContext sheetContext) => KalloMobileSheet(
+        child: _PhoneBorderSheet(
+          image: _preview,
+          selected: _border,
+          film: widget.filmName,
+          process: widget.filmProcess,
+          labelOf: s.borderName,
+          onSelect: (BorderTemplate template) {
+            if (template == _border) {
+              return;
+            }
+            setState(() => _border = template);
+          },
+        ),
+      ),
     );
-    if (choice == null || !mounted) {
-      return;
-    }
-    final BorderTemplate next = BorderTemplate.values.firstWhere(
-      (BorderTemplate template) => template.name == choice,
-      orElse: () => BorderTemplate.none,
-    );
-    if (next == _border) {
-      return;
-    }
-    setState(() => _border = next);
   }
 
   Future<void> _choosePrintPhone() async {
@@ -947,18 +960,29 @@ class _PrintStageState extends State<PrintStage> {
     );
   }
 
-  /// The template's name, in the interface's language.
-  String _borderLabel(KalloStrings s, BorderTemplate template) =>
-      switch (template) {
-        BorderTemplate.none => s.borderNothing,
-        BorderTemplate.warm => s.borderWarm,
-        BorderTemplate.neutral => s.borderNeutral,
-        BorderTemplate.white => s.borderWhite,
-      };
+  /// The bench's edge is the edge the next print carries; choosing one is a
+  /// preview, not a print.
+  void _selectBorder(BorderTemplate template) {
+    if (template == _border) {
+      return;
+    }
+    setState(() => _border = template);
+  }
+
+  void _toggleTray() => setState(() => _trayOpen = !_trayOpen);
+
+  void _closeTray() {
+    if (!_trayOpen) {
+      return;
+    }
+    setState(() => _trayOpen = false);
+  }
 
   Widget _bench(KalloColors colors, KalloStrings s) {
     final ui.Image? image = _preview;
     final double aspect = image == null ? 1.5 : _aspectOf(image);
+    // The tray is a card lying on the bench: it takes its own height, the room
+    // above it and its bottom margin, and the proof is sized from what is left.
     return ColoredBox(
       color: colors.content,
       child: Padding(
@@ -967,48 +991,108 @@ class _PrintStageState extends State<PrintStage> {
         padding: EdgeInsets.only(top: widget.topInset),
         child: LayoutBuilder(
           builder: (BuildContext context, BoxConstraints room) {
-            final double width = math.max(
-              220,
-              math.min(
-                math.max(240, room.maxWidth - 140),
-                (room.maxHeight - 150) /
-                    PrintSheet.heightPerWidth(aspect: aspect),
-              ),
-            );
-            return Column(
-              children: <Widget>[
-                Expanded(
-                  child: Center(
-                    child: PrintSheet(
-                      width: width,
-                      aspect: aspect,
-                      paper: colors.print,
-                      outline: colors.hairline,
-                      child: image == null
-                          ? Center(
-                              child: Text(
-                                _busy ? s.printing : s.printNote,
-                                textAlign: TextAlign.center,
-                                style: KalloType.small.copyWith(
-                                  color: KalloInk.muted,
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: _trayOpen ? 1 : 0),
+              duration: KalloMotion.settle,
+              curve: KalloMotion.enter,
+              builder: (BuildContext context, double open, Widget? _) {
+                final double width = math.max(
+                  220,
+                  math.min(
+                    math.max(240, room.maxWidth - 140),
+                    (room.maxHeight -
+                            150 -
+                            (borderTrayHeightIn(
+                                      room.maxWidth - 56,
+                                      borderAspectOf(image),
+                                    ) +
+                                    44) *
+                                open) /
+                        PrintSheet.heightPerWidth(aspect: aspect),
+                  ),
+                );
+                return Stack(
+                  children: <Widget>[
+                    Positioned.fill(
+                      child: Column(
+                        children: <Widget>[
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _trayOpen ? _closeTray : null,
+                              child: Center(
+                                child: PrintSheet(
+                                  key: const Key('bench-print'),
+                                  width: width,
+                                  aspect: aspect,
+                                  paper: colors.print,
+                                  outline: colors.hairline,
+                                  child: image == null
+                                      ? Center(
+                                          child: Text(
+                                            _busy ? s.printing : s.printNote,
+                                            textAlign: TextAlign.center,
+                                            style: KalloType.small.copyWith(
+                                              color: KalloInk.muted,
+                                            ),
+                                          ),
+                                        )
+                                      : _picture(image),
                                 ),
                               ),
-                            )
-                          : _picture(image),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 44,
+                            child: Opacity(
+                              opacity: 1 - open,
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    40,
+                                    0,
+                                    40,
+                                    24,
+                                  ),
+                                  child: Text(
+                                    '${darkroomClock(_minutes)}   ·   '
+                                    '${_printEv >= 0 ? '+' : ''}'
+                                    '${_printEv.toStringAsFixed(1)} EV'
+                                    '${_filters.isEmpty ? '' : '   ·   $_filters'}'
+                                    '${_glass == null ? '' : '   ·   ${_glass!.toUpperCase()}'}',
+                                    style: KalloType.data.copyWith(
+                                      color: colors.inkMuted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
-                  child: Text(
-                    '${darkroomClock(_minutes)}   ·   '
-                    '${_printEv >= 0 ? '+' : ''}${_printEv.toStringAsFixed(1)} EV'
-                    '${_filters.isEmpty ? '' : '   ·   $_filters'}'
-                    '${_glass == null ? '' : '   ·   ${_glass!.toUpperCase()}'}',
-                    style: KalloType.data.copyWith(color: colors.inkMuted),
-                  ),
-                ),
-              ],
+                    if (open > 0.001)
+                      Positioned(
+                        left: 28,
+                        right: 28,
+                        bottom: 20 + (1 - open) * 24,
+                        child: Opacity(
+                          opacity: open,
+                          child: BorderTray(
+                            key: const Key('border-tray'),
+                            image: image,
+                            selected: _border,
+                            film: widget.filmName,
+                            process: widget.filmProcess,
+                            labelOf: s.borderName,
+                            onSelect: _selectBorder,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -1166,33 +1250,24 @@ class _PrintStageState extends State<PrintStage> {
                     ],
                   ),
                   const SizedBox(height: KalloSpace.step4),
-                  Text(
-                    s.border,
-                    style: KalloType.caption.copyWith(
-                      color: colors.inkFaint,
-                      letterSpacing: 0.7,
-                    ),
-                  ),
-                  const SizedBox(height: KalloSpace.step2),
-                  Wrap(
-                    spacing: KalloSpace.step1 + 2,
-                    runSpacing: KalloSpace.step1 + 2,
+                  Row(
                     children: <Widget>[
-                      for (final BorderTemplate template
-                          in BorderTemplate.values)
-                        KalloChip(
-                          key: Key('border-${template.name}'),
-                          label: _borderLabel(s, template),
-                          selected: _border == template,
-                          compact: true,
-                          onTap: () => setState(() => _border = template),
-                        ),
+                      Text(
+                        s.border,
+                        style: KalloType.small.copyWith(color: colors.inkMuted),
+                      ),
+                      const Spacer(),
+                      BorderButton(
+                        key: const Key('border-button'),
+                        image: _preview,
+                        template: _border,
+                        label: s.borderName(_border),
+                        film: widget.filmName,
+                        process: widget.filmProcess,
+                        open: _trayOpen,
+                        onTap: _toggleTray,
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: KalloSpace.step2),
-                  Text(
-                    s.borderNote,
-                    style: KalloType.small.copyWith(color: colors.inkFaint),
                   ),
                   const SizedBox(height: KalloSpace.step5),
                   Container(height: 1, color: colors.hairline),
@@ -1295,6 +1370,143 @@ class _PrintStageState extends State<PrintStage> {
         width: 264,
         onMinus: value <= 0 ? null : () => onChanged(value - 5),
         onPlus: value >= 100 ? null : () => onChanged(value + 5),
+      ),
+    );
+  }
+}
+
+/// The phone's edge row in the deck: the label, the print as it will be, and
+/// the way into the sheet.
+class _PhoneBorderRow extends StatelessWidget {
+  const _PhoneBorderRow({
+    required this.label,
+    required this.image,
+    required this.template,
+    required this.film,
+    required this.process,
+    required this.onTap,
+  });
+
+  final String label;
+  final ui.Image? image;
+  final BorderTemplate template;
+  final String? film;
+  final FilmProcess? process;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final double height = KalloMobileSpace.touch + 10;
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: height,
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: colors.fill,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: <Widget>[
+              Text(
+                label.toUpperCase(),
+                style: KalloMobileType.callout.copyWith(
+                  color: colors.ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              BorderProof(
+                image: image,
+                template: template,
+                film: film,
+                process: process,
+                height: height - 16,
+              ),
+              const SizedBox(width: 4),
+              KalloGlyphView(
+                KalloGlyph.chevronRight,
+                size: 14,
+                color: colors.inkFaint,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The sheet of edge proofs on a phone: pictures, no words, a tap to take one.
+///
+/// The sheet stays open after a tap — the proof above it changes — so the six
+/// edges can be compared without opening and closing the sheet each time.
+class _PhoneBorderSheet extends StatefulWidget {
+  const _PhoneBorderSheet({
+    required this.image,
+    required this.selected,
+    required this.film,
+    required this.process,
+    required this.labelOf,
+    required this.onSelect,
+  });
+
+  final ui.Image? image;
+  final BorderTemplate selected;
+  final String? film;
+  final FilmProcess? process;
+  final String Function(BorderTemplate template) labelOf;
+  final ValueChanged<BorderTemplate> onSelect;
+
+  @override
+  State<_PhoneBorderSheet> createState() => _PhoneBorderSheetState();
+}
+
+class _PhoneBorderSheetState extends State<_PhoneBorderSheet> {
+  late BorderTemplate _selected = widget.selected;
+
+  @override
+  Widget build(BuildContext context) {
+    const double proofWidth = 104;
+    final double tileHeight = borderTileHeight(
+      proofWidth,
+      borderAspectOf(widget.image),
+    );
+    return Padding(
+      key: const Key('phone-border'),
+      padding: const EdgeInsets.fromLTRB(
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step2,
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step5,
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 4,
+        runSpacing: 4,
+        children: <Widget>[
+          for (final BorderTemplate template in BorderTemplate.values)
+            BorderTile(
+              key: Key('phone-border-${template.name}'),
+              image: widget.image,
+              template: template,
+              label: widget.labelOf(template),
+              selected: _selected == template,
+              film: widget.film,
+              process: widget.process,
+              proofWidth: proofWidth,
+              tileHeight: tileHeight,
+              onTap: () {
+                setState(() => _selected = template);
+                widget.onSelect(template);
+              },
+            ),
+        ],
       ),
     );
   }

@@ -47,13 +47,23 @@ class _Painted {
     );
   }
 
+  /// The rows between the perforations and the frame, which is where a film's
+  /// edge printing sits. The holes are above them, so a light probe here is
+  /// about the letters and nothing else.
+  Iterable<int> _typeRows() sync* {
+    final int top = (metrics.outer.top + metrics.band * 0.72).round().clamp(
+      0,
+      height - 1,
+    );
+    final int bottom = metrics.aperture.top.round().clamp(0, height);
+    for (int y = top; y < bottom; y++) {
+      yield y;
+    }
+  }
+
   /// Whether any lettering in the top rebate is warm like amber.
   bool hasWarmInk() {
-    for (
-      int y = metrics.outer.top.round();
-      y < metrics.aperture.top.round();
-      y++
-    ) {
+    for (final int y in _typeRows()) {
       for (int x = 0; x < width; x++) {
         final int index = (y * width + x) * 4;
         final int r = rgba[index];
@@ -70,11 +80,7 @@ class _Painted {
   /// Whether any lettering in the top rebate is light: paper white or the
   /// white of a reversal's clear film.
   bool hasLightInk() {
-    for (
-      int y = metrics.outer.top.round();
-      y < metrics.aperture.top.round();
-      y++
-    ) {
+    for (final int y in _typeRows()) {
       for (int x = 0; x < width; x++) {
         final int index = (y * width + x) * 4;
         final int r = rgba[index];
@@ -150,6 +156,32 @@ Offset _holePoint(EdgePrintMetrics metrics) {
     metrics.aperture.left + 0.5 * pitch,
     metrics.outer.top + 0.5 * metrics.band,
   );
+}
+
+/// How many light pixels a hole covers along one axis, through [centre].
+int _lightRun(_Painted painted, Offset centre, {required bool horizontal}) {
+  bool light(int x, int y) {
+    final Color c = painted.at(Offset(x.toDouble(), y.toDouble()));
+    return c.r > 0.75 && c.g > 0.75 && c.b > 0.75;
+  }
+
+  final int cx = centre.dx.round();
+  final int cy = centre.dy.round();
+  int count = 0;
+  for (final int direction in <int>[-1, 1]) {
+    for (int i = direction == -1 ? 0 : 1; i < 400; i++) {
+      final int x = horizontal ? cx + direction * i : cx;
+      final int y = horizontal ? cy : cy + direction * i;
+      if (x < 0 || y < 0 || x >= painted.width || y >= painted.height) {
+        break;
+      }
+      if (!light(x, y)) {
+        break;
+      }
+      count++;
+    }
+  }
+  return count;
 }
 
 /// A decoded image with a picture's own width, for reading a written file back.
@@ -355,6 +387,57 @@ void main() {
 
     expect(painted.hasLightInk(), isTrue);
     expect(painted.hasWarmInk(), isFalse);
+  });
+
+  test('a white-hole edge can keep the mask\'s amber printing', () async {
+    final ui.Image card = await _card(width: 1200, height: 800);
+    addTearDown(card.dispose);
+    final _Painted painted = await _paint(card, BorderTemplate.whiteAmber);
+    final EdgePrintMetrics metrics = painted.metrics;
+
+    // The rebate is the light box's black dye.
+    final Color band = painted.at(_bandPoint(metrics));
+    expect(band.r, lessThan(0.05));
+
+    // The holes are clear film, and the lamp behind them comes through.
+    final Color hole = painted.at(_holePoint(metrics));
+    expect(hole.r, greaterThan(0.75));
+
+    // The printing is the mask's amber, not the light.
+    expect(painted.hasWarmInk(), isTrue);
+    expect(painted.hasLightInk(), isFalse);
+  });
+
+  test('a white-hole edge can carry no printing at all', () async {
+    final ui.Image card = await _card(width: 1200, height: 800);
+    addTearDown(card.dispose);
+    final _Painted painted = await _paint(card, BorderTemplate.whiteBlank);
+    final EdgePrintMetrics metrics = painted.metrics;
+
+    // The holes are still the film's: clear film on black dye.
+    final Color hole = painted.at(_holePoint(metrics));
+    expect(hole.r, greaterThan(0.75));
+
+    // And nothing is written between them and the frame.
+    expect(painted.hasWarmInk(), isFalse);
+    expect(painted.hasLightInk(), isFalse);
+  });
+
+  test('the perforation lies along the film, wider than it is tall', () async {
+    final ui.Image card = await _card(width: 1200, height: 800);
+    addTearDown(card.dispose);
+    final _Painted painted = await _paint(
+      card,
+      BorderTemplate.white,
+      process: FilmProcess.reversal,
+      film: 'FUJIFILM PROVIA 100F',
+    );
+    final Offset hole = _holePoint(painted.metrics);
+    final double across = _lightRun(painted, hole, horizontal: true).toDouble();
+    final double down = _lightRun(painted, hole, horizontal: false).toDouble();
+    expect(down, greaterThan(0));
+    // A 35 mm hole is 2.79 mm along the film and 1.98 mm across it.
+    expect(across / down, closeTo(2.79 / 1.98, 0.15));
   });
 
   test(

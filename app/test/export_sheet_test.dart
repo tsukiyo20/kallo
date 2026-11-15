@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/design/scope.dart';
@@ -13,8 +15,8 @@ import 'package:kallo/lab/print_request.dart';
 import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/views/print_stage.dart';
+import 'package:kallo/widgets/border_tray.dart';
 import 'package:kallo/widgets/button.dart';
-import 'package:kallo/widgets/chip.dart';
 import 'package:kallo/widgets/export_sheet.dart';
 import 'package:kallo/widgets/wall.dart';
 
@@ -52,8 +54,8 @@ Widget _window(Widget home) => WidgetsApp(
   home: home,
 );
 
-void _size(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1280, 820);
+void _size(WidgetTester tester, {double width = 1280, double height = 820}) {
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 }
@@ -178,10 +180,17 @@ TestStrip _strip() => const TestStrip(
   paperLabel: 'PORTRA ENDURA',
 ).withPrint(const TestPrint(minutes: 9, tempC: 20));
 
-/// The bench's edge painter, when the print carries one.
-final Finder _edgePainter = find.byWidgetPredicate(
-  (Widget widget) =>
-      widget is CustomPaint && widget.painter is EdgePrintPainter,
+/// The bench's paper, which is where the print is drawn.
+final Finder _benchPrint = find.byKey(const Key('bench-print'));
+
+/// The bench's edge painter, when the print carries one — not the proofs in
+/// the tray, which are painted with the same painter.
+final Finder _edgePainter = find.descendant(
+  of: _benchPrint,
+  matching: find.byWidgetPredicate(
+    (Widget widget) =>
+        widget is CustomPaint && widget.painter is EdgePrintPainter,
+  ),
 );
 
 EdgePrintPainter _paintedEdge(WidgetTester tester) =>
@@ -202,8 +211,9 @@ Future<void> _settlePreview(WidgetTester tester) async {
 Future<Directory> _pumpBench(
   WidgetTester tester, {
   required Future<void> Function(PrintRequest request) onPrint,
+  double width = 1280,
 }) async {
-  _size(tester);
+  _size(tester, width: width);
   final Directory folder = Directory.systemTemp.createTempSync('kallo-print-');
   addTearDown(() => folder.deleteSync(recursive: true));
   await tester.pumpWidget(
@@ -294,36 +304,38 @@ void main() {
     expect(find.byKey(const Key('export-confirm')), findsNothing);
   });
 
-  testWidgets('the bench offers four edges, and none is the default', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('the bench offers the edge as a picture, and none is the '
+      'default', (WidgetTester tester) async {
     await _pumpBench(tester, onPrint: (_) async {});
 
-    // The panel says what the print can carry, in the film's own vocabulary.
+    // The panel says what the print can carry, and shows the print itself.
     expect(find.text('边框'), findsOneWidget);
+    expect(find.byKey(const Key('border-button')), findsOneWidget);
+    // No template is named on the bench: the edges are pictures, not words.
+    expect(find.text('留边·暖'), findsNothing);
+    expect(find.text('留边·白孔·无字'), findsNothing);
+    // The row of proofs is not out until it is asked for.
+    expect(find.byKey(const Key('border-tray')), findsNothing);
+    // A print with no edge is the picture on its paper.
+    expect(_edgePainter, findsNothing);
+
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('border-tray')), findsOneWidget);
     for (final BorderTemplate template in BorderTemplate.values) {
-      expect(find.byKey(Key('border-${template.name}')), findsOneWidget);
-    }
-    expect(
-      tester.widget<KalloChip>(find.byKey(const Key('border-none'))).selected,
-      isTrue,
-    );
-    for (final BorderTemplate template in <BorderTemplate>[
-      BorderTemplate.warm,
-      BorderTemplate.neutral,
-      BorderTemplate.white,
-    ]) {
+      final Finder tile = find.byKey(Key('border-${template.name}'));
+      expect(tile, findsOneWidget);
       expect(
-        tester
-            .widget<KalloChip>(find.byKey(Key('border-${template.name}')))
-            .selected,
-        isFalse,
+        tester.widget<BorderTile>(tile).selected,
+        template == BorderTemplate.none,
+      );
+      // A tile is a print: its edge is drawn on the same paper as the bench.
+      expect(
+        find.descendant(of: tile, matching: find.byType(PrintSheet)),
+        findsOneWidget,
       );
     }
-
-    // With no edge chosen the bench shows the picture on its paper, not a
-    // bordered print.
-    expect(_edgePainter, findsNothing);
   });
 
   testWidgets('choosing an edge paints it on the bench and prints it in', (
@@ -337,22 +349,23 @@ void main() {
       },
     );
 
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+
     // Each template changes the picture's shape and the painter under it.
     for (final BorderTemplate template in <BorderTemplate>[
       BorderTemplate.warm,
       BorderTemplate.neutral,
+      BorderTemplate.whiteAmber,
       BorderTemplate.white,
+      BorderTemplate.whiteBlank,
     ]) {
-      await tester.tap(find.byKey(Key('border-${template.name}')));
+      final Finder tile = find.byKey(Key('border-${template.name}'));
+      await tester.tap(tile);
       await tester.pump();
-      expect(
-        tester
-            .widget<KalloChip>(find.byKey(Key('border-${template.name}')))
-            .selected,
-        isTrue,
-      );
       expect(_edgePainter, findsOneWidget);
       expect(_paintedEdge(tester).template, template);
+      expect(tester.widget<BorderTile>(tile).selected, isTrue);
     }
 
     // Back to none: the picture without an edge.
@@ -360,7 +373,7 @@ void main() {
     await tester.pump();
     expect(_edgePainter, findsNothing);
 
-    // Chosen again, and printed: the request carries the template.
+    // Chosen again, and printed from the open tray: the request carries it.
     await tester.tap(find.byKey(const Key('border-warm')));
     await tester.pump();
     await tester.tap(find.widgetWithText(KalloButton, '印相'));
@@ -370,6 +383,8 @@ void main() {
 
     expect(asked, isNotNull);
     expect(asked!.border, BorderTemplate.warm);
+    // Printing puts the tray away.
+    expect(find.byKey(const Key('border-tray')), findsNothing);
 
     // The printed toast owns a timer; let it pass before the tree goes.
     await tester.pump(const Duration(seconds: 5));
@@ -379,17 +394,79 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpBench(tester, onPrint: (_) async {});
-    final Size plain = tester.getSize(find.byType(PrintSheet));
+    final Size plain = tester.getSize(_benchPrint);
 
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('border-warm')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // A bordered print is the picture plus its rebate: the sheet does not get
     // narrower in proportion, it gets taller for the same paper.
-    final Size bordered = tester.getSize(find.byType(PrintSheet));
+    final Size bordered = tester.getSize(_benchPrint);
     expect(
       bordered.width / bordered.height,
       lessThan(plain.width / plain.height),
     );
+  });
+
+  testWidgets('the tray goes away when it is waved away', (
+    WidgetTester tester,
+  ) async {
+    await _pumpBench(tester, onPrint: (_) async {});
+
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('border-tray')), findsOneWidget);
+
+    // Escape puts it away.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('border-tray')), findsNothing);
+
+    // So does a click on the bench's paper, and on the panel's control.
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(_benchPrint);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('border-tray')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('border-tray')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('border-tray')), findsNothing);
+  });
+
+  testWidgets('a wheel over the tray turns it sideways when it overflows', (
+    WidgetTester tester,
+  ) async {
+    await _pumpBench(tester, onPrint: (_) async {}, width: 900);
+
+    await tester.tap(find.byKey(const Key('border-button')));
+    await tester.pumpAndSettle();
+
+    final Finder tray = find.byKey(const Key('border-tray'));
+    expect(tray, findsOneWidget);
+    final Finder strip = find.descendant(
+      of: tray,
+      matching: find.byType(Scrollable),
+    );
+    final ScrollableState scrollable = tester.state<ScrollableState>(strip);
+    expect(
+      scrollable.position.maxScrollExtent,
+      greaterThan(0),
+      reason: 'a narrow window leaves the row wider than the bench',
+    );
+
+    final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+    final Offset centre = tester.getCenter(tray);
+    await tester.sendEventToBinding(pointer.hover(centre));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 140)));
+    await tester.pump();
+
+    expect(scrollable.position.pixels, greaterThan(0));
+    expect(tester.takeException(), isNull);
   });
 }

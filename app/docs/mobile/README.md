@@ -376,7 +376,7 @@ deck 192  ╭──────────────────────�
     - Balance: three rows, Y/M/C, each with −/+ at 44 pt, steps of 5; a Reset at the top.
     - Heat glass: a `None / KG1 / KG2 / KG3 / KG5` list, 44 pt rows, with one line of explanation.
 - `Print` opens the print options sheet: size (Original / 6000 / 4000 px) and format (PNG/JPEG), each row 56, with `Print` at the bottom. The options sheet shows the expected pixels and file type.
-- The border is not in the sheet: it is a control on the deck (`边框`, between the colour rows and the CTA) that opens a template sheet — `无`, `留边·暖`, `留边·中性`, `留边·白孔` — and the print preview above updates live. The chosen edge is printed into the one file that goes to the album; there is no second file and no `Frames/` folder, so a phone print can carry a border.
+- The border is not in the sheet: it is a row on the deck (`边框`, between the heat glass row and the CTA) that carries a small print of the current edge and opens a wordless sheet of the edges as pictures — `无`, `留边·暖`, `留边·中性`, the three light-box reads (`琥珀字`, `白字`, `无字`) — in a 3 × 2 grid. A tap takes one and the sheet stays so the next can be compared; the print preview above updates live. The chosen edge is printed into the one file that goes to the album; there is no second file and no `Frames/` folder, so a phone print can carry a border.
 - While printing: the CTA says `Printing…` and the controls are disabled; on success a toast at the top, `Printed` + `View`, and View goes to the drying rack; on failure one red line above the CTA, no dialog.
 - No prints: the whole page is an empty state + `To the developer`; do not leave the Print step tappable and empty.
 - Reversal: there is no Print; the Print segment in the step control shows as unavailable and says why.

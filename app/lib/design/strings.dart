@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../lab/edge_print.dart';
 import '../lab/roll.dart';
 import '../lab/stock.dart';
 
@@ -148,12 +149,20 @@ class KalloStrings {
   /// The edge a print can carry. A printing choice, not a viewing one: the
   /// template is printed into the print, not kept as a second file.
   String get border => zh ? '边框' : 'BORDER';
-  String get borderNothing => zh ? '无' : 'None';
-  String get borderWarm => zh ? '留边·暖' : 'Edge · warm';
-  String get borderNeutral => zh ? '留边·中性' : 'Edge · neutral';
-  String get borderWhite => zh ? '留边·白孔' : 'Edge · white';
-  String get borderNote =>
-      zh ? '选一个片边样式，会印进这张照片里。' : 'One edge, printed into this print.';
+
+  /// What a screen reader says about one edge. The picker draws pictures and
+  /// no words at all, so these names are spoken, never set.
+  String borderName(BorderTemplate template) => switch (template) {
+    BorderTemplate.none => zh ? '无边框' : 'No edge',
+    BorderTemplate.warm => zh ? '留边·暖' : 'Edge · warm',
+    BorderTemplate.neutral => zh ? '留边·中性' : 'Edge · neutral',
+    BorderTemplate.whiteAmber =>
+      zh ? '留边·白孔·琥珀字' : 'Edge · white holes · amber print',
+    BorderTemplate.white =>
+      zh ? '留边·白孔·白字' : 'Edge · white holes · white print',
+    BorderTemplate.whiteBlank =>
+      zh ? '留边·白孔·无字' : 'Edge · white holes · no print',
+  };
 
   String get cancel => zh ? '取消' : 'Cancel';
   String get done => zh ? '完成' : 'Done';
