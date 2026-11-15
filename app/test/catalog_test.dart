@@ -183,6 +183,88 @@ void main() {
     expect(catalog.printById(record.id), isNull);
   });
 
+  test("the wall's hanging round-trips and belongs to its library", () {
+    final Catalog catalog = Catalog.openInMemory();
+    addTearDown(catalog.close);
+    final CatalogLibrary first = catalog.ensureLibrary(
+      kind: LibraryKind.folder,
+      root: '/tmp/kallo',
+      displayName: 'Kallo',
+      now: at,
+    );
+    final CatalogLibrary second = catalog.ensureLibrary(
+      kind: LibraryKind.folder,
+      root: '/tmp/kallo-two',
+      displayName: 'Kallo Two',
+      now: at,
+    );
+
+    catalog.setHangings(first.id, <String, Offset>{
+      'print-a': const Offset(10, 20),
+      'print-b': const Offset(-4, 8.5),
+    }, now: at);
+    expect(catalog.hangings(first.id), <String, Offset>{
+      'print-a': const Offset(10, 20),
+      'print-b': const Offset(-4, 8.5),
+    });
+    expect(catalog.hangings(second.id), isEmpty);
+
+    // Writing the wall again replaces it, and clearing hangs it back.
+    catalog.setHangings(first.id, <String, Offset>{
+      'print-a': const Offset(300, 0),
+    }, now: at);
+    expect(catalog.hangings(first.id), <String, Offset>{
+      'print-a': const Offset(300, 0),
+    });
+    catalog.clearHangings(first.id);
+    expect(catalog.hangings(first.id), isEmpty);
+
+    // The wall goes with the library.
+    catalog.setHangings(second.id, <String, Offset>{
+      'print-c': const Offset(1, 1),
+    }, now: at);
+    catalog.deleteLibrary(second.id);
+    expect(catalog.hangings(second.id), isEmpty);
+  });
+
+  test(
+    'a catalog from before the wall grows the table and keeps its prints',
+    () {
+      final Directory root = Directory.systemTemp.createTempSync('kallo-cat-');
+      addTearDown(() => root.deleteSync(recursive: true));
+      final File file = File('${root.path}/library.sqlite');
+
+      final Catalog first = Catalog.open(file);
+      final CatalogLibrary library = first.ensureLibrary(
+        kind: LibraryKind.folder,
+        root: '/tmp/kallo',
+        displayName: 'Kallo',
+        now: at,
+      );
+      final PrintMeta record = meta();
+      first.upsert(
+        libraryId: library.id,
+        meta: record,
+        locator: '/tmp/kallo/print.png',
+        now: at,
+      );
+      // The catalog as version 1 wrote it: no hanging yet.
+      first.db.execute('DROP TABLE hangings');
+      first.db.execute('PRAGMA user_version = 1');
+      first.close();
+
+      final Catalog second = Catalog.open(file);
+      addTearDown(second.close);
+      expect(second.printById(record.id)?.title, 'print 01');
+      second.setHangings(library.id, <String, Offset>{
+        record.id: const Offset(5, 6),
+      }, now: at);
+      expect(second.hangings(library.id), <String, Offset>{
+        record.id: const Offset(5, 6),
+      });
+    },
+  );
+
   test('the schema survives a file reopen', () {
     final Directory root = Directory.systemTemp.createTempSync('kallo-cat-');
     addTearDown(() => root.deleteSync(recursive: true));

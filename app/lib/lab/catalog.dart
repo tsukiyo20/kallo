@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -132,7 +133,7 @@ class Catalog {
 
   final Database db;
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   /// Open the catalog, creating the parent folder and the schema if needed.
   static Catalog open(File file) {
@@ -177,7 +178,8 @@ class Catalog {
         'this catalog is newer than this Kallo (schema $version)',
       );
     }
-    if (version == 0) {
+    int current = version;
+    if (current == 0) {
       db.execute('''
         CREATE TABLE libraries (
           id            TEXT PRIMARY KEY,
@@ -224,6 +226,23 @@ class Catalog {
           ON prints (library_id, locator) WHERE missing = 0;
 
         PRAGMA user_version = 1;
+      ''');
+      current = 1;
+    }
+    if (current < 2) {
+      // The hanging is the one thing the catalog knows that the marker does
+      // not: a print that travels does not carry the wall it was hung on.
+      db.execute('''
+        CREATE TABLE hangings (
+          library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+          print_id   TEXT NOT NULL,
+          x          REAL NOT NULL,
+          y          REAL NOT NULL,
+          placed_at  TEXT NOT NULL,
+          PRIMARY KEY (library_id, print_id)
+        );
+
+        PRAGMA user_version = 2;
       ''');
     }
   }
@@ -452,6 +471,70 @@ class Catalog {
       libraryId,
     ]);
   }
+
+  /// Where this library's wall hangs each print, by the print's id.
+  ///
+  /// A print the wall does not know is a print the wall hangs in its own grid;
+  /// the catalog is never asked to invent a place.
+  Map<String, Offset> hangings(String libraryId) {
+    final ResultSet rows = db.select(
+      'SELECT print_id, x, y FROM hangings WHERE library_id = ?',
+      <Object?>[libraryId],
+    );
+    return <String, Offset>{
+      for (final Row row in rows)
+        row['print_id'] as String: Offset(
+          (row['x'] as num).toDouble(),
+          (row['y'] as num).toDouble(),
+        ),
+    };
+  }
+
+  /// Write the library's hanging, replacing the one that was there.
+  ///
+  /// The wall is not the picture, so the hanging is not written into the print's
+  /// record: it is a place in a room, and an empty map is a wall nobody has
+  /// hung.
+  void setHangings(
+    String libraryId,
+    Map<String, Offset> places, {
+    DateTime? now,
+  }) {
+    final String stamp = _date((now ?? DateTime.now()).toUtc());
+    db.execute('BEGIN IMMEDIATE');
+    try {
+      db.execute('DELETE FROM hangings WHERE library_id = ?', <Object?>[
+        libraryId,
+      ]);
+      if (places.isNotEmpty) {
+        final PreparedStatement insert = db.prepare(
+          'INSERT INTO hangings (library_id, print_id, x, y, placed_at) '
+          'VALUES (?, ?, ?, ?, ?)',
+        );
+        try {
+          for (final MapEntry<String, Offset> place in places.entries) {
+            insert.execute(<Object?>[
+              libraryId,
+              place.key,
+              place.value.dx,
+              place.value.dy,
+              stamp,
+            ]);
+          }
+        } finally {
+          insert.close();
+        }
+      }
+      db.execute('COMMIT');
+    } on Object {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// Hang the library's wall back in its own grid.
+  void clearHangings(String libraryId) =>
+      setHangings(libraryId, const <String, Offset>{});
 
   void deleteLibrary(String id) {
     db.execute('DELETE FROM libraries WHERE id = ?', <Object?>[id]);
