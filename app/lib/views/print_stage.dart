@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import '../design/mobile.dart';
 import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
@@ -22,6 +23,10 @@ import '../widgets/chip.dart';
 import '../widgets/curves.dart';
 import '../widgets/export_sheet.dart';
 import '../widgets/inspector.dart';
+import '../widgets/mobile/mobile_controls.dart';
+import '../widgets/mobile/mobile_icon.dart';
+import '../widgets/mobile/mobile_sheet.dart';
+import '../widgets/shadow_box.dart';
 import '../widgets/stepper.dart';
 import '../widgets/wall.dart';
 
@@ -77,6 +82,8 @@ class _PrintStageState extends State<PrintStage> {
   String? _error;
 
   Timer? _timer;
+  Timer? _toastTimer;
+  bool _toast = false;
   int _generation = 0;
   PreviewBench? _previewBench;
   String? _benchKey;
@@ -121,6 +128,7 @@ class _PrintStageState extends State<PrintStage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _toastTimer?.cancel();
     _generation++;
     _curveGeneration++;
     _preview?.dispose();
@@ -256,12 +264,21 @@ class _PrintStageState extends State<PrintStage> {
       return;
     }
     try {
-      ui.Image? image = await _previewBench?.frame(
-        minutes: minutes,
-        printEv: printEv,
-        filters: filters,
-        heatGlass: glass,
-      );
+      ui.Image? image;
+      try {
+        image = await _previewBench?.frame(
+          minutes: minutes,
+          printEv: printEv,
+          filters: filters,
+          heatGlass: glass,
+        );
+      } on Object catch (error) {
+        // A preview session is the fast path; if its device buffer is rejected
+        // the one-shot CPU render below is still the same photograph.
+        Model.log(
+          'the preview session failed; rendering once on the cpu: $error',
+        );
+      }
       if (image == null) {
         if (!mounted || generation != _generation) {
           return;
@@ -336,7 +353,16 @@ class _PrintStageState extends State<PrintStage> {
         ),
       );
       if (mounted) {
-        setState(() => _printed = true);
+        _toastTimer?.cancel();
+        setState(() {
+          _printed = true;
+          _toast = true;
+        });
+        _toastTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted) {
+            setState(() => _toast = false);
+          }
+        });
       }
     } on Object catch (error) {
       if (mounted) {
@@ -376,22 +402,8 @@ class _PrintStageState extends State<PrintStage> {
         ),
       );
     }
-    if (MediaQuery.sizeOf(context).width < 700) {
-      return LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final double panel = (constraints.maxHeight * 0.5).clamp(
-            260.0,
-            460.0,
-          );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Expanded(child: _bench(colors, s)),
-              SizedBox(height: panel, child: _panel(colors, s)),
-            ],
-          );
-        },
-      );
+    if (KalloLayout.isCompact(context)) {
+      return _phone(colors, s);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -404,6 +416,452 @@ class _PrintStageState extends State<PrintStage> {
         ),
       ],
     );
+  }
+
+  Widget _phone(KalloColors colors, KalloStrings s) {
+    if (!widget.strip.hasPrints) {
+      return ColoredBox(
+        color: colors.ground,
+        child: KalloMobileEmpty(
+          glyph: KalloGlyph.paper,
+          title: s.noTestPrintShort,
+          message: s.chooseFirstPrint,
+          action: SizedBox(
+            width: 240,
+            child: KalloMobileButton(
+              label: s.goDevelop,
+              onTap: widget.onGoDevelop,
+            ),
+          ),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: colors.ground,
+      child: Stack(
+        children: <Widget>[
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Expanded(child: _phoneStage(colors, s)),
+              _phoneDeck(colors, s),
+            ],
+          ),
+          if (_toast)
+            Positioned(
+              left: KalloMobileSpace.step4,
+              right: KalloMobileSpace.step4,
+              top: KalloMobileSpace.step2,
+              child: _PhoneToast(
+                label: s.printedToast,
+                action: s.view,
+                onAction: widget.onGoRack,
+                onClose: () => setState(() => _toast = false),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _phoneStage(KalloColors colors, KalloStrings s) {
+    final ui.Image? image = _preview;
+    final double aspect = image == null ? 1.5 : image.width / image.height;
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints room) {
+        final double width = math.min(
+          room.maxWidth - 48,
+          (room.maxHeight - 46) / PrintSheet.heightPerWidth(aspect: aspect),
+        );
+        return Column(
+          children: <Widget>[
+            Expanded(
+              child: Center(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: image == null
+                      ? null
+                      : () => showKalloImageViewer(
+                          context,
+                          image: image,
+                          semanticLabel: widget.strip.name ?? s.printAction,
+                          caption:
+                              '${darkroomClock(_minutes)} · '
+                              '${_filters.isEmpty ? s.noGlass : _filters}',
+                        ),
+                  child: KalloShadowBox(
+                    kind: KalloShadowKind.paper,
+                    child: PrintSheet(
+                      width: math.max(180, width),
+                      aspect: aspect,
+                      paper: colors.print,
+                      outline: colors.hairline,
+                      child: image == null
+                          ? Center(
+                              child: Text(
+                                _busy ? s.printing : s.printNote,
+                                textAlign: TextAlign.center,
+                                style: KalloMobileType.footnote.copyWith(
+                                  color: KalloInk.muted,
+                                ),
+                              ),
+                            )
+                          : RawImage(
+                              image: image,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                KalloMobileSpace.screen,
+                KalloMobileSpace.step1,
+                KalloMobileSpace.screen,
+                KalloMobileSpace.step2,
+              ),
+              child: Text(
+                '${darkroomClock(_minutes)}   ·   '
+                '${_printEv >= 0 ? '+' : ''}${_printEv.toStringAsFixed(1)} EV'
+                '${_filters.isEmpty ? '' : '   ·   $_filters'}'
+                '${_glass == null ? '' : '   ·   ${_glass!.toUpperCase()}'}',
+                textAlign: TextAlign.center,
+                style: KalloMobileType.footnote.copyWith(
+                  color: colors.inkMuted,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _phoneDeck(KalloColors colors, KalloStrings s) {
+    final bool printable = widget.exports != null;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        KalloMobileSpace.step3,
+        0,
+        KalloMobileSpace.step3,
+        KalloMobileSpace.step2,
+      ),
+      padding: const EdgeInsets.all(KalloMobileSpace.step3),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(KalloMobileRadius.card),
+        border: Border.all(color: colors.hairline),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _PhoneControl(
+                  label: s.time,
+                  value: darkroomClock(_minutes),
+                  onTap: _showTime,
+                ),
+              ),
+              const SizedBox(width: KalloMobileSpace.step2),
+              Expanded(
+                child: _PhoneControl(
+                  label: s.exposure,
+                  value:
+                      '${_printEv >= 0 ? '+' : ''}${_printEv.toStringAsFixed(1)} EV',
+                  onTap: _showExposure,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: KalloMobileSpace.step2),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _PhoneControl(
+                  label: s.balance,
+                  value: 'Y$_yellow M$_magenta C$_cyan',
+                  onTap: _showFilters,
+                ),
+              ),
+              const SizedBox(width: KalloMobileSpace.step2),
+              Expanded(
+                child: _PhoneControl(
+                  label: s.glass,
+                  value: _glass?.toUpperCase() ?? s.noGlass,
+                  onTap: _showGlass,
+                ),
+              ),
+            ],
+          ),
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: KalloMobileSpace.step2),
+            Text(
+              _error!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: KalloMobileType.footnote.copyWith(color: colors.accent),
+            ),
+          ],
+          if (!printable) ...<Widget>[
+            const SizedBox(height: KalloMobileSpace.step2),
+            Text(
+              s.noFolder,
+              style: KalloMobileType.footnote.copyWith(color: colors.inkMuted),
+            ),
+          ],
+          const SizedBox(height: KalloMobileSpace.step3),
+          KalloMobileButton(
+            key: const Key('phone-print'),
+            label: _busy ? s.printing : s.printAction,
+            height: 46,
+            onTap: printable && !_busy ? _choosePrintPhone : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showTime() async {
+    final KalloStrings s = KalloStrings.of(context);
+    final String? choice = await showKalloMobileChoices(
+      context,
+      title: s.time,
+      choices: <KalloMobileChoice>[
+        for (final TestPrint print in widget.strip.prints)
+          KalloMobileChoice(
+            value: print.minutes.toString(),
+            label: print.clock,
+            subtitle: s.exposureOf(darkroomClock(print.minutes)),
+            selected: print.minutes == _minutes,
+          ),
+      ],
+    );
+    if (choice == null || !mounted) {
+      return;
+    }
+    final double? minutes = double.tryParse(choice);
+    if (minutes == null || minutes == _minutes) {
+      return;
+    }
+    setState(() => _minutes = minutes);
+    _changed();
+  }
+
+  Future<void> _showExposure() async {
+    final KalloStrings s = KalloStrings.of(context);
+    double value = _printEv;
+    final double? next = await showKalloMobileSheet<double>(
+      context,
+      builder: (BuildContext sheetContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setSheet) =>
+            KalloMobileSheet(
+              title: s.exposure,
+              onClose: () => Navigator.of(sheetContext).pop(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  KalloMobileSpace.step5,
+                  0,
+                  KalloMobileSpace.step5,
+                  KalloMobileSpace.step5,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      '${value >= 0 ? '+' : ''}${value.toStringAsFixed(1)} EV',
+                      style: KalloMobileType.plate.copyWith(
+                        color: KalloScope.colorsOf(context).ink,
+                      ),
+                    ),
+                    const SizedBox(height: KalloMobileSpace.step4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        KalloIconButton(
+                          glyph: KalloGlyph.minus,
+                          semanticLabel: '−',
+                          onTap: value <= -2
+                              ? null
+                              : () => setSheet(
+                                  () => value = double.parse(
+                                    (value - 0.1).toStringAsFixed(1),
+                                  ),
+                                ),
+                          foreground: KalloScope.colorsOf(context).ink,
+                          background: KalloScope.colorsOf(context).fill,
+                          size: 48,
+                        ),
+                        const SizedBox(width: KalloMobileSpace.step5),
+                        KalloIconButton(
+                          glyph: KalloGlyph.plus,
+                          semanticLabel: '+',
+                          onTap: value >= 2
+                              ? null
+                              : () => setSheet(
+                                  () => value = double.parse(
+                                    (value + 0.1).toStringAsFixed(1),
+                                  ),
+                                ),
+                          foreground: KalloScope.colorsOf(context).ink,
+                          background: KalloScope.colorsOf(context).fill,
+                          size: 48,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: KalloMobileSpace.step5),
+                    KalloMobileButton(
+                      label: s.done,
+                      onTap: () => Navigator.of(sheetContext).pop(value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      ),
+    );
+    if (next == null || !mounted || next == _printEv) {
+      return;
+    }
+    setState(() => _printEv = next);
+    _changed();
+  }
+
+  Future<void> _showFilters() async {
+    final KalloStrings s = KalloStrings.of(context);
+    int y = _yellow;
+    int m = _magenta;
+    int c = _cyan;
+    final bool? apply = await showKalloMobileSheet<bool>(
+      context,
+      builder: (BuildContext sheetContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setSheet) =>
+            KalloMobileSheet(
+              title: s.balance,
+              onClose: () => Navigator.of(sheetContext).pop(false),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  KalloMobileSpace.step5,
+                  0,
+                  KalloMobileSpace.step5,
+                  KalloMobileSpace.step5,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    _PhoneColour(
+                      label: 'Y',
+                      value: y,
+                      onChanged: (int next) => setSheet(() => y = next),
+                    ),
+                    _PhoneColour(
+                      label: 'M',
+                      value: m,
+                      onChanged: (int next) => setSheet(() => m = next),
+                    ),
+                    _PhoneColour(
+                      label: 'C',
+                      value: c,
+                      onChanged: (int next) => setSheet(() => c = next),
+                    ),
+                    const SizedBox(height: KalloMobileSpace.step3),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setSheet(() {
+                        y = 0;
+                        m = 0;
+                        c = 0;
+                      }),
+                      child: SizedBox(
+                        height: KalloMobileSpace.touch,
+                        child: Center(
+                          child: Text(
+                            s.reset,
+                            style: KalloMobileType.footnote.copyWith(
+                              color: KalloScope.colorsOf(context).inkMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: KalloMobileSpace.step3),
+                    KalloMobileButton(
+                      label: s.done,
+                      onTap: () => Navigator.of(sheetContext).pop(true),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      ),
+    );
+    if (apply != true || !mounted) {
+      return;
+    }
+    setState(() {
+      _yellow = y;
+      _magenta = m;
+      _cyan = c;
+    });
+    _changed();
+  }
+
+  Future<void> _showGlass() async {
+    final KalloStrings s = KalloStrings.of(context);
+    final String? choice = await showKalloMobileChoices(
+      context,
+      title: s.glass,
+      choices: <KalloMobileChoice>[
+        KalloMobileChoice(
+          value: '',
+          label: s.noGlass,
+          selected: _glass == null,
+        ),
+        for (final String glass in <String>['kg1', 'kg2', 'kg3', 'kg5'])
+          KalloMobileChoice(
+            value: glass,
+            label: glass.toUpperCase(),
+            selected: _glass == glass,
+          ),
+      ],
+    );
+    if (choice == null || !mounted) {
+      return;
+    }
+    final String? next = choice.isEmpty ? null : choice;
+    if (next == _glass) {
+      return;
+    }
+    setState(() => _glass = next);
+    _changed();
+  }
+
+  Future<void> _choosePrintPhone() async {
+    if (_busy || widget.exports == null || !widget.strip.hasPrints) {
+      return;
+    }
+    final KalloStrings s = KalloStrings.of(context);
+    final ExportOptions? options = await showKalloMobileSheet<ExportOptions>(
+      context,
+      builder: (BuildContext sheetContext) => _PhonePrintOptions(
+        title: s.printAction,
+        sizes: <ExportSize>[
+          ExportSize(s.originalSize, null),
+          const ExportSize('6000 px', 6000),
+          const ExportSize('4000 px', 4000),
+        ],
+        formats: const <ExportFormat>[ExportFormat.png, ExportFormat.jpeg],
+      ),
+    );
+    if (options == null || !mounted) {
+      return;
+    }
+    await _print(options);
   }
 
   Widget _bench(KalloColors colors, KalloStrings s) {
@@ -720,6 +1178,323 @@ class _PrintStageState extends State<PrintStage> {
         width: 264,
         onMinus: value <= 0 ? null : () => onChanged(value - 5),
         onPlus: value >= 100 ? null : () => onChanged(value + 5),
+      ),
+    );
+  }
+}
+
+class _PhoneControl extends StatelessWidget {
+  const _PhoneControl({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    return Semantics(
+      button: true,
+      label: '$label, $value',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: KalloMobileSpace.touch + 10,
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: colors.fill,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KalloMobileType.micro.copyWith(
+                  color: colors.inkMuted,
+                  fontSize: 8.5,
+                  letterSpacing: 0.7,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: KalloMobileType.callout.copyWith(
+                        color: colors.ink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  KalloGlyphView(
+                    KalloGlyph.chevronRight,
+                    size: 14,
+                    color: colors.inkFaint,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneColour extends StatelessWidget {
+  const _PhoneColour({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    return SizedBox(
+      height: 52,
+      child: Row(
+        children: <Widget>[
+          Text(
+            label,
+            style: KalloMobileType.headline.copyWith(color: colors.ink),
+          ),
+          const Spacer(),
+          KalloIconButton(
+            glyph: KalloGlyph.minus,
+            semanticLabel: '−',
+            onTap: value <= 0 ? null : () => onChanged(value - 5),
+            foreground: colors.ink,
+            background: colors.fill,
+          ),
+          SizedBox(
+            width: 46,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style: KalloMobileType.data.copyWith(
+                color: colors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          KalloIconButton(
+            glyph: KalloGlyph.plus,
+            semanticLabel: '+',
+            onTap: value >= 100 ? null : () => onChanged(value + 5),
+            foreground: colors.ink,
+            background: colors.fill,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhoneToast extends StatelessWidget {
+  const _PhoneToast({
+    required this.label,
+    required this.action,
+    required this.onAction,
+    required this.onClose,
+  });
+
+  final String label;
+  final String action;
+  final VoidCallback onAction;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    return Container(
+      height: 54,
+      padding: const EdgeInsets.only(left: 16, right: 6),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(KalloMobileRadius.card),
+        border: Border.all(color: colors.hairline),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              label,
+              style: KalloMobileType.callout.copyWith(
+                color: colors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onAction,
+            child: SizedBox(
+              height: KalloMobileSpace.touch,
+              child: Center(
+                child: Text(
+                  action,
+                  style: KalloMobileType.callout.copyWith(
+                    color: colors.accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          KalloIconButton(
+            glyph: KalloGlyph.close,
+            semanticLabel: KalloStrings.of(context).close,
+            onTap: onClose,
+            size: 36,
+            glyphSize: 13,
+            foreground: colors.inkFaint,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhonePrintOptions extends StatefulWidget {
+  const _PhonePrintOptions({
+    required this.title,
+    required this.sizes,
+    required this.formats,
+  });
+
+  final String title;
+  final List<ExportSize> sizes;
+  final List<ExportFormat> formats;
+
+  @override
+  State<_PhonePrintOptions> createState() => _PhonePrintOptionsState();
+}
+
+class _PhonePrintOptionsState extends State<_PhonePrintOptions> {
+  int _size = 0;
+  ExportFormat _format = ExportFormat.png;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final KalloStrings s = KalloStrings.of(context);
+    return KalloMobileSheet(
+      title: widget.title,
+      onClose: () => Navigator.of(context).pop(),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          KalloMobileSpace.step5,
+          0,
+          KalloMobileSpace.step5,
+          KalloMobileSpace.step5,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              s.size,
+              style: KalloMobileType.micro.copyWith(color: colors.inkMuted),
+            ),
+            const SizedBox(height: KalloMobileSpace.step2),
+            for (int i = 0; i < widget.sizes.length; i++)
+              KalloMobileRow(
+                title: widget.sizes[i].label,
+                chevron: false,
+                minHeight: 48,
+                trailing: i == _size
+                    ? KalloGlyphView(
+                        KalloGlyph.check,
+                        size: 17,
+                        color: colors.accent,
+                      )
+                    : null,
+                onTap: () => setState(() => _size = i),
+              ),
+            const SizedBox(height: KalloMobileSpace.step4),
+            Text(
+              s.format,
+              style: KalloMobileType.micro.copyWith(color: colors.inkMuted),
+            ),
+            const SizedBox(height: KalloMobileSpace.step2),
+            Row(
+              children: <Widget>[
+                for (final ExportFormat format in widget.formats)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => setState(() => _format = format),
+                        child: Container(
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _format == format
+                                ? colors.accentSoft
+                                : colors.fill,
+                            borderRadius: BorderRadius.circular(
+                              KalloMobileRadius.control,
+                            ),
+                            border: Border.all(
+                              color: _format == format
+                                  ? colors.accent
+                                  : const Color(0x00000000),
+                            ),
+                          ),
+                          child: Text(
+                            format.label,
+                            style: KalloMobileType.callout.copyWith(
+                              color: _format == format
+                                  ? colors.accent
+                                  : colors.ink,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: KalloMobileSpace.step2),
+            Text(
+              _format.lossless ? s.losslessNote : s.lossyNote,
+              style: KalloMobileType.footnote.copyWith(color: colors.inkMuted),
+            ),
+            const SizedBox(height: KalloMobileSpace.step5),
+            KalloMobileButton(
+              label: s.printAction,
+              onTap: () => Navigator.of(context).pop(
+                ExportOptions(size: widget.sizes[_size].value, format: _format),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

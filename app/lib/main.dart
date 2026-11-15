@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
@@ -47,6 +48,15 @@ Future<void> main() async {
   await loadLinkedModel();
   final bool desktop =
       Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+  if (!desktop) {
+    // The compact shell is portrait-first. The landscape workbench is a later
+    // phase; until it exists, locking the phone is better than showing a
+    // 390-point-tall column that cannot hold its deck.
+    await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
   if (desktop) {
     await windowManager.ensureInitialized();
     // A window that is wider than the screen loses its instrument panel off

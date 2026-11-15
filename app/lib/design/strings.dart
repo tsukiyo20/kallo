@@ -46,6 +46,11 @@ class KalloStrings {
   String get rack => zh ? '晾片架' : 'Drying rack';
   String get galleryRoom => zh ? '观景台' : 'Gallery';
 
+  /// The short names the phone's tab bar has room for. The rooms are the same;
+  /// only the label is shortened so three of them fit under a thumb.
+  String get rackTab => zh ? '晾片' : 'Rack';
+  String get galleryTab => zh ? '观景' : 'Gallery';
+
   /// The three steps of the darkroom, in the order the work goes.
   String get selectStep => zh ? '选片' : 'Select';
   String get developStep => zh ? '显影' : 'Develop';
@@ -71,18 +76,44 @@ class KalloStrings {
       : 'The photograph before the developer. Look first, then choose a film.';
   String get theOriginal => zh ? '原片' : 'ORIGINAL';
   String get changePhoto => zh ? '换一张' : 'Change';
+  String get materials => zh ? '材料' : 'MATERIALS';
+  String get change => zh ? '更换' : 'Change';
+  String get details => zh ? '详情' : 'Details';
   String get goDevelop => zh ? '去显影' : 'To the developer';
   String get metered => zh ? '自动测光' : 'Metered';
   String get exposure => zh ? '曝光' : 'EXPOSURE';
 
   /// The strip, and the one exposure every print on it shares.
   String get testStrip => zh ? '试片条' : 'TEST STRIP';
+  String get testPrint => zh ? '试片' : 'Test print';
+  String get testStripHint =>
+      zh ? '先冲一张试片，确定相纸曝光。' : 'A test print fixes the exposure.';
+  String get developFirst => zh ? '先冲一张' : 'Develop first print';
+  String get noTestPrintShort => zh ? '还没有试片' : 'No test prints yet';
   String get testStripNote => zh
       ? '每显影一次生成一张；所有试片共用首张的相纸曝光。'
       : 'One print per development, all on the first print\'s paper exposure.';
   String get noTestPrints =>
       zh ? '还没有试片。选好时间，按显影。' : 'No prints yet. Choose a time and develop.';
   String get newStrip => zh ? '另起一条' : 'New strip';
+  String get newStripQuestion => zh ? '另起一条试片？' : 'Start a new strip?';
+  String get changePhotoQuestion => zh ? '换一张照片？' : 'Replace the photograph?';
+  String get changeFilmQuestion => zh ? '换胶片？' : 'Change the film?';
+  String get changePaperQuestion => zh ? '换相纸？' : 'Change the paper?';
+  String get changeTemperatureQuestion =>
+      zh ? '换温度？' : 'Change the temperature?';
+  String clearsPrints(int count) => zh
+      ? '这会清掉 $count 张试片。'
+      : '$count test print${count == 1 ? '' : 's'} will be cleared.';
+  String get keepsPhoto =>
+      zh ? '照片和材料保留。' : 'The photograph and materials stay.';
+  String get keepsPhotoAndFilm =>
+      zh ? '照片和胶片保留。' : 'The photograph and film stay.';
+  String get keepsPhotoAndPaper =>
+      zh ? '照片和相纸保留。' : 'The photograph and paper stay.';
+  String get newStripAction => zh ? '另起一条' : 'Start a New Strip';
+  String get changeAction => zh ? '更换' : 'Change';
+  String get removeAction => zh ? '移除' : 'Remove';
   String stripCount(int count) =>
       zh ? '$count 张' : '$count print${count == 1 ? '' : 's'}';
   String get firstPrint => zh ? '首张' : 'First print';
@@ -105,6 +136,7 @@ class KalloStrings {
   String get filters => zh ? '滤色片' : 'FILTERS';
   String get heatGlass => zh ? '隔热玻璃' : 'HEAT GLASS';
   String get noGlass => zh ? '无' : 'none';
+  String get reset => zh ? '归零' : 'Reset';
   String get developing => zh ? '显影中…' : 'Developing…';
   String get redevelop => zh ? '重冲' : 'Re-develop';
   String get printAction => zh ? '印相' : 'Print';
@@ -113,6 +145,14 @@ class KalloStrings {
   String get noUpscale => zh ? '只缩不放' : 'Never upscales';
   String get format => zh ? '格式' : 'FORMAT';
   String get cancel => zh ? '取消' : 'Cancel';
+  String get done => zh ? '完成' : 'Done';
+  String get view => zh ? '查看' : 'View';
+  String get printedToast => zh ? '已印好' : 'Printed';
+  String get openDarkroom => zh ? '回到暗房' : 'Open the Darkroom';
+  String get makePrint => zh ? '去印一张' : 'Make a Print';
+  String get emptyGalleryTitle => zh ? '墙上还没有东西' : 'An empty wall';
+  String get emptyGalleryNote =>
+      zh ? '印出来的照片会挂在这里。' : 'Prints you make will hang here.';
   String get export => zh ? '导出' : 'Export';
   String get lossyNote => zh ? 'JPEG · 有损 · 文件更小' : 'JPEG · lossy · smaller';
   String get losslessNote => zh ? '无损 · 文件更大' : 'Lossless · larger';
@@ -151,6 +191,8 @@ class KalloStrings {
 
   String get time => zh ? '时间' : 'Time';
   String get temperature => zh ? '温度' : 'Temperature';
+  String get balance => zh ? '色彩平衡' : 'Balance';
+  String get glass => zh ? '隔热玻璃' : 'Heat glass';
   String get gamma => zh ? '伽马' : 'Gamma';
   String get dMax => zh ? '最大密度' : 'D max';
   String get tone => zh ? '影调' : 'TONE';
@@ -174,8 +216,16 @@ class KalloStrings {
 
   String get photograph => zh ? '照片' : 'PHOTOGRAPH';
   String get choosePhoto => zh ? '选择照片…' : 'Choose a photograph…';
+  String get startWithPhoto => zh ? '从一张照片开始' : 'Start with a photograph';
   String get noPhotograph => zh ? '还没选' : 'nothing chosen';
   String get film => zh ? '胶片' : 'FILM';
+  String get searchFilms => zh ? '搜索胶片' : 'Search films';
+  String get searchPapers => zh ? '搜索相纸' : 'Search papers';
+  String get filterAll => zh ? '全部' : 'All';
+  String get filterNegative => zh ? '负片' : 'Negative';
+  String get filterReversal => zh ? '反转' : 'Reversal';
+  String get filterMono => zh ? '黑白' : 'Mono';
+  String get noResults => zh ? '没有匹配的项' : 'No matches';
   String get developments => zh ? '显影时间' : 'DEVELOPMENTS';
 
   String developingOf(int done, int total) =>
@@ -349,6 +399,7 @@ class KalloStrings {
   String deviceLine(String tag) => zh ? '设备：$tag' : 'device: $tag';
 
   String get appearance => zh ? '外观' : 'Appearance';
+  String get interface => zh ? '界面' : 'Interface';
   String get appearanceLabel => zh ? '界面外观' : 'Appearance';
   String get light => zh ? '浅色' : 'Light';
   String get dark => zh ? '深色' : 'Dark';
@@ -405,6 +456,33 @@ class KalloStrings {
   String get fixedFolderLimited => zh
       ? '手机不能选择文件夹。照片访问目前只允许了部分图片；要在观景台看到「文件」里放进来的图片，请允许访问全部照片。'
       : 'Phones cannot choose a folder. Photo access covers selected pictures only; to see pictures you put in this folder in Files, allow access to all photos.';
+
+  /// The system photo permission, asked only when a photograph is chosen.
+  ///
+  /// Saving a print does not need this permission, and neither does the system
+  /// picker. The explanation says what it actually buys: seeing pictures other
+  /// apps put in the same folder, and a complete list rather than the app's own
+  /// files.
+  String get photoAccess => zh ? '照片访问' : 'Photo access';
+  String get photoAccessAllowed => zh ? '已允许' : 'Allowed';
+  String get photoAccessLimited => zh ? '部分照片' : 'Selected photos';
+  String get photoAccessDenied => zh ? '未允许' : 'Not allowed';
+  String get photoAccessTitle => zh ? '允许 Kallo 访问照片？' : 'Let Kallo see your photos?';
+
+  String get photoAccessNote => zh
+      ? 'Kallo 把印好的照片放在系统相册的 Kallo 文件夹。允许访问后，它也能看到其他应用放进这个文件夹的照片；不允许也可以从系统选择照片。'
+      : 'Kallo keeps its prints in the Kallo folder of your photo library. Access lets it see pictures other apps put in that folder too; without it you can still choose a photograph through the system picker.';
+
+  String get photoAccessAllow => zh ? '允许访问' : 'Allow access';
+  String get photoAccessNotNow => zh ? '暂不' : 'Not now';
+
+  String get photoAccessBlockedTitle => zh ? '照片访问已关闭' : 'Photo access is off';
+
+  String get photoAccessBlockedNote => zh
+      ? '系统已经不会再询问，要更改请打开设置。现在仍然可以从系统选择照片。'
+      : 'The system will not ask again. Change it in Settings. You can still choose a photograph through the system picker.';
+
+  String get openSettings => zh ? '打开设置' : 'Open Settings';
 
   // -- colour ---------------------------------------------------------------
 

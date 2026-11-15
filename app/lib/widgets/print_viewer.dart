@@ -229,28 +229,36 @@ class _PrintViewerState extends State<PrintViewer>
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.escape): _close,
       },
-      child: Focus(
-        focusNode: _keys,
-        child: SizedBox.expand(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, -0.62),
-                radius: 1.08,
-                colors: <Color>[rack.top, rack.base],
+      child: PopScope<void>(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, void result) {
+          if (!didPop) {
+            _close();
+          }
+        },
+        child: Focus(
+          focusNode: _keys,
+          child: SizedBox.expand(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.62),
+                  radius: 1.08,
+                  colors: <Color>[rack.top, rack.base],
+                ),
               ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(28, widget.topInset + 16, 28, 22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  _head(s, print, colors),
-                  const SizedBox(height: 12),
-                  Expanded(child: _picture(image, print, colors)),
-                  const SizedBox(height: 10),
-                  _foot(print, colors),
-                ],
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(28, widget.topInset + 16, 28, 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    _head(s, print, colors),
+                    const SizedBox(height: 12),
+                    Expanded(child: _picture(image, print, colors)),
+                    const SizedBox(height: 10),
+                    _foot(print, colors),
+                  ],
+                ),
               ),
             ),
           ),

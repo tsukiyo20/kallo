@@ -12,7 +12,6 @@ import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
-import 'package:kallo/views/drawer.dart';
 import 'package:kallo/views/develop_stage.dart';
 import 'package:kallo/views/rack.dart';
 import 'package:kallo/views/select_stage.dart';
@@ -192,17 +191,18 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(StudioSidebar), findsNothing);
-    expect(find.byType(StageTabs), findsOneWidget);
+    expect(find.byType(StageTabs), findsNothing);
     expect(find.byType(SelectStage), findsOneWidget);
     expect(find.text('暗房'), findsOneWidget);
-    expect(find.text('晾片架'), findsOneWidget);
-    expect(find.text('观景台'), findsOneWidget);
-    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('晾片'), findsOneWidget);
+    expect(find.text('观景'), findsOneWidget);
+    expect(find.byKey(const Key('phone-film-row')), findsOneWidget);
+    expect(find.byKey(const Key('phone-paper-row')), findsOneWidget);
 
-    await tester.tap(find.text('设置'));
+    await tester.tap(find.byKey(const Key('mobile-settings')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.byType(SettingsDrawer), findsOneWidget);
+    expect(find.byKey(const Key('mobile-settings-page')), findsOneWidget);
   });
 
   testWidgets('the develop step shows the strip and its curves', (
