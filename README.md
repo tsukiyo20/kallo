@@ -123,10 +123,10 @@ cargo run --release --bin kalo -- render photo.png -o out/print.png \
     --film kodak_portra_400 --paper portra_endura --dev 9
 ```
 
-Or install it from the repository:
+Or install it:
 
 ```bash
-cargo install --git https://github.com/tsukiyo20/kallo kallo-cli
+cargo install kallo-cli
 kalo stocks                       # every film and paper, with what is measured
 kalo stocks --json                # the same, as one document a program can read
 kalo curve --dev 9 --sweep        # what a development does, before any render
