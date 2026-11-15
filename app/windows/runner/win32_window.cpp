@@ -1,10 +1,13 @@
 #include "win32_window.h"
 
+#include <commctrl.h>
 #include <dwmapi.h>
 #include <flutter_windows.h>
 #include <windowsx.h>
 
 #include "resource.h"
+
+#pragma comment(lib, "comctl32.lib")
 
 namespace {
 
@@ -23,6 +26,11 @@ namespace {
 /// has it is newer than the one this project may be built against.
 constexpr DWORD kDwmwaWindowCornerPreference = 33;
 constexpr int kDwmwcpRound = 2;
+
+/// The width of the frame DWM draws around a window on Windows 11. Setting it
+/// to zero is what stops a maximized window from being given a frame's worth of
+/// extra size on each side.
+constexpr DWORD kDwmwaVisibleFrameBorderThickness = 37;
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -150,12 +158,13 @@ bool Win32Window::Create(const std::wstring& title,
   double scale_factor = dpi / 96.0;
   scale_factor_ = scale_factor;
 
-  // The window the app draws: no caption, but still a normal overlapped window,
-  // so it keeps its place in the taskbar and in Alt+Tab, and a thick frame, so
-  // Windows still knows it can be resized at all. What that frame would have
-  // drawn -- the border and the title bar -- is answered in WM_NCCALCSIZE below.
-  const DWORD style = WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
-                      WS_MAXIMIZEBOX | WS_CLIPCHILDREN;
+  // The window the app draws. `WS_POPUP` says there is no frame for Windows to
+  // measure; `WS_THICKFRAME` still says the window can be resized, and the
+  // resize box and the system menu keep the keyboard and the taskbar behaving
+  // like a window's. What the frame would have drawn -- the border and the
+  // title bar -- is answered in WM_NCCALCSIZE below.
+  const DWORD style = WS_POPUP | WS_SYSMENU | WS_THICKFRAME |
+                      WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN;
 
   HWND window = CreateWindow(
       window_class, title.c_str(), style,
@@ -246,28 +255,56 @@ Win32Window::MessageHandler(HWND hwnd,
       // With no non-client area there is no edge Windows would resize from, so
       // the edges are declared here instead. Everything else is client: the
       // caption is the app's, and it drags the window itself.
-      if (IsZoomed(hwnd)) {
-        return HTCLIENT;
-      }
-      RECT frame;
-      GetWindowRect(hwnd, &frame);
+      //
+      // The one exception is the maximize button, which is declared as the
+      // system's for the width of its rectangle. That is the whole of the snap
+      // layouts story: Windows shows that flyout over a caption button and
+      // nowhere else, so a window that draws its own has to say where the
+      // button is. Inside it the pointer stops being the app's -- Flutter gets
+      // no mouse events there -- and the system answers the click itself.
       const long x = GET_X_LPARAM(lparam);
       const long y = GET_Y_LPARAM(lparam);
+      POINT point{x, y};
+      ScreenToClient(hwnd, &point);
+      RECT frame;
+      GetWindowRect(hwnd, &frame);
       const long edge = static_cast<long>(kResizeEdge * scale_factor_);
+      // The edges come first, so the top-right corner still resizes even where
+      // it touches the button.
       const bool on_left = x < frame.left + edge;
       const bool on_right = x >= frame.right - edge;
       const bool on_top = y < frame.top + edge;
       const bool on_bottom = y >= frame.bottom - edge;
-      if (on_top && on_left) return HTTOPLEFT;
-      if (on_top && on_right) return HTTOPRIGHT;
-      if (on_bottom && on_left) return HTBOTTOMLEFT;
-      if (on_bottom && on_right) return HTBOTTOMRIGHT;
-      if (on_left) return HTLEFT;
-      if (on_right) return HTRIGHT;
-      if (on_top) return HTTOP;
-      if (on_bottom) return HTBOTTOM;
+      if (!IsZoomed(hwnd)) {
+        if (on_top && on_left) return HTTOPLEFT;
+        if (on_top && on_right) return HTTOPRIGHT;
+        if (on_bottom && on_left) return HTBOTTOMLEFT;
+        if (on_bottom && on_right) return HTBOTTOMRIGHT;
+        if (on_left) return HTLEFT;
+        if (on_right) return HTRIGHT;
+        if (on_top) return HTTOP;
+        if (on_bottom) return HTBOTTOM;
+      }
+      if (has_caption_button_ && PtInRect(&caption_button_, point)) {
+        return HTMAXBUTTON;
+      }
       return HTCLIENT;
     }
+
+    case WM_NCLBUTTONDOWN:
+      // The maximize button is the system's for the flyout, but the system
+      // will not carry the press through on a window with no non-client area:
+      // it has no caption to find the button in. The press is answered here
+      // instead, so the button Windows thinks it has also does its job.
+      if (wparam == HTMAXBUTTON) {
+        SendMessage(hwnd, WM_SYSCOMMAND, IsZoomed(hwnd) ? SC_RESTORE : SC_MAXIMIZE,
+                    0);
+        return 0;
+      }
+      break;
+
+    case WM_NCMOUSELEAVE:
+      break;
 
     case WM_SIZE: {
       RECT rect = GetClientArea();
@@ -318,13 +355,44 @@ void Win32Window::SetChildContent(HWND content) {
   MoveWindow(content, frame.left, frame.top, frame.right - frame.left,
              frame.bottom - frame.top, true);
 
+  // The view covers the whole client, so every mouse move is hit tested
+  // against it and the window underneath is never asked where the pointer is.
+  // That is fine everywhere except the one rectangle Windows has an opinion
+  // about: there the view answers HTTRANSPARENT and the question falls through
+  // to the window, which answers HTMAXBUTTON. Without this the snap layouts
+  // flyout can never appear, however correct the window's own hit test is.
+  SetWindowSubclass(content, ChildProc, 0, reinterpret_cast<DWORD_PTR>(this));
+
   SetFocus(child_content_);
+}
+
+// static
+LRESULT CALLBACK Win32Window::ChildProc(HWND child,
+                                        UINT const message,
+                                        WPARAM const wparam,
+                                        LPARAM const lparam,
+                                        UINT_PTR const id,
+                                        DWORD_PTR const ref) noexcept {
+  auto* that = reinterpret_cast<Win32Window*>(ref);
+  if (message == WM_NCHITTEST && that != nullptr && that->has_caption_button_) {
+    POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+    ScreenToClient(child, &point);
+    if (PtInRect(&that->caption_button_, point)) {
+      return HTTRANSPARENT;
+    }
+  }
+  return DefSubclassProc(child, message, wparam, lparam);
 }
 
 RECT Win32Window::GetClientArea() {
   RECT frame;
   GetClientRect(window_handle_, &frame);
   return frame;
+}
+
+void Win32Window::SetCaptionButton(const RECT& rect) {
+  caption_button_ = rect;
+  has_caption_button_ = !IsRectEmpty(&caption_button_);
 }
 
 HWND Win32Window::GetHandle() {

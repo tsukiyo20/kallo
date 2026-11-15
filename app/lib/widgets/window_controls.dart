@@ -1,9 +1,16 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
+
+/// The runner's side of the frame the app draws.
+///
+/// The app tells the runner where its maximize button is, because Windows only
+/// shows the snap layouts flyout over a button it believes exists.
+const MethodChannel _frame = MethodChannel('com.kallo.app/frame');
 
 /// Maximize the window, or put it back.
 ///
@@ -44,6 +51,9 @@ class WindowControls extends StatefulWidget {
 class _WindowControlsState extends State<WindowControls> with WindowListener {
   bool _maximized = false;
 
+  final GlobalKey _maximizeKey = GlobalKey();
+  ({int left, int top, int width, int height})? _reported;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +61,42 @@ class _WindowControlsState extends State<WindowControls> with WindowListener {
     // allowed to fail: a test builds this widget without a platform behind it.
     windowManager.addListener(this);
     _read();
+  }
+
+  /// Tell the runner where the button is, in device pixels from the client's
+  /// top-left. It changes when the window is resized or the display's scale
+  /// does, and nothing else, so the same rectangle is not sent twice.
+  Future<void> _reportMaximize() async {
+    if (!mounted) {
+      return;
+    }
+    final BuildContext? context = _maximizeKey.currentContext;
+    final RenderObject? object = context?.findRenderObject();
+    if (object is! RenderBox || !object.hasSize || !object.attached) {
+      return;
+    }
+    final Offset origin = object.localToGlobal(Offset.zero);
+    final double ratio = MediaQuery.maybeDevicePixelRatioOf(context!) ?? 1.0;
+    final ({int left, int top, int width, int height}) rect = (
+      left: (origin.dx * ratio).round(),
+      top: (origin.dy * ratio).round(),
+      width: (object.size.width * ratio).round(),
+      height: (object.size.height * ratio).round(),
+    );
+    if (rect == _reported) {
+      return;
+    }
+    _reported = rect;
+    try {
+      await _frame.invokeMethod<void>('maximizeButton', <String, int>{
+        'left': rect.left,
+        'top': rect.top,
+        'width': rect.width,
+        'height': rect.height,
+      });
+    } on Object catch (_) {
+      // A test, or a platform that draws its own frame.
+    }
   }
 
   Future<void> _read() async {
@@ -89,6 +135,7 @@ class _WindowControlsState extends State<WindowControls> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final KalloStrings s = KalloStrings.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reportMaximize());
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -104,8 +151,12 @@ class _WindowControlsState extends State<WindowControls> with WindowListener {
           },
         ),
         const SizedBox(width: KalloSpace.step1),
+        // This one is the system's for the width of its rectangle: Windows
+        // answers the pointer there so it can show the snap layouts, and the
+        // pointer never reaches Flutter. The flyout is the feedback; the
+        // button itself stays flat, and the mark is drawn by the app.
         WindowButton(
-          key: const Key('window-maximize'),
+          key: _maximizeKey,
           mark: _maximized ? WindowMark.restore : WindowMark.maximize,
           label: _maximized ? s.restoreWindow : s.maximizeWindow,
           onTap: _toggle,
@@ -154,6 +205,7 @@ class _WindowButtonState extends State<WindowButton> {
   @override
   Widget build(BuildContext context) {
     final KalloColors colors = KalloScope.colorsOf(context);
+    final bool hover = _hover;
     return Semantics(
       button: true,
       label: widget.label,
@@ -169,12 +221,12 @@ class _WindowButtonState extends State<WindowButton> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: _hover
+              color: hover
                   ? colors.fillStrong.withValues(alpha: 0.92)
                   : colors.fill.withValues(alpha: 0.88),
               borderRadius: BorderRadius.circular(KalloRadius.pill),
               border: Border.all(
-                color: colors.hairline.withValues(alpha: _hover ? 0.9 : 0.55),
+                color: colors.hairline.withValues(alpha: hover ? 0.9 : 0.55),
               ),
             ),
             child: Center(
@@ -182,7 +234,7 @@ class _WindowButtonState extends State<WindowButton> {
                 size: const Size(18, 18),
                 painter: _WindowMarkPainter(
                   mark: widget.mark,
-                  ink: _hover ? colors.ink : colors.inkMuted,
+                  ink: hover ? colors.ink : colors.inkMuted,
                 ),
               ),
             ),
