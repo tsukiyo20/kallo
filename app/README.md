@@ -11,7 +11,7 @@ ship.
 
 The phone has its own shell and its own design record:
 [`docs/mobile/README.md`](docs/mobile/README.md). The desktop keeps the room
-with the two panes; the phone gets one column, three places, three steps and
+with the two panes; the phone gets one column, three places, two steps and
 sheets.
 
 ---
@@ -82,15 +82,17 @@ There is no `MaterialApp` anywhere, and that is the point.
 the rack, the catalogue, the contact sheet's data, the model's curves, the
 border templates printed into a print, both side panes being put away, a test strip mixing portrait
 and landscape prints, the gallery loupe's wall and close view, and a print
-opened off the rack. The twelve studio goldens are the
-design's instrument: they pin select, develop, print, the drying rack and the
-gallery in both appearances, a print taken off the rack, a portrait print, a
-print under the loupe and the same print walked up to at 1280 by 820, with the
-bundled faces loaded from disk so the picture is in the product's own type
-rather than the runner's.
+the shelf card and the destroy confirm, the print read against the original
+with the wipe, and a print opened off the rack. The fifteen studio goldens are
+the design's instrument: they pin the bench before a photograph and with a
+strip, the shelf on the bench, the wipe, the bench in daylight, print, the edge
+picker, the drying rack and the gallery in both appearances, a print taken off
+the rack, a portrait print, a print under the loupe and the same print walked up
+to at 1280 by 820, with the bundled faces loaded from disk so the picture is in
+the product's own type rather than the runner's.
 
 They are opt-in and per platform. A golden is local to the renderer that drew
-it, so the baselines live in `test/goldens/<platform>/`: the twelve committed
+it, so the baselines live in `test/goldens/<platform>/`: the fifteen committed
 today are macOS's, and `test/goldens/windows/` is where a Windows pass draws its
 own. The test is skipped unless it is asked for, and it is never a way to turn a
 red test green:
@@ -105,20 +107,18 @@ The integration test builds the Debug bundle with its own entrypoint. After it
 has run, `fvm flutter build macos --debug` (or `fvm flutter run`) before opening
 `Kallo.app` from Finder; otherwise the window is the blank test harness.
 
-| | |
-|---|---|
-| ![the select step](test/goldens/macos/select.png) | ![the develop step](test/goldens/macos/develop.png) |
-| **select**, the photograph before the developer | **develop**, one print at a time, on one exposure |
-| ![the print step](test/goldens/macos/print.png) | ![the drying rack](test/goldens/macos/rack.png) |
-| **print**, the enlarger dialled for this negative | **the rack**, the paper in the air |
-| ![the gallery](test/goldens/macos/gallery.png) | ![a portrait frame](test/goldens/macos/portrait.png) |
-| **gallery**, prints on the wall, newest first | **portrait**, the sheet turned |
-| ![select in daylight](test/goldens/macos/select-light.png) | ![the rack in daylight](test/goldens/macos/rack-light.png) |
-| **select, daylight** | **the rack, daylight** |
-| ![the lens](test/goldens/macos/lens.png) | ![the loupe](test/goldens/macos/loupe.png) |
-| **lens**, the picture bowed under glass | **loupe**, the print flat, up to 1:1 |
-| ![the gallery in daylight](test/goldens/macos/gallery-light.png) | ![a print off the rack](test/goldens/macos/viewer.png) |
-| **gallery, daylight** | **viewer**, the print off the rack, still in the room |
+| | | |
+|---|---|---|
+| ![the bench before a photograph](test/goldens/macos/develop-empty.png) | ![the bench with a strip](test/goldens/macos/develop.png) | ![the shelf on the bench](test/goldens/macos/develop-materials.png) |
+| **the bench**, before a photograph | **the bench**, one print at a time, on one exposure | **the shelf**, laid on the bench |
+| ![the wipe](test/goldens/macos/develop-compare.png) | ![the bench in daylight](test/goldens/macos/develop-light.png) | ![the print step](test/goldens/macos/print.png) |
+| **the wipe**, the print against the original | **the bench, daylight** | **print**, the enlarger dialled for this negative |
+| ![the edge picker](test/goldens/macos/print-tray.png) | ![the drying rack](test/goldens/macos/rack.png) | ![the rack in daylight](test/goldens/macos/rack-light.png) |
+| **the edge**, chosen as a picture | **the rack**, the paper in the air | **the rack, daylight** |
+| ![a print off the rack](test/goldens/macos/viewer.png) | ![the gallery](test/goldens/macos/gallery.png) | ![the gallery in daylight](test/goldens/macos/gallery-light.png) |
+| **viewer**, the print off the rack, still in the room | **gallery**, prints on the wall, newest first | **gallery, daylight** |
+| ![a portrait print](test/goldens/macos/portrait.png) | ![the lens on a print](test/goldens/macos/lens.png) | ![a print under the loupe](test/goldens/macos/loupe.png) |
+| **portrait**, the sheet turned | **lens**, the picture bowed under glass | **loupe**, the print flat, up to 1:1 |
 
 The gallery, rack and loupe goldens draw a test card, because the app ships no
 pictures: a print is a file the model exports, and the golden has to have
@@ -200,11 +200,14 @@ About, and neither a drawer title nor the old prose is there.
 ## What you are looking at
 
 One window. The darkroom, the drying rack and the gallery on the left; in the
-darkroom, three steps in one small capsule over the centre of the bench: select,
-develop, print. There is no bar and no rule under it, because the steps change
-what is on the bench, not where the bench is. The bench reserves the capsule's
-56-point band, so a tall print never starts under it. The instrument panel on
-the right belongs to the step, and the one action is at its bottom. Both sides
+darkroom, two steps in one small capsule over the centre of the bench: develop,
+print. The bench is the first step and everything is on it: the original on a
+line at its top, the print, the materials under the print, the ruler under that,
+and the strip below. There is no bar and no rule under the capsule, because the
+steps change what is on the bench, not where the bench is. The bench reserves
+the capsule's 56-point band, so a tall print never starts under it. The
+instrument panel on the right belongs to the step, and the one action is at its
+bottom. Both sides
 of the window can be put away. The open sidebar carries its glass switch at the
 top right, on the same line as the window's other pane controls; when the
 sidebar is put away, the same switch moves into the content's top edge.
@@ -220,23 +223,24 @@ default; the processor is a choice, and a render the device rejects still
 finishes on the CPU on its own.
 
 On a phone the same work is not a small window. The bottom bar holds the three
-places and nothing else; the header holds the three steps; the gear opens one
-grouped Settings page with Done. Select is a photograph on black card and two
-material rows, each a searchable picker. Develop is the paper, a test strip, the
-clock and a ruler in one deck; Print is four summary cells and one action.
-Rack and Gallery are two columns, and a print opens full screen. The curves
-move to a Details sheet. The phone does not use the desktop panes at all, and
-the desktop does not use the phone's.
+places and nothing else; the header holds the two steps; the gear opens one
+grouped Settings page with Done. The darkroom opens on the bench: the test print
+on paper, the materials on one line under it — the film, the paper and the
+photograph in one sheet — the test strip, the clock and the ruler in one deck.
+Print is four summary cells and one action. Rack and Gallery are two columns,
+and a print opens full screen. The curves move to a Details sheet. The phone
+does not use the desktop panes at all, and the desktop does not use the
+phone's.
 
 | | |
 |---|---|
-| **The select step is the photograph, before the developer** | One photograph enters the darkroom, and the step shows it — the whole original, not a thumbnail — with the film and the paper in the column beside it. The materials are not constants in the app: `kalo stocks --json` hands over every film the model carries, grouped by chemistry and then by manufacturer, and every paper under a rule of its own, so the shelf cannot show a film or a paper the model does not have. A maker is a heading, not a prefix repeated on every box: `KODAK` over `GOLD 200`, `FUJIFILM` over `PROVIA 100F`. The first picture is the original; the developing has not happened yet. |
-| **The develop step is one print at a time** | The print on the easel is the time in hand; the ruler under it moves the time; the strip below it is what has been printed. Dragging the ruler only changes the preview. Pressing *develop* renders one print at 1200 px and adds it to the strip. The first print fixes the enlarger's exposure, and every later print keeps it — the strip compares developments, not timers. The temperature is a dial in the panel; it belongs to the strip, so changing it starts a new strip and keeps the photograph and materials. The panel names both materials with their manufacturers, then draws the film's developed curve, the paper's, the strip's times together, and the densitometer's gamma and D-max. |
+| **The bench is the first step, and the materials are on it** | One photograph enters the darkroom and the bench shows what it becomes; the original is a line at the top of the bench — its name and *Change* — not a page before the developer. The film and the paper are under the print: a material line opens the shelf as a card lying on the bench, and the print answers every tap. The materials are not constants in the app: `kalo stocks --json` hands over every film the model carries, grouped by chemistry and then by manufacturer, and every paper under a rule of its own, so the shelf cannot show a film or a paper the model does not have. A maker is a heading, not a prefix repeated on every box: `KODAK` over `GOLD 200`, `FUJIFILM` over `PROVIA 100F`. Another box starts a new strip; with prints on the strip the bench asks first. |
+| **The develop step is one print at a time** | The print on the easel is the time in hand; the ruler under it moves the time; the strip below it is what has been printed. Dragging the ruler only changes the preview. Pressing *develop* renders one print at 1200 px and adds it to the strip. The first print fixes the enlarger's exposure, and every later print keeps it — the strip compares developments, not timers. The temperature is a dial in the panel; it belongs to the strip, so changing it starts a new strip and keeps the photograph and materials. The panel draws the film's developed curve, the paper's, the strip's times together, and the densitometer's gamma and D-max. The print can be read against the original: *Compare* lays the original behind the print and the pointer moves the seam; there is no divider, and the edge between the two pictures is the whole control. |
 | **The print step is the enlarger dialled** | The chosen development is printed again at the photograph's size, balanced on its own negative, with the timer, the CC pack and the heat glass. It is not a copy of the strip's print: the strip is one exposure; the finished print is the one dialled for this photograph. The panel draws the paper's curve under those settings — the timer, the pack and the glass move it — so the picture and the instrument are the same enlarger. Pressing *print* opens a sheet for the size (original, 6000 or 4000 pixels) and the file format (PNG or JPEG). |
 | **The drying rack is what came out** | A place beside the darkroom, not a fourth step: lines of wire across the room, each print held by a clip, newest first, wrapping into as many columns as the window holds and scrolling down to the next line. The paper has a shadow because it is in the air; clicking one takes it into the room's own viewer, where it can be pinched or scrolled. The sidebars are the window's and keep their own switches; the viewer sits on the rack's ground in the current appearance, not in a fixed black room. The print fades up; closing fades it away and puts the same line back, with its scroll position kept. A corner says what is still being made. The gallery is the same files looked at properly, as paper on a wall. |
-| **The path is a choice** | Exposure, print and scan go through the spectrum — 71 wavelengths, reconstructed from the input and integrated against each layer's sensitivity — or through one number per channel. It is a setting because the model keeps it opt-in: the structure is physical end to end, and the data under it is mixed — the curves and layer sensitivities of twenty-one films are measured, the papers are, the illuminant is CIE D50, and fifteen films still borrow their dye shapes because their sheets print a neutral instead of three dyes. The select panel and the catalogue say per film which is which. The two paths are different photographs, not different labels, and the strip remembers which made it: a print of that strip is made the same way. |
+| **The path is a choice** | Exposure, print and scan go through the spectrum — 71 wavelengths, reconstructed from the input and integrated against each layer's sensitivity — or through one number per channel. It is a setting because the model keeps it opt-in: the structure is physical end to end, and the data under it is mixed — the curves and layer sensitivities of twenty-one films are measured, the papers are, the illuminant is CIE D50, and fifteen films still borrow their dye shapes because their sheets print a neutral instead of three dyes. The shelf card and the catalogue say per film which is which. The two paths are different photographs, not different labels, and the strip remembers which made it: a print of that strip is made the same way. |
 | **The model is the app's own library** | The app's Dart package (`kallo`) links `kallo-api` through `flutter_rust_bridge`; a strip print is one call, and a finished print is the same pipeline at the photograph's size. A roll and its contact proof are one call for the CLI, from one read of the photograph. The `kalo` binary is still underneath as the fallback when the library cannot load — tests run that way — and both answer the same `Model`, because the binding was written to the shape the subprocess already had. |
-| **Two rooms, a rack, three steps** | The darkroom and the gallery are rooms; the drying rack is the place between them. In the darkroom: select, develop, print — the photograph, the strip and the finished print. The rack has no steps and neither does the gallery: a line is hung, a wall is looked at. The old six places are gone; the shelf's job is the select step, the bench's is develop and print, the rack's is the paper. |
+| **Two rooms, a rack, two steps** | The darkroom and the gallery are rooms; the drying rack is the place between them. In the darkroom: develop and print — the strip and the finished print, with the photograph and its materials on the same bench. The rack has no steps and neither does the gallery: a line is hung, a wall is looked at. The old six places are gone; the bench's job is develop and print, the rack's is the paper. |
 | **The test strip is the proof, made one print at a time** | A proof is the film laid on paper and exposed once. The strip is that idea with the person's hand in it: one print per development, all on the first print's exposure, laid side by side. Each print is scaled to the strip's height and takes the width its own shape asks for, so a portrait and a landscape print sit on the same strip without being cropped or overflowing. A longer development makes a denser negative, so on one exposure it prints lighter; the strip says that before the finished print is dialled. The prints are rendered, not drawn: each is a real 1200 px print, and the densitometer reads its chart. |
 | **A print can be looked through, then walked up to** | The loupe is a switch beside the lamp, put away by default. With it out, hovering a print brings a loupe to the pointer: three times the wall, from the print's own file decoded wide enough to be sharp. The picture under the lens bows slightly at its edge — glass is not a window — while the paper stays flat. The switch belongs to the wall, so it goes when a print fills the window; the lamp stays. Clicking opens the print at the file's own size: the sheet keeps its size and shape — this is a loupe on paper, not a picture viewer — and the picture is magnified *inside* its margin, clipped by the paper, up to 1:1, one image pixel per device pixel, which is as far as the file goes. That close view is flat: it moves the picture under the paper and never bends the file. The label under it says the file's pixels and the scale; escape puts it back on the wall, and the lamp comes with you. |
 | **The gallery is a wall of paper with one lamp** | A print is not a picture; it is a sheet of paper reflecting whatever light falls on it. So the wall and the wall label multiply by one number; the lamp switch is at the top right of the chrome, with the loupe beside it, and the lamp is that number. Turn it off and the wall goes black, the labels go with it, the paper stays at a tenth — and the window around them does not move: the lamp is the gallery's, not the app's. In a light appearance the wall is a wall in daylight; the lamp still goes out. Each print is a sheet: paper, a margin and a shadow, with the stock, the development time and the paper on the label under it. The stock says its manufacturer (`KODAK ULTRA MAX 400`, `ILFORD DELTA 400`) and the caption under the sheet does too. A single print is `01`; a batch of selected frames will count `02`, `03`. Sheets are given the same area, so a portrait is the same sheet turned, not a bigger one. The film's rebate is not on this wall: a print is cropped to the frame, and the black edge a darkroom can print belongs to the printing stage. |
