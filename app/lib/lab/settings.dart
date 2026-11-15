@@ -7,7 +7,11 @@ import 'dart:io';
 /// own — where prints go, and which path a new roll is developed through — and
 /// a file a person can open and delete is worth more than one they cannot.
 class Settings {
-  const Settings({this.exportPath, this.spectral = false});
+  const Settings({
+    this.exportPath,
+    this.spectral = false,
+    this.photoPrimerSeen = false,
+  });
 
   /// The folder prints are exported to and read from, or null for the place the
   /// platform gives the app.
@@ -22,11 +26,30 @@ class Settings {
   /// on a CPU, which is why the switch says nothing about speed either.
   final bool spectral;
 
-  Settings withExports(String? path) =>
-      Settings(exportPath: path, spectral: spectral);
+  /// Whether the Android photo-access explanation has been shown.
+  ///
+  /// The system still decides whether to show its own dialog; this only keeps
+  /// the app from repeating its explanation every time a photograph is chosen
+  /// after the person has already answered it.
+  final bool photoPrimerSeen;
 
-  Settings withSpectral(bool on) =>
-      Settings(exportPath: exportPath, spectral: on);
+  Settings withExports(String? path) => Settings(
+    exportPath: path,
+    spectral: spectral,
+    photoPrimerSeen: photoPrimerSeen,
+  );
+
+  Settings withSpectral(bool on) => Settings(
+    exportPath: exportPath,
+    spectral: on,
+    photoPrimerSeen: photoPrimerSeen,
+  );
+
+  Settings withPhotoPrimerSeen(bool seen) => Settings(
+    exportPath: exportPath,
+    spectral: spectral,
+    photoPrimerSeen: seen,
+  );
 
   static const String _name = 'settings.json';
 
@@ -95,6 +118,7 @@ class Settings {
         return Settings(
           exportPath: exports is String ? exports : null,
           spectral: json['spectral'] == true,
+          photoPrimerSeen: json['photoPrimerSeen'] == true,
         );
       }
     } on FormatException {
@@ -116,6 +140,7 @@ class Settings {
         const JsonEncoder.withIndent('  ').convert(<String, Object?>{
           if (exportPath != null) 'exports': exportPath,
           if (spectral) 'spectral': true,
+          if (photoPrimerSeen) 'photoPrimerSeen': true,
         }),
       );
     } on FileSystemException {

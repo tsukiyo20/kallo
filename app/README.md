@@ -169,6 +169,13 @@ file, and imports through the system photo picker. Album membership is the
 boundary: an asset whose marker was stripped is still a print, and the catalog
 keeps its record.
 
+Android's media permission is asked when a photograph is first chosen, not when
+the app opens. Saving a print and the system picker both work without it; what
+it buys is seeing pictures another app put in `Pictures/Kallo`, so the app says
+that in its own sheet before the system dialog and leaves the picker available
+if the answer is no. The Settings page keeps the row that can change the answer,
+including the permanent-denial route through system Settings.
+
 A camera-sized print is rendered in horizontal bands when a device caps a single
 storage-buffer binding below the frame size — Adreno reports 128 MiB and a 12 MP
 frame is 195 MiB. The guard rows are the sum of the vertical effect radii, and a

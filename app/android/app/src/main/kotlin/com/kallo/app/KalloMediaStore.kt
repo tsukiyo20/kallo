@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
@@ -12,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.util.Size
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -37,13 +39,23 @@ class KalloMediaStore(
         private const val RELATIVE_SLASH = "Pictures/Kallo/"
         private const val PICK_REQUEST = 0x4b41
         private const val MEDIA_REQUEST = 0x4b42
+        private const val MEDIA_ASKED = "media_permission_asked"
         private const val PICK_IMAGES_ACTION = "android.provider.action.PICK_IMAGES"
         private const val PICK_IMAGES_MAX = "android.provider.extra.PICK_IMAGES_MAX"
     }
 
     private val channel = MethodChannel(messenger, CHANNEL)
     private var pendingPick: MethodChannel.Result? = null
-    private var pendingOpen: MethodChannel.Result? = null
+    private var pendingAccess: MethodChannel.Result? = null
+
+    /// Whether Android has shown its own media-permission dialog.
+    ///
+    /// The app asks for access when the person first chooses a photograph, not
+    /// when it opens. `asked` is what lets the explanation distinguish "we have
+    /// not asked yet" from "the system dialog was dismissed for good".
+    private val preferences: SharedPreferences by lazy {
+        activity.getSharedPreferences("kallo", android.content.Context.MODE_PRIVATE)
+    }
 
     fun attach() {
         channel.setMethodCallHandler(this)
@@ -52,6 +64,17 @@ class KalloMediaStore(
     override fun onMethodCall(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "open" -> open(result)
+            "access" -> result.success(accessPayload())
+            "requestAccess" -> requestAccess(result)
+            "openSettings" -> {
+                activity.startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", activity.packageName, null),
+                    ),
+                )
+                result.success(null)
+            }
             "list" -> background(result) { list() }
             "save" -> {
                 val path = call.argument<String>("path")
@@ -105,19 +128,39 @@ class KalloMediaStore(
     }
 
     private fun open(result: MethodChannel.Result) {
-        if (hasMediaAccess()) {
-            result.success(openPayload())
+        // Opening the library is not the moment to ask for the photo
+        // permission: the app has not needed it yet, and Android would put a
+        // system dialog over a screen the person did not ask from. The request
+        // is made from `requestAccess`, after the app has explained itself.
+        result.success(openPayload())
+    }
+
+    /// What the person has allowed, and whether Android can still ask.
+    private fun accessPayload(): Map<String, Any> = mapOf(
+        "granted" to hasMediaAccess(),
+        "canAsk" to canAskMediaAccess(),
+        "canListAll" to canListAll(),
+        "limited" to (hasMediaAccess() && !canListAll()),
+    )
+
+    private fun requestAccess(result: MethodChannel.Result) {
+        // Partial access (Android 14's "selected photos") still has media
+        // access, but the Settings row offers to widen it to all photos, so
+        // only a completed all-photos grant is a no-op here.
+        if (canListAll()) {
+            result.success(accessPayload())
             return
         }
-        if (pendingOpen != null) {
-            result.error("busy", "the library is already opening", null)
+        if (pendingAccess != null) {
+            result.error("busy", "the photo permission is already being asked for", null)
             return
         }
-        pendingOpen = result
+        pendingAccess = result
+        preferences.edit().putBoolean(MEDIA_ASKED, true).apply()
         try {
             activity.requestPermissions(mediaPermissions(), MEDIA_REQUEST)
         } catch (error: Exception) {
-            pendingOpen = null
+            pendingAccess = null
             result.error("permission_failed", error.message, null)
         }
     }
@@ -141,6 +184,19 @@ class KalloMediaStore(
         else -> granted(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
+    /// Whether the system dialog can still be presented.
+    ///
+    /// Before the first request the answer is yes even though
+    /// `shouldShowRequestPermissionRationale` is false; after a permanent
+    /// denial it stays false, and the explanation offers Settings instead.
+    private fun canAskMediaAccess(): Boolean {
+        if (hasMediaAccess()) return true
+        if (!preferences.getBoolean(MEDIA_ASKED, false)) return true
+        return mediaPermissions().any {
+            activity.shouldShowRequestPermissionRationale(it)
+        }
+    }
+
     private fun granted(permission: String): Boolean =
         activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
@@ -156,9 +212,9 @@ class KalloMediaStore(
 
     fun onRequestPermissionsResult(requestCode: Int): Boolean {
         if (requestCode != MEDIA_REQUEST) return false
-        val result = pendingOpen ?: return true
-        pendingOpen = null
-        result.success(openPayload())
+        val result = pendingAccess ?: return true
+        pendingAccess = null
+        result.success(accessPayload())
         return true
     }
 

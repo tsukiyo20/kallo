@@ -30,7 +30,8 @@ class MobilePrintLibrary extends PrintLibrary {
     required this.info,
     required this.workFolder,
     required this.ownsCatalog,
-  });
+    bool? canListAll,
+  }) : _canListAll = canListAll ?? info.canListAll;
 
   final SystemPrintService service;
 
@@ -86,6 +87,7 @@ class MobilePrintLibrary extends PrintLibrary {
       info: info,
       workFolder: work,
       ownsCatalog: catalog == null,
+      canListAll: info.canListAll,
     );
   }
 
@@ -98,8 +100,10 @@ class MobilePrintLibrary extends PrintLibrary {
   @override
   bool get canChooseFolder => false;
 
+  bool _canListAll;
+
   @override
-  bool get canListAll => info.canListAll;
+  bool get canListAll => _canListAll;
 
   @override
   bool get canPickImages => true;
@@ -228,6 +232,20 @@ class MobilePrintLibrary extends PrintLibrary {
     // marker; the catalog row and its picture stay.
     return 0;
   }
+
+  /// What the platform has allowed, without asking for anything.
+  Future<MediaAccess> access() => service.access();
+
+  /// Ask for photo access. The caller explains first; this is the system
+  /// dialog, and the app keeps working from its own folder either way.
+  Future<MediaAccess> requestAccess() async {
+    final MediaAccess access = await service.requestAccess();
+    _canListAll = access.canListAll;
+    return access;
+  }
+
+  /// The route left after a permanent denial.
+  Future<void> openSettings() => service.openSettings();
 
   @override
   Future<List<File>> pickImages({int limit = 0}) => service.pick(limit: limit);

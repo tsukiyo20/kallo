@@ -18,6 +18,7 @@ import 'lab/exports.dart';
 import 'lab/folder_print_library.dart';
 import 'lab/ffi_model.dart';
 import 'lab/image_file.dart';
+import 'lab/mobile_print_library.dart';
 import 'lab/model.dart';
 import 'lab/path_name.dart';
 import 'lab/print.dart';
@@ -34,11 +35,13 @@ import 'lab/stock.dart';
 import 'lab/strip.dart';
 import 'lab/strip_develop.dart';
 import 'lab/strip_store.dart';
+import 'lab/system_print_service.dart';
 import 'views/chambers.dart';
 import 'views/steps.dart';
 import 'views/studio.dart';
 import 'widgets/folder_move_sheet.dart';
 import 'widgets/import_progress_sheet.dart';
+import 'widgets/mobile/mobile_sheet.dart';
 import 'widgets/window_controls.dart';
 
 Future<void> main() async {
@@ -206,6 +209,10 @@ class _KalloAppState extends State<KalloApp> {
   bool _printsLoaded = false;
   List<PrintJob> _jobs = const <PrintJob>[];
   PrintLibrary? _library;
+
+  /// What Android has allowed of the photo library, when the library is the
+  /// system one. Null on a desktop or before the bridge has answered.
+  MediaAccess? _mediaAccess;
   int _missingPrints = 0;
   int _repairablePrints = 0;
   bool _repairing = false;
@@ -219,6 +226,20 @@ class _KalloAppState extends State<KalloApp> {
   /// the state above both. The Navigator is the only one the app has.
   BuildContext get _dialogContext =>
       _navigator.currentState?.overlay?.context ?? context;
+
+  /// A context below the Navigator that is still alive after an `await`.
+  ///
+  /// The permission sheets are opened from the state above `WidgetsApp`; its
+  /// own context has neither the Navigator nor the strings. The overlay's
+  /// context has both, and checking it is what makes the async gap safe.
+  BuildContext? get _liveDialogContext {
+    final NavigatorState? navigator = _navigator.currentState;
+    if (navigator == null || !navigator.mounted) {
+      return null;
+    }
+    final BuildContext? overlay = navigator.overlay?.context;
+    return overlay != null && overlay.mounted ? overlay : null;
+  }
 
   @override
   void initState() {
@@ -323,12 +344,163 @@ class _KalloAppState extends State<KalloApp> {
     }
   }
 
+  /// Say what the Android photo permission is for, then ask for it.
+  ///
+  /// Saving a print and the system picker both work without the permission; it
+  /// buys seeing pictures another app put in the Kallo folder. The explanation
+  /// is therefore a choice, not a toll gate: "Not now" still opens the picker,
+  /// and the settings page is where the choice can be changed later.
+  Future<void> _preparePhotoAccess() async {
+    if (!Platform.isAndroid) {
+      return;
+    }
+    final PrintLibrary? library = _library;
+    if (library is! MobilePrintLibrary) {
+      return;
+    }
+    MediaAccess access;
+    try {
+      access = await library.access();
+    } on Object catch (error) {
+      debugPrint('photo access could not be read: $error');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _mediaAccess = access);
+    // Partial access is enough to choose a photograph, and enough for the
+    // prints Kallo itself saved. Do not interrupt for the rest; Settings has
+    // the row that can widen it.
+    if (access.granted || _settings.photoPrimerSeen) {
+      return;
+    }
+    _settings = _settings.withPhotoPrimerSeen(true);
+    await _settings.write();
+    if (!mounted) {
+      return;
+    }
+    final BuildContext? dialog = _liveDialogContext;
+    if (dialog == null || !dialog.mounted) {
+      return;
+    }
+    final KalloStrings s = KalloStrings.of(dialog);
+    if (!access.canAsk) {
+      final bool open = await showKalloPhotoAccessSheet(
+        dialog,
+        title: s.photoAccessBlockedTitle,
+        message: s.photoAccessBlockedNote,
+        confirm: s.openSettings,
+        cancel: s.photoAccessNotNow,
+      );
+      if (open && mounted) {
+        await library.openSettings();
+      }
+      return;
+    }
+    final bool allow = await showKalloPhotoAccessSheet(
+      dialog,
+      title: s.photoAccessTitle,
+      message: s.photoAccessNote,
+      confirm: s.photoAccessAllow,
+      cancel: s.photoAccessNotNow,
+    );
+    if (!allow || !mounted) {
+      return;
+    }
+    await _requestPhotoAccess(library);
+  }
+
+  /// The system dialog, after the app has explained itself.
+  Future<void> _requestPhotoAccess(MobilePrintLibrary library) async {
+    try {
+      final MediaAccess next = await library.requestAccess();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _mediaAccess = next);
+      if (!next.granted && !next.canAsk) {
+        final BuildContext? dialog = _liveDialogContext;
+        if (dialog == null || !dialog.mounted) {
+          return;
+        }
+        final KalloStrings s = KalloStrings.of(dialog);
+        final bool open = await showKalloPhotoAccessSheet(
+          dialog,
+          title: s.photoAccessBlockedTitle,
+          message: s.photoAccessBlockedNote,
+          confirm: s.openSettings,
+          cancel: s.photoAccessNotNow,
+        );
+        if (open && mounted) {
+          await library.openSettings();
+        }
+      }
+    } on Object catch (error) {
+      debugPrint('photo access could not be asked for: $error');
+    }
+  }
+
+  /// The Settings row: the one place a person can change what they answered.
+  Future<void> _openPhotoAccessSettings() async {
+    final PrintLibrary? library = _library;
+    if (library is! MobilePrintLibrary) {
+      return;
+    }
+    MediaAccess access;
+    try {
+      access = await library.access();
+    } on Object catch (error) {
+      debugPrint('photo access could not be read: $error');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _mediaAccess = access);
+    if (access.granted && access.canListAll) {
+      return;
+    }
+    final BuildContext? dialog = _liveDialogContext;
+    if (dialog == null || !dialog.mounted) {
+      return;
+    }
+    final KalloStrings s = KalloStrings.of(dialog);
+    if (!access.canAsk) {
+      final bool open = await showKalloPhotoAccessSheet(
+        dialog,
+        title: s.photoAccessBlockedTitle,
+        message: s.photoAccessBlockedNote,
+        confirm: s.openSettings,
+        cancel: s.photoAccessNotNow,
+      );
+      if (open && mounted) {
+        await library.openSettings();
+      }
+      return;
+    }
+    final bool allow = await showKalloPhotoAccessSheet(
+      dialog,
+      title: s.photoAccessTitle,
+      message: access.limited ? s.fixedFolderLimited : s.photoAccessNote,
+      confirm: s.photoAccessAllow,
+      cancel: s.photoAccessNotNow,
+    );
+    if (allow && mounted) {
+      await _requestPhotoAccess(library);
+    }
+  }
+
   /// Choose a photograph: copy it into the strip's folder, decode it, and
   /// start a strip on it. A different photograph is a different strip.
   ///
   /// A phone chooses from Photos through the system picker; a desktop chooses
   /// a file. The rest of the darkroom does not know which happened.
   Future<void> _choosePhoto() async {
+    await _preparePhotoAccess();
+    if (!mounted) {
+      return;
+    }
     final File? file = await _pickPhotograph();
     if (file == null || !mounted) {
       return;
@@ -686,6 +858,10 @@ class _KalloAppState extends State<KalloApp> {
   }
 
   /// Open the catalog and let it adopt the old print store once.
+  ///
+  /// On Android this is also where the current permission state is read. It is
+  /// a status query, not a request: the dialog comes from `_preparePhotoAccess`
+  /// when a photograph is first chosen.
   Future<void> _openLibrary() async {
     final Directory? folder = _folder;
     if (folder == null && !(Platform.isIOS || Platform.isAndroid)) {
@@ -702,6 +878,13 @@ class _KalloAppState extends State<KalloApp> {
         }
       }
       _library = library;
+      if (library is MobilePrintLibrary && Platform.isAndroid) {
+        try {
+          _mediaAccess = await library.access();
+        } on Object catch (error) {
+          debugPrint('photo access could not be read: $error');
+        }
+      }
     } on Object catch (error) {
       debugPrint('the catalog could not be opened: $error');
       _library?.close();
@@ -830,6 +1013,10 @@ class _KalloAppState extends State<KalloApp> {
   Future<void> _importImages() async {
     final PrintLibrary? library = _library;
     if (library == null) {
+      return;
+    }
+    await _preparePhotoAccess();
+    if (!mounted) {
       return;
     }
     final List<File> files;
@@ -1027,6 +1214,10 @@ class _KalloAppState extends State<KalloApp> {
       onReset: canChoose ? _resetExport : null,
       onImport: library == null ? null : _importImages,
       canListAll: library?.canListAll ?? true,
+      photoAccess: _mediaAccess?.granted ?? true,
+      onPhotoAccess: _mediaAccess == null
+          ? null
+          : () => unawaited(_openPhotoAccessSettings()),
       missingPrints: _missingPrints,
       repairablePrints: _repairablePrints,
       onRepair: _repairing ? null : _repairMarkers,
