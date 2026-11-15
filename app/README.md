@@ -81,9 +81,10 @@ There is no `MaterialApp` anywhere, and that is the point.
 `fvm flutter analyze` is clean, and the suite covers the strip, the two rooms,
 the rack, the catalogue, the contact sheet's data, the model's curves, the
 border templates printed into a print, both side panes being put away, a test strip mixing portrait
-and landscape prints, the gallery loupe's wall and close view, and a print
-the shelf card and the destroy confirm, the print read against the original
-with the wipe, and a print opened off the rack. The fifteen studio goldens are
+and landscape prints, the gallery loupe's wall and close view, the wall being walked and a sheet hung
+by hand and hung back, a picture brought onto the wall being shown where it
+arrived, the shelf card and the destroy confirm, the print read against the
+original with the wipe, and a print opened off the rack. The sixteen studio goldens are
 the design's instrument: they pin the bench before a photograph and with a
 strip, the shelf on the bench, the wipe, the bench in daylight, print, the edge
 picker, the drying rack and the gallery in both appearances, a print taken off
@@ -92,7 +93,7 @@ to at 1280 by 820, with the bundled faces loaded from disk so the picture is in
 the product's own type rather than the runner's.
 
 They are opt-in and per platform. A golden is local to the renderer that drew
-it, so the baselines live in `test/goldens/<platform>/`: the fifteen committed
+it, so the baselines live in `test/goldens/<platform>/`: the sixteen committed
 today are macOS's, and `test/goldens/windows/` is where a Windows pass draws its
 own. The test is skipped unless it is asked for, and it is never a way to turn a
 red test green:
@@ -119,6 +120,8 @@ has run, `fvm flutter build macos --debug` (or `fvm flutter run`) before opening
 | **viewer**, the print off the rack, still in the room | **gallery**, prints on the wall, newest first | **gallery, daylight** |
 | ![a portrait print](test/goldens/macos/portrait.png) | ![the lens on a print](test/goldens/macos/lens.png) | ![a print under the loupe](test/goldens/macos/loupe.png) |
 | **portrait**, the sheet turned | **lens**, the picture bowed under glass | **loupe**, the print flat, up to 1:1 |
+| ![the gallery, hung by hand](test/goldens/macos/gallery-hung.png) | | |
+| **gallery, hung by hand**, work placed where it was put | | |
 
 The gallery, rack and loupe goldens draw a test card, because the app ships no
 pictures: a print is a file the model exports, and the golden has to have
@@ -227,10 +230,11 @@ places and nothing else; the header holds the two steps; the gear opens one
 grouped Settings page with Done. The darkroom opens on the bench: the test print
 on paper, the materials on one line under it — the film, the paper and the
 photograph in one sheet — the test strip, the clock and the ruler in one deck.
-Print is four summary cells and one action. Rack and Gallery are two columns,
-and a print opens full screen. The curves move to a Details sheet. The phone
-does not use the desktop panes at all, and the desktop does not use the
-phone's.
+Print is four summary cells and one action. The rack is two columns and a print
+opens full screen; the gallery is the same walkable wall as the desktop, walked
+by drag and pinch, and its import action is the header's, beside the lamp. The
+curves move to a Details sheet. The phone does not use the desktop panes at all,
+and the desktop does not use the phone's.
 
 | | |
 |---|---|
@@ -241,6 +245,7 @@ phone's.
 | **The path is a choice** | Exposure, print and scan go through the spectrum — 71 wavelengths, reconstructed from the input and integrated against each layer's sensitivity — or through one number per channel. It is a setting because the model keeps it opt-in: the structure is physical end to end, and the data under it is mixed — the curves and layer sensitivities of twenty-one films are measured, the papers are, the illuminant is CIE D50, and fifteen films still borrow their dye shapes because their sheets print a neutral instead of three dyes. The shelf card and the catalogue say per film which is which. The two paths are different photographs, not different labels, and the strip remembers which made it: a print of that strip is made the same way. |
 | **The model is the app's own library** | The app's Dart package (`kallo`) links `kallo-api` through `flutter_rust_bridge`; a strip print is one call, and a finished print is the same pipeline at the photograph's size. A roll and its contact proof are one call for the CLI, from one read of the photograph. The `kalo` binary is still underneath as the fallback when the library cannot load — tests run that way — and both answer the same `Model`, because the binding was written to the shape the subprocess already had. |
 | **Two rooms, a rack, two steps** | The darkroom and the gallery are rooms; the drying rack is the place between them. In the darkroom: develop and print — the strip and the finished print, with the photograph and its materials on the same bench. The rack has no steps and neither does the gallery: a line is hung, a wall is looked at. The old six places are gone; the bench's job is develop and print, the rack's is the paper. |
+| **The wall is longer than the window** | The gallery used to be a grid inside one window, as if the room ended at the edge of the screen, and the arrangement was the app's: a grid says nothing about the pictures, and five developments of one negative are five equal things. That is still the wall's default. The wall is a place a person walks now: drag the empty wall to walk it, wheel or pinch to step back, and the wall hangs its work in that same grid until the first sheet is moved — then the whole hanging freezes and the wall is theirs. A sheet dragged anywhere stays there, labels and all, and the sheet under the pointer is the one in hand; new work is hung in a fresh line beneath what is already there, and *Rehang* puts the wall back in its grid. The hanging is the wall's, not the print's: the catalog keeps it under the library, and it is not written into the XMP marker. The import action is the wall's own, at the top right of the chrome (on a phone, the header), and it is no longer a row in the settings page about where prints go. |
 | **The test strip is the proof, made one print at a time** | A proof is the film laid on paper and exposed once. The strip is that idea with the person's hand in it: one print per development, all on the first print's exposure, laid side by side. Each print is scaled to the strip's height and takes the width its own shape asks for, so a portrait and a landscape print sit on the same strip without being cropped or overflowing. A longer development makes a denser negative, so on one exposure it prints lighter; the strip says that before the finished print is dialled. The prints are rendered, not drawn: each is a real 1200 px print, and the densitometer reads its chart. |
 | **A print can be looked through, then walked up to** | The loupe is a switch beside the lamp, put away by default. With it out, hovering a print brings a loupe to the pointer: three times the wall, from the print's own file decoded wide enough to be sharp. The picture under the lens bows slightly at its edge — glass is not a window — while the paper stays flat. The switch belongs to the wall, so it goes when a print fills the window; the lamp stays. Clicking opens the print at the file's own size: the sheet keeps its size and shape — this is a loupe on paper, not a picture viewer — and the picture is magnified *inside* its margin, clipped by the paper, up to 1:1, one image pixel per device pixel, which is as far as the file goes. That close view is flat: it moves the picture under the paper and never bends the file. The label under it says the file's pixels and the scale; escape puts it back on the wall, and the lamp comes with you. |
 | **The gallery is a wall of paper with one lamp** | A print is not a picture; it is a sheet of paper reflecting whatever light falls on it. So the wall and the wall label multiply by one number; the lamp switch is at the top right of the chrome, with the loupe beside it, and the lamp is that number. Turn it off and the wall goes black, the labels go with it, the paper stays at a tenth — and the window around them does not move: the lamp is the gallery's, not the app's. In a light appearance the wall is a wall in daylight; the lamp still goes out. Each print is a sheet: paper, a margin and a shadow, with the stock, the development time and the paper on the label under it. The stock says its manufacturer (`KODAK ULTRA MAX 400`, `ILFORD DELTA 400`) and the caption under the sheet does too. A single print is `01`; a batch of selected frames will count `02`, `03`. Sheets are given the same area, so a portrait is the same sheet turned, not a bigger one. The film's rebate is not on this wall: a print is cropped to the frame, and the black edge a darkroom can print belongs to the printing stage. |
@@ -307,6 +312,10 @@ These are the ones worth enforcing in review.
   appearances, plus the largest a print gets on it and how much light an eye
   keeps in the dark. A wall is lit by the room it stands in, so it follows the
   window's appearance; the lamp is the gallery's and takes the wall with it.
+The gallery is a wall that runs past the window: it opens on its beginning, and
+a drag walks it, a click hangs up a sheet, and the two quiet words at the bottom
+put it back where it was or back in its grid. The import action is at the top
+right of the wall's chrome; the settings page still says where the files go.
 - **The rack** — `KalloRack`: the working room's ground, its wire, its clip and
   its graphite. It is not a wall and not a plane of the window; it is the one
   place paper hangs in the air.
