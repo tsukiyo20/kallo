@@ -8,9 +8,9 @@
 //!
 //! This runs at build time rather than at load time on purpose: the tables are
 //! still `const` arrays, so nothing about the renderer's performance or its API
-//! changes. A build needs the data files present — `data/films/` and
-//! `data/papers/` — and `cargo:rerun-if-changed` makes a repack trigger a
-//! rebuild.
+//! changes. The files come from the `kallo-data` crate, which carries a copy of
+//! the repository's `data/` directory so that a build from crates.io needs no
+//! checkout.
 //!
 //! The header parser is deliberately strict and small: the header is written by
 //! `pack_film.py`, the same generator that wrote these files, so it contains
@@ -21,58 +21,24 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fmt::Write as _;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const GRID_LEN: usize = 71;
 const MAGIC: &[u8; 8] = b"KALOFILM";
 const PAPER_MAGIC: &[u8; 8] = b"KALOPAPR";
 
 fn main() {
-    let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let root = manifest.join("..").join("..");
-
-    let mut paths = Vec::new();
-    if let Ok(entries) = fs::read_dir(root.join("data").join("films")) {
-        for entry in entries.flatten() {
-            let directory = entry.path();
-            if !directory.is_dir() {
-                continue;
-            }
-            let name = directory
-                .file_name()
-                .expect("a directory has a name")
-                .to_string_lossy()
-                .to_string();
-            let file = directory.join(format!("{name}.kalofilm"));
-            if file.is_file() {
-                paths.push(file);
-            }
-        }
-    }
-    if paths.is_empty() {
-        panic!(
-            "no `.kalofilm` files found under {} — the crate is generated from them",
-            root.display()
-        );
-    }
-    paths.sort();
-
-    let mut papers = Vec::new();
-    if let Ok(entries) = fs::read_dir(root.join("data").join("papers")) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "kalopaper") {
-                paths.push(path.clone());
-                papers.push(read(&path));
-            }
-        }
-    }
-
-    let mut films: Vec<Film> = paths
+    let mut films: Vec<Film> = kallo_data::FILMS
         .iter()
-        .map(|path| read(path))
+        .map(|source| read(source.name, source.bytes))
         .filter(|film| film.kind == Kind::Film)
         .collect();
+    let mut papers: Vec<Film> = kallo_data::PAPERS
+        .iter()
+        .map(|source| read(source.name, source.bytes))
+        .filter(|film| film.kind == Kind::Paper)
+        .collect();
+    assert!(!films.is_empty(), "the data crate carries no films");
     films.sort_by(|a, b| a.header.get("", "id").cmp(b.header.get("", "id")));
     papers.sort_by(|a, b| a.header.get("", "id").cmp(b.header.get("", "id")));
 
@@ -122,15 +88,9 @@ fn main() {
     let out = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR")).join("film_stocks.rs");
     fs::write(&out, code).expect("write the generated film table");
 
+    // The data files themselves are watched by `kallo-data`'s build script, and
+    // a rebuild of that crate reruns this one.
     println!("cargo:rerun-if-changed=build.rs");
-    // The per-file watches below catch edits; these catch a file appearing or
-    // disappearing, which is how a stock is added or retired.
-    for directory in ["data/films", "data/papers"] {
-        println!("cargo:rerun-if-changed={directory}");
-    }
-    for path in &paths {
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
 }
 
 /// The header of one `.kalofilm`, split into its sections.
@@ -206,13 +166,12 @@ struct Film {
     kind: Kind,
 }
 
-fn read(path: &Path) -> Film {
-    let bytes = fs::read(path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+fn read(name: &str, bytes: &[u8]) -> Film {
+    assert!(bytes.len() >= 16, "{name}: shorter than a header");
     let magic = &bytes[..8];
     assert!(
         magic == MAGIC || magic == PAPER_MAGIC,
-        "{}: neither a kalofilm nor a kalopaper",
-        path.display()
+        "{name}: neither a kalofilm nor a kalopaper"
     );
     let kind = if magic == PAPER_MAGIC {
         Kind::Paper
@@ -221,7 +180,7 @@ fn read(path: &Path) -> Film {
     };
     let header_length = u32::from_le_bytes(bytes[12..16].try_into().expect("four bytes")) as usize;
     let header_text = std::str::from_utf8(&bytes[16..16 + header_length]).expect("utf-8 header");
-    let header = parse_header(header_text, path);
+    let header = parse_header(header_text, name);
 
     let mut tables = BTreeMap::new();
     let mut offset = 16 + header_length;
@@ -265,7 +224,7 @@ enum Kind {
     Paper,
 }
 
-fn parse_header(text: &str, path: &Path) -> Header {
+fn parse_header(text: &str, name: &str) -> Header {
     let mut sections: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     sections.insert(String::new(), BTreeMap::new());
     let mut current = String::new();
@@ -284,7 +243,7 @@ fn parse_header(text: &str, path: &Path) -> Header {
         }
         let (key, value) = line
             .split_once('=')
-            .unwrap_or_else(|| panic!("{}: unparseable header line {line:?}", path.display()));
+            .unwrap_or_else(|| panic!("{name}: unparseable header line {line:?}"));
         sections
             .entry(current.clone())
             .or_default()

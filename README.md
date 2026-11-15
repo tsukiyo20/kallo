@@ -105,7 +105,7 @@ film is a `.kalofilm` file — curves, layer sensitivities, dyes, mask, MTF and
 grain, plus a `[measured]` table saying field by field what is measured,
 borrowed or absent. A paper is a `.kalopaper` file: one curve, a target
 reflectance, its own dyes and layers. Everything measured lives in
-[`data/`](data/README.md) and nothing measured lives in the crates.
+[`data/`](data/README.md), and nothing measured lives in the program text.
 
 Six Kodak colour negatives (PORTRA 160, 400 and 800, EKTAR 100, GOLD 200,
 ULTRA MAX 400), four VISION3 cinema stocks (50D, 200T, 250D, 500T), six Fuji
@@ -186,6 +186,7 @@ the CPU; a frame the device refuses is finished on the CPU either way.
 
 | Crate | Role |
 |---|---|
+| `kallo-data` | The measurements: the `.kalofilm` and `.kalopaper` files the model is generated from, CC BY-SA 4.0. |
 | `kallo-core` | The model: curves, development kinetics, the built-in stocks, render. No I/O, no unsafe. |
 | `kallo-spectral` | Spectra, sensors, and the RGB → spectrum reconstruction. |
 | `kallo-io` | Decoding and encoding. The only place that touches a file format. |
@@ -201,10 +202,11 @@ CC BY-SA 4.0** — share it, adapt it, sell it, but keep it open; the full text 
 in [`data/films/LICENSE`](data/films/LICENSE), and what is not redistributed is
 in [`data/films/NOTICE.md`](data/films/NOTICE.md).
 
-The boundary is a file read. `crates/kallo-core/build.rs` reads the
-`.kalofilm` and `.kalopaper` files at build time and generates the stock tables
-from them, so the program text holds no measurements and a checkout without
-[`data/`](data/README.md) does not compile.
+The boundary is a file read. `kallo-core`'s build script reads the `.kalofilm`
+and `.kalopaper` files at build time and generates the stock tables from them,
+so the program text holds no measurements. The files reach a crates.io build
+through [`crates/kallo-data`](crates/kallo-data/), which carries a copy of
+[`data/`](data/README.md); `just sync-data` refreshes the copy.
 
 ## Contributing
 

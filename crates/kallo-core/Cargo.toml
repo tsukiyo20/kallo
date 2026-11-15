@@ -22,5 +22,12 @@ parallel = ["dep:rayon"]
 kallo-spectral = { path = "../kallo-spectral", version = "0.1.0" }
 rayon = { version = "1", optional = true }
 
+# The measurements, carried as files rather than compiled into this crate: the
+# build reads them and writes the stock tables from them. It is not a runtime
+# dependency — nothing here links against it, and none of its bytes are in the
+# binary.
+[build-dependencies]
+kallo-data = { path = "../kallo-data", version = "0.1.0" }
+
 [lints]
 workspace = true

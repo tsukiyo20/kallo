@@ -424,8 +424,20 @@ fn hex(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
-    fn films() -> std::path::PathBuf {
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/films")
+    /// One of the shipped `.kalofilm` files, by stock directory name.
+    fn film(name: &str) -> &'static [u8] {
+        kallo_data::FILMS
+            .iter()
+            .find(|source| source.name == name)
+            .unwrap_or_else(|| panic!("kallo-data carries no {name}"))
+            .bytes
+    }
+
+    /// The same bytes, in a file the reader can open.
+    fn written(prefix: &str, name: &str, bytes: &[u8]) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("kallo-{prefix}-{name}.kalofilm"));
+        std::fs::write(&path, bytes).expect("write the data file");
+        path
     }
 
     /// The whole point of the format: the file and the compiled stock describe
@@ -457,12 +469,9 @@ mod tests {
             ("fuji200", "fuji-200"),
             ("fuji400", "fuji-400"),
         ] {
-            let loaded = read(
-                films()
-                    .join(directory)
-                    .join(format!("{directory}.kalofilm")),
-            )
-            .unwrap_or_else(|error| panic!("{id}: {error}"));
+            let path = written("match", directory, film(directory));
+            let loaded = read(&path).unwrap_or_else(|error| panic!("{id}: {error}"));
+            let _ = std::fs::remove_file(&path);
             let compiled = kallo_core::emulsion::film_stock(id).expect("a compiled stock");
             assert_eq!(loaded.id, compiled.id);
             assert_eq!(loaded.process, compiled.process);
@@ -481,13 +490,10 @@ mod tests {
     /// digest is what says so.
     #[test]
     fn an_altered_file_is_refused() {
-        let directory = films().join("fuji-pro400h");
-        let path = directory.join("fuji-pro400h.kalofilm");
-        let mut bytes = std::fs::read(&path).expect("the committed file");
+        let mut bytes = film("fuji-pro400h").to_vec();
         let middle = bytes.len() / 2;
         bytes[middle] ^= 0xff;
-        let scratch = std::env::temp_dir().join("kalotype-altered.kalofilm");
-        std::fs::write(&scratch, &bytes).expect("write");
+        let scratch = written("altered", "fuji-pro400h", &bytes);
         match read(&scratch) {
             Err(FilmFileError::Digest { .. }) => {}
             other => panic!("expected a digest failure, got {other:?}"),
