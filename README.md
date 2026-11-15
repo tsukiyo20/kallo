@@ -170,7 +170,9 @@ worst per-channel difference is 1.0 × 10⁻⁶ in linear light, against a state
 tolerance of 1 × 10⁻⁴. It is on by default and worth it — about 4.5× on the
 scalar path and 80× on the spectral chain, where seventy-one wavelengths per
 pixel across four integrations is exactly the work a device is for. `--no-gpu`
-is there for when certain beats fast.
+is there for when certain beats fast, and the app's Settings page has the same
+choice: it names the adapter it detected, defaults to it, and lets a person pin
+the CPU; a frame the device refuses is finished on the CPU either way.
 
 ## What this is not
 

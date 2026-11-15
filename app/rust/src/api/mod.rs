@@ -3,6 +3,7 @@
 pub mod catalogue;
 pub mod chart;
 pub mod contact;
+pub mod device;
 pub mod preview;
 pub mod print;
 pub mod roll;

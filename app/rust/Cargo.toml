@@ -17,6 +17,10 @@ flutter_rust_bridge = "=2.13.0"
 kallotype-api = { path = "../../crates/kallotype-api" }
 kallotype-io = { path = "../../crates/kallotype-io" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff"] }
+# The settings page names the processor as well as the card; sysinfo is the
+# cross-platform answer to a question no standard library exposes, and it is
+# allowed to be missing (Android may withhold /proc).
+sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

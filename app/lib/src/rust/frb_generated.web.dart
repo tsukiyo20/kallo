@@ -9,6 +9,7 @@
 import 'api/catalogue.dart';
 import 'api/chart.dart';
 import 'api/contact.dart';
+import 'api/device.dart';
 import 'api/preview.dart';
 import 'api/print.dart';
 import 'api/roll.dart';
@@ -91,6 +92,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ContactReport dco_decode_contact_report(dynamic raw);
+
+  @protected
+  DeviceReport dco_decode_device_report(dynamic raw);
 
   @protected
   double dco_decode_f_64(dynamic raw);
@@ -224,6 +228,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ContactReport sse_decode_contact_report(SseDeserializer deserializer);
+
+  @protected
+  DeviceReport sse_decode_device_report(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
@@ -379,6 +386,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_contact_report(ContactReport self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_device_report(DeviceReport self, SseSerializer serializer);
 
   @protected
   void sse_encode_f_64(double self, SseSerializer serializer);

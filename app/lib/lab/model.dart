@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import 'chart.dart';
+import 'render_mode.dart';
 
 /// One photograph held on the bench, ready to be printed at any setting.
 ///
@@ -259,6 +260,10 @@ class ProcessModel implements Model {
       // here, and as themselves in a full-size print.
       '--halation',
       '--couplers',
+      // The engine the settings page chose. `render` opens the device unless
+      // told not to; the CPU is how a machine whose driver cannot be trusted
+      // makes the print anyway.
+      if (!RenderPreference.gpu) '--no-gpu',
       // The three spectral stages, when asked for: the input is reconstructed
       // into a spectrum and integrated against the film's layers, the print
       // goes through dye absorption and the paper's layers, and the scan turns

@@ -12,6 +12,7 @@ import '../design/strings.dart';
 import '../design/tokens.dart';
 import '../lab/exports.dart';
 import '../lab/print.dart';
+import '../lab/render_mode.dart';
 import '../lab/print_out.dart';
 import '../lab/print_request.dart';
 import '../lab/stock.dart';
@@ -64,6 +65,8 @@ class Studio extends StatefulWidget {
     required this.onLocale,
     required this.spectral,
     required this.onSpectral,
+    required this.renderMode,
+    required this.onRenderMode,
     this.initiallyOpen = false,
     this.initialChamber = Chamber.darkroom,
     this.initialStep = DarkroomStep.select,
@@ -98,6 +101,10 @@ class Studio extends StatefulWidget {
   final ValueChanged<Locale?> onLocale;
   final bool spectral;
   final ValueChanged<bool> onSpectral;
+
+  /// The engine renders may use, and the way to change it.
+  final RenderMode renderMode;
+  final ValueChanged<RenderMode> onRenderMode;
 
   final bool initiallyOpen;
   final Chamber initialChamber;
@@ -309,6 +316,8 @@ class _StudioState extends State<Studio> {
                                   onLocale: widget.onLocale,
                                   spectral: widget.spectral,
                                   onSpectral: widget.onSpectral,
+                                  renderMode: widget.renderMode,
+                                  onRenderMode: widget.onRenderMode,
                                   onClose: _closeDrawer,
                                 ),
                               ),
@@ -490,6 +499,8 @@ class _StudioState extends State<Studio> {
                     onLocale: widget.onLocale,
                     spectral: widget.spectral,
                     onSpectral: widget.onSpectral,
+                    renderMode: widget.renderMode,
+                    onRenderMode: widget.onRenderMode,
                     export: widget.export,
                     onClose: _closeDrawer,
                   ),

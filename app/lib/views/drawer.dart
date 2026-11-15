@@ -8,13 +8,15 @@ import '../design/scope.dart';
 import '../design/strings.dart';
 import '../design/tokens.dart';
 import '../lab/exports.dart';
+import '../lab/render_device.dart';
+import '../lab/render_mode.dart';
 import '../widgets/button.dart';
 import '../widgets/segments.dart';
 
 /// Settings, as a drawer in the bench.
 ///
-/// A place you open, not a page you go to. One sheet, five pages: the first
-/// says what the app is, the other four set something. The film's own words do
+/// A place you open, not a page you go to. One sheet, six pages: the first
+/// says what the app is, the other five set something. The film's own words do
 /// not change when the language does. Nothing here advertises a renderer the
 /// app cannot switch or a sound it does not make.
 class SettingsDrawer extends StatefulWidget {
@@ -24,6 +26,8 @@ class SettingsDrawer extends StatefulWidget {
     required this.onLocale,
     required this.spectral,
     required this.onSpectral,
+    required this.renderMode,
+    required this.onRenderMode,
     required this.export,
     required this.onClose,
   });
@@ -35,6 +39,10 @@ class SettingsDrawer extends StatefulWidget {
   /// The path a new roll is developed through, and the way to change it.
   final bool spectral;
   final ValueChanged<bool> onSpectral;
+
+  /// The engine renders may use, and the way to change it.
+  final RenderMode renderMode;
+  final ValueChanged<RenderMode> onRenderMode;
 
   /// Where prints come from, and whether this platform lets a person say.
   final ExportSetting export;
@@ -54,9 +62,26 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     s.tabAppearance,
     s.tabPrints,
     s.tabColour,
+    s.tabRenderer,
   ];
 
   int _tab = _aboutTab;
+
+  /// What the machine says it has. Null until the model answers.
+  RenderDevice? _device;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_probeDevice());
+  }
+
+  Future<void> _probeDevice() async {
+    final RenderDevice device = await RenderDevice.probe();
+    if (mounted) {
+      setState(() => _device = device);
+    }
+  }
 
   double _fieldWidth(BuildContext context) =>
       (MediaQuery.sizeOf(context).width - 56).clamp(240.0, 460.0);
@@ -242,8 +267,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         return _appearance(s, colors);
       case 3:
         return _prints(s, colors);
-      default:
+      case 4:
         return _colour(s, colors);
+      default:
+        return _renderer(s, colors);
     }
   }
 
@@ -343,6 +370,78 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           child: Text(
             s.spectralNote,
             style: KalloType.small.copyWith(color: colors.inkMuted),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _renderer(KalloStrings s, KalloColors colors) {
+    final RenderDevice? device = _device;
+    final bool gpu = widget.renderMode.isGpu;
+    final String graphics = device == null
+        ? s.detecting
+        : (device.gpu ?? s.noGpu);
+    final String processor = device == null
+        ? s.detecting
+        : s.processorValue(device.cpu, device.cores);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          s.rendering,
+          style: KalloType.title.copyWith(fontSize: 22, color: colors.ink),
+        ),
+        const SizedBox(height: KalloSpace.step2),
+        SizedBox(
+          width: _fieldWidth(context),
+          child: Text(
+            gpu ? s.rendererGpuNote : s.rendererCpuNote,
+            style: KalloType.body.copyWith(color: colors.inkMuted),
+          ),
+        ),
+        const SizedBox(height: KalloSpace.step5),
+        _Label(s.graphics, colors),
+        const SizedBox(height: KalloSpace.step2),
+        SizedBox(
+          width: _fieldWidth(context),
+          child: Text(
+            graphics,
+            style: KalloType.data.copyWith(
+              color: device == null || device.hasGpu
+                  ? colors.ink
+                  : colors.inkFaint,
+            ),
+          ),
+        ),
+        if (device != null && !device.hasGpu) ...<Widget>[
+          const SizedBox(height: KalloSpace.step1 + 2),
+          SizedBox(
+            width: _fieldWidth(context),
+            child: Text(
+              s.noGpuNote,
+              style: KalloType.small.copyWith(color: colors.inkFaint),
+            ),
+          ),
+        ],
+        const SizedBox(height: KalloSpace.step4),
+        _Label(s.processor, colors),
+        const SizedBox(height: KalloSpace.step2),
+        SizedBox(
+          width: _fieldWidth(context),
+          child: Text(
+            processor,
+            style: KalloType.data.copyWith(color: colors.ink),
+          ),
+        ),
+        const SizedBox(height: KalloSpace.step5),
+        _Label(s.engine, colors),
+        const SizedBox(height: KalloSpace.step2),
+        KalloSegments(
+          options: <String>[s.rendererGpu, s.rendererCpu],
+          selected: gpu ? 0 : 1,
+          onSelect: (int i) => widget.onRenderMode(
+            i == 0 ? RenderMode.gpu : RenderMode.cpu,
           ),
         ),
       ],

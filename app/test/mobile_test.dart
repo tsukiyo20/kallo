@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/lab/chart.dart';
 import 'package:kallo/lab/print.dart';
+import 'package:kallo/lab/render_mode.dart';
+import 'package:kallo/lab/settings.dart';
 import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
@@ -78,9 +81,23 @@ Widget _app({
 
 void main() {
   late ui.Image card;
+  late Directory settingsFolder;
 
   setUpAll(() async {
     card = await _card();
+  });
+
+  setUp(() {
+    // A settings write in a test must not land in the person's config folder.
+    settingsFolder = Directory.systemTemp.createTempSync('kallo-mobile-');
+    Settings.useDirectory(settingsFolder);
+    RenderPreference.set(RenderMode.gpu);
+  });
+
+  tearDown(() {
+    Settings.useDirectory(null);
+    RenderPreference.set(RenderMode.gpu);
+    settingsFolder.deleteSync(recursive: true);
   });
 
   testWidgets('the compact shell is three places and a gear', (
@@ -263,6 +280,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('mobile-settings-page')), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the renderer is a setting on the phone, and the gpu is default', (
+    WidgetTester tester,
+  ) async {
+    _phone(tester, height: 1600);
+    await tester.pumpWidget(_app(card: card));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('mobile-settings')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RENDERING'), findsOneWidget);
+    expect(find.text('GPU'), findsOneWidget);
+    expect(find.text('CPU'), findsOneWidget);
+    // No linked model in a widget test: the page still names the fallback.
+    expect(find.textContaining('cores'), findsWidgets);
+
+    await tester.tap(find.text('CPU'));
+    await tester.pumpAndSettle();
+
+    expect(RenderPreference.gpu, isFalse);
+    // The file is the settings tests' business; here the switch is the point.
   });
 
   testWidgets('the smallest phone does not overflow', (

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,6 +9,8 @@ import '../../design/scope.dart';
 import '../../design/strings.dart';
 import '../../design/tokens.dart';
 import '../../lab/exports.dart';
+import '../../lab/render_device.dart';
+import '../../lab/render_mode.dart';
 import '../../widgets/mobile/mobile_controls.dart';
 import '../../widgets/mobile/mobile_icon.dart';
 
@@ -15,13 +19,15 @@ import '../../widgets/mobile/mobile_icon.dart';
 /// It is not a drawer over the bench. Appearance, language, the library and
 /// the colour path are rows in the same list; About is a row at the bottom, not
 /// the first tab of a rail.
-class KalloMobileSettings extends StatelessWidget {
+class KalloMobileSettings extends StatefulWidget {
   const KalloMobileSettings({
     super.key,
     required this.locale,
     required this.onLocale,
     required this.spectral,
     required this.onSpectral,
+    required this.renderMode,
+    required this.onRenderMode,
     required this.export,
     required this.onClose,
   });
@@ -30,8 +36,34 @@ class KalloMobileSettings extends StatelessWidget {
   final ValueChanged<Locale?> onLocale;
   final bool spectral;
   final ValueChanged<bool> onSpectral;
+
+  /// The engine renders may use, and the way to change it.
+  final RenderMode renderMode;
+  final ValueChanged<RenderMode> onRenderMode;
+
   final ExportSetting export;
   final VoidCallback onClose;
+
+  @override
+  State<KalloMobileSettings> createState() => _KalloMobileSettingsState();
+}
+
+class _KalloMobileSettingsState extends State<KalloMobileSettings> {
+  /// What the machine says it has. Null until the model answers.
+  RenderDevice? _device;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_probeDevice());
+  }
+
+  Future<void> _probeDevice() async {
+    final RenderDevice device = await RenderDevice.probe();
+    if (mounted) {
+      setState(() => _device = device);
+    }
+  }
 
   Future<void> _openRepository() async {
     try {
@@ -49,6 +81,12 @@ class KalloMobileSettings extends StatelessWidget {
     final KalloColors colors = KalloScope.colorsOf(context);
     final KalloStrings s = KalloStrings.of(context);
     final KalloScope scope = KalloScope.of(context);
+    final ExportSetting export = widget.export;
+    final Locale? locale = widget.locale;
+    final ValueChanged<Locale?> onLocale = widget.onLocale;
+    final bool spectral = widget.spectral;
+    final ValueChanged<bool> onSpectral = widget.onSpectral;
+    final VoidCallback onClose = widget.onClose;
     final int appearance = scope.pinned == null
         ? 0
         : (scope.pinned == Brightness.light ? 1 : 2);
@@ -238,6 +276,77 @@ class KalloMobileSettings extends StatelessWidget {
                       ),
                     ),
                   ),
+                  KalloMobileSectionHeader(s.tabRenderer),
+                  KalloMobileGroup(
+                    child: Column(
+                      children: <Widget>[
+                        KalloMobileRow(
+                          title: s.graphics,
+                          chevron: false,
+                          // The adapter is longer than a value column on a
+                          // phone; it gets the row's second line, whole.
+                          subtitle: _device == null
+                              ? s.detecting
+                              : (_device!.gpu ?? s.noGpu),
+                        ),
+                        const KalloMobileDivider(),
+                        KalloMobileRow(
+                          title: s.processor,
+                          chevron: false,
+                          subtitle: _device == null
+                              ? s.detecting
+                              : s.processorValue(_device!.cpu, _device!.cores),
+                        ),
+                        const KalloMobileDivider(),
+                        KalloMobileRow(
+                          title: s.engine,
+                          chevron: false,
+                          minHeight: 56,
+                          trailing: SizedBox(
+                            width: 132,
+                            child: KalloSegmented(
+                              options: <String>[s.rendererGpu, s.rendererCpu],
+                              selected: widget.renderMode.isGpu ? 0 : 1,
+                              onSelect: (int i) => widget.onRenderMode(
+                                i == 0 ? RenderMode.gpu : RenderMode.cpu,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      KalloMobileSpace.screen + 2,
+                      KalloMobileSpace.step2,
+                      KalloMobileSpace.screen + 2,
+                      0,
+                    ),
+                    child: Text(
+                      widget.renderMode.isGpu
+                          ? s.rendererGpuNote
+                          : s.rendererCpuNote,
+                      style: KalloMobileType.footnote.copyWith(
+                        color: colors.inkMuted,
+                      ),
+                    ),
+                  ),
+                  if (_device != null && !_device!.hasGpu)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        KalloMobileSpace.screen + 2,
+                        KalloMobileSpace.step1,
+                        KalloMobileSpace.screen + 2,
+                        0,
+                      ),
+                      child: Text(
+                        s.noGpuNote,
+                        style: KalloMobileType.footnote.copyWith(
+                          color: colors.inkFaint,
+                        ),
+                      ),
+                    ),
                   KalloMobileSectionHeader(s.tabColour),
                   KalloMobileGroup(
                     child: KalloMobileRow(

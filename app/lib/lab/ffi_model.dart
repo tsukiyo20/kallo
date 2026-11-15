@@ -13,6 +13,7 @@ import 'package:kallo/src/rust/frb_generated.dart';
 
 import 'chart.dart';
 import 'model.dart';
+import 'render_mode.dart';
 
 /// Load the model into this process.
 ///
@@ -64,6 +65,25 @@ class FfiModel implements Model {
     String filters = '',
     String? heatGlass,
   }) async {
+    if (!RenderPreference.gpu) {
+      // The CPU was chosen: there is no attempt to fail, and no retry to make.
+      await _develop(
+        photograph: photograph,
+        stock: stock,
+        paper: paper,
+        minutes: minutes,
+        tempC: tempC,
+        width: width,
+        output: output,
+        spectral: spectral,
+        balanceFrom: balanceFrom,
+        printEv: printEv,
+        filters: filters,
+        heatGlass: heatGlass,
+        gpu: false,
+      );
+      return;
+    }
     try {
       await _develop(
         photograph: photograph,
@@ -169,7 +189,7 @@ class FfiModel implements Model {
             grain: true,
             halation: true,
             couplers: true,
-            gpu: true,
+            gpu: RenderPreference.gpu,
           ),
         );
     return _FfiPreviewSession(session);
@@ -244,7 +264,7 @@ class FfiModel implements Model {
         grainSeed: BigInt.zero,
         halation: true,
         couplers: true,
-        gpu: true,
+        gpu: RenderPreference.gpu,
         frames: frames.map((File file) => file.path).toList(growable: false),
         contact: sheet?.path,
         record: record?.path,

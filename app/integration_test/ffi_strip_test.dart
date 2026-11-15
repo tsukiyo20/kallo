@@ -10,6 +10,7 @@ import 'package:kallo/lab/chart.dart';
 import 'package:kallo/lab/export_format.dart';
 import 'package:kallo/lab/model.dart';
 import 'package:kallo/lab/print.dart';
+import 'package:kallo/lab/render_device.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/lab/strip_develop.dart';
 import 'package:kallo/main.dart';
@@ -23,6 +24,18 @@ import 'package:kallo/widgets/time_slider.dart';
 /// development would be hidden by the timer, and this is where that shows.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  test('the linked model names the machine it runs on', () async {
+    final bool loaded = await loadLinkedModel();
+    expect(loaded, isTrue, reason: 'the dynamic library should load');
+
+    RenderDevice.resetCache();
+    final RenderDevice device = await RenderDevice.probe();
+    expect(device.cores, greaterThan(0));
+    expect(device.gpu, isNotNull, reason: 'the renderer\'s own adapter');
+    expect(device.cpu, isNotNull, reason: 'the operating system names it');
+    expect(device.platform, Platform.operatingSystem);
+  }, timeout: const Timeout(Duration(minutes: 1)));
 
   test('a strip is one exposure, print after print', () async {
     final bool loaded = await loadLinkedModel();

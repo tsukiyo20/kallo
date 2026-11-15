@@ -14,6 +14,7 @@ import '../lab/clock.dart';
 import '../lab/export_format.dart';
 import '../lab/model.dart';
 import '../lab/preview_bench.dart';
+import '../lab/render_mode.dart';
 import '../lab/print_request.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
@@ -138,7 +139,7 @@ class _PrintStageState extends State<PrintStage> {
 
   String _benchKeyFor(TestStrip strip) =>
       '${strip.photo}|${strip.stockId}|${strip.paperId}|'
-      '${strip.tempC}|${strip.spectral}';
+      '${strip.tempC}|${strip.spectral}|${RenderPreference.mode.name}';
 
   void _openBench() {
     final String key = _benchKeyFor(widget.strip);

@@ -212,8 +212,12 @@ The right switch hides the inspector, and the work takes the width back.
 
 Settings is one sheet, opened from the bottom of the sidebar. About is first:
 the app's mark, its version, and one click to the repository. There is no
-drawer heading and no prose about the type or the model; the other four pages
-are the settings themselves, with the one sentence each needs.
+drawer heading and no prose about the type or the model; the other five pages
+are the settings themselves, with the one sentence each needs. The rendering
+page names the GPU the renderer would open and the CPU behind the fallback, and
+the switch under them chooses which engine a render may use. The device is the
+default; the processor is a choice, and a render the device rejects still
+finishes on the CPU on its own.
 
 On a phone the same work is not a small window. The bottom bar holds the three
 places and nothing else; the header holds the three steps; the gear opens one
@@ -346,13 +350,15 @@ translates.
   measured chart; the committed strip is the model's drawing — charted, not
   measured. The subprocess fallback writes pixels and no densities, and a roll
   developed that way stays chartless — which is what `flutter test` sees.
-- **A settings card with nothing to set.** The drawer is five pages: about,
-  language, appearance, the print folder and the path. The first is the app
-  itself — its mark, its version and one way out to the repository. A card
-  about a renderer the app cannot switch, or a sound it does not make, was the
-  scaffold's idea of a settings page; it is not this one. The version is the
-  bundle's, mirrored once in `app_info.dart` and checked against `pubspec.yaml`
-  by a test, not copied into the interface ad hoc.
+- **A settings card with nothing to set.** The drawer is six pages: about,
+  language, appearance, the print folder, the path and the renderer. The first
+  is the app itself — its mark, its version and one way out to the repository;
+  the renderer page is the one card that names hardware, and it does so because
+  the app can switch it. A card about a renderer the app cannot switch, or a
+  sound it does not make, was the scaffold's idea of a settings page; it is not
+  this one. The version is the bundle's, mirrored once in `app_info.dart` and
+  checked against `pubspec.yaml` by a test, not copied into the interface ad
+  hoc.
 - **A soft proof of the paper's surface.** A print is rendered again from the
   photograph, at the size the photograph has and capped at 6000 points, and the
   app's own record carries the stock, the paper and the development rather than

@@ -17,6 +17,7 @@
 pub mod catalogue;
 pub mod chart;
 pub mod contact;
+pub mod device;
 pub mod error;
 pub mod input;
 pub mod preview;
@@ -29,6 +30,7 @@ pub use chart::{
     paper_chart, print_chart, print_chart_with,
 };
 pub use contact::{ContactOptions, ContactOutcome, contact, ladder};
+pub use device::{RenderDevice, render_device};
 pub use error::Error;
 pub use input::read_input;
 pub use preview::{PreviewFrame, PreviewRequest, PreviewSession};

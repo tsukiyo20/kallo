@@ -389,6 +389,7 @@ class KalloStrings {
   String get tabAppearance => zh ? '外观' : 'APPEARANCE';
   String get tabPrints => zh ? '印相' : 'PRINTS';
   String get tabColour => zh ? '色彩' : 'COLOUR';
+  String get tabRenderer => zh ? '渲染' : 'RENDERING';
   String get tabAbout => zh ? '关于' : 'ABOUT';
 
   String get language => zh ? '语言' : 'Language';
@@ -483,6 +484,37 @@ class KalloStrings {
       : 'The system will not ask again. Change it in Settings. You can still choose a photograph through the system picker.';
 
   String get openSettings => zh ? '打开设置' : 'Open Settings';
+
+  // -- rendering ------------------------------------------------------------
+
+  String get rendering => zh ? '渲染' : 'Rendering';
+  String get graphics => zh ? '显卡' : 'Graphics';
+  String get processor => zh ? '处理器' : 'Processor';
+  String get engine => zh ? '引擎' : 'Engine';
+  String get rendererGpu => 'GPU';
+  String get rendererCpu => 'CPU';
+  String get detecting => zh ? '检测中…' : 'Detecting…';
+  String get noGpu => zh ? '不可用' : 'Not available';
+
+  /// Said when the machine has no adapter, so the switch is not a lie.
+  String get noGpuNote => zh
+      ? '这台设备没有可用的 GPU，渲染会留在 CPU。'
+      : 'This device has no usable GPU, so rendering stays on the CPU.';
+
+  /// Said under the switch, in the engine's own terms.
+  String get rendererGpuNote => zh
+      ? 'GPU 更快。驱动拒绝某一帧时，这一张会自动用 CPU 完成。'
+      : 'Faster. If a driver rejects a frame, that print is finished on the CPU.';
+
+  String get rendererCpuNote => zh
+      ? '只用 CPU：更慢，但每台设备的结果相同，也不碰显卡驱动。'
+      : 'CPU only: slower, the same picture on every machine, and it never touches the graphics driver.';
+
+  String cores(int count) => zh ? '$count 核' : '$count cores';
+
+  /// The processor line: its name when the system gives one, the count always.
+  String processorValue(String? name, int count) =>
+      name == null || name.isEmpty ? cores(count) : '$name · ${cores(count)}';
 
   // -- colour ---------------------------------------------------------------
 
