@@ -384,6 +384,12 @@ class KalloStrings {
   /// Back to the wall, from a print looked at closely.
   String get back => zh ? '返回墙上' : 'Back to the wall';
 
+  /// Where the wall begins: the newest print, and the prints around it.
+  String get wallHome => zh ? '归位' : 'Home';
+
+  /// Put the hanging back in the wall's own grid.
+  String get rehang => zh ? '重挂' : 'Rehang';
+
   /// What a person is looking at: the file's pixels, and how much of them.
   String magnification(String size, String percent) =>
       zh ? '$size 像素   ·   $percent' : '$size pixels   ·   $percent';

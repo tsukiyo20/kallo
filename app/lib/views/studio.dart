@@ -22,6 +22,7 @@ import '../widgets/mobile/mobile_chrome.dart';
 import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/stage_tabs.dart';
 import '../widgets/switch.dart';
+import '../widgets/top_action.dart';
 import '../widgets/studio_top_bar.dart';
 import '../widgets/studio_sidebar.dart';
 import '../widgets/window_grips.dart';
@@ -60,6 +61,10 @@ class Studio extends StatefulWidget {
     required this.onPrint,
     required this.onEnterExports,
     required this.export,
+    required this.hanging,
+    this.onHang,
+    this.onRehang,
+    this.onImport,
     required this.locale,
     required this.onLocale,
     required this.spectral,
@@ -96,6 +101,19 @@ class Studio extends StatefulWidget {
   final VoidCallback? onEnterExports;
 
   final ExportSetting export;
+
+  /// Where the gallery's wall hangs each print, by the print's id. Empty when
+  /// the wall has not been hung and still arranges its own grid.
+  final Map<String, Offset> hanging;
+
+  /// Hung a sheet somewhere, or hung the wall back in its grid.
+  final ValueChanged<Map<String, Offset>>? onHang;
+  final VoidCallback? onRehang;
+
+  /// Bring pictures onto the wall. Null when there is no library to bring them
+  /// into, and on the rooms that do not hang anything.
+  final VoidCallback? onImport;
+
   final Locale? locale;
   final ValueChanged<Locale?> onLocale;
   final bool spectral;
@@ -440,13 +458,27 @@ class _StudioState extends State<Studio> {
             subtitle: s.printCount(widget.prints.length),
             onSettings: () => setState(() => _open = true),
             trailing: _chamber == Chamber.gallery
-                ? KalloIconButton(
-                    key: const Key('mobile-light'),
-                    glyph: KalloGlyph.sun,
-                    semanticLabel: s.roomLight,
-                    onTap: _toggleLight,
-                    glyphSize: 20,
-                    foreground: _lit ? colors.accent : colors.inkMuted,
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (widget.onImport != null)
+                        KalloIconButton(
+                          key: const Key('mobile-import-pictures'),
+                          glyph: KalloGlyph.importPictures,
+                          semanticLabel: s.importImages,
+                          onTap: widget.onImport,
+                          glyphSize: 20,
+                          foreground: colors.ink,
+                        ),
+                      KalloIconButton(
+                        key: const Key('mobile-light'),
+                        glyph: KalloGlyph.sun,
+                        semanticLabel: s.roomLight,
+                        onTap: _toggleLight,
+                        glyphSize: 20,
+                        foreground: _lit ? colors.accent : colors.inkMuted,
+                      ),
+                    ],
                   )
                 : null,
           );
@@ -530,6 +562,9 @@ class _StudioState extends State<Studio> {
           // A wall reads newest first, like the rack: the print just made is
           // the one worth seeing.
           prints: widget.prints.reversed.toList(growable: false),
+          hanging: widget.hanging,
+          onHang: widget.onHang,
+          onRehang: widget.onRehang,
           light: light,
           loupe: _compact ? false : _loupe,
           onNear: (bool near) {
@@ -598,6 +633,15 @@ class _StudioState extends State<Studio> {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 if (!_galleryNear) ...<Widget>[
+                  if (widget.onImport != null) ...<Widget>[
+                    KalloTopAction(
+                      key: const Key('import-pictures'),
+                      label: s.importImages,
+                      control: colors.inkMuted,
+                      onTap: widget.onImport!,
+                    ),
+                    const SizedBox(width: KalloSpace.step2),
+                  ],
                   KalloSwitch(
                     key: const Key('loupe'),
                     label: s.loupe,

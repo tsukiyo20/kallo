@@ -299,17 +299,20 @@ const Catalogue _catalogue = Catalogue(
   ],
 );
 
-TestStrip _benchStrip(ui.Image card) => const TestStrip(
-  photo: '/photographs/uji.jpg',
-  stockId: 'vision3_500t',
-  stockLabel: 'VISION3 500T',
-  paperId: 'portra_endura',
-  paperLabel: 'PORTRA ENDURA',
-).withPrint(
-  TestPrint(minutes: 6, tempC: 20, image: card, chart: _chart(6)),
-).withPrint(
-  TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
-);
+TestStrip _benchStrip(ui.Image card) =>
+    const TestStrip(
+          photo: '/photographs/uji.jpg',
+          stockId: 'vision3_500t',
+          stockLabel: 'VISION3 500T',
+          paperId: 'portra_endura',
+          paperLabel: 'PORTRA ENDURA',
+        )
+        .withPrint(
+          TestPrint(minutes: 6, tempC: 20, image: card, chart: _chart(6)),
+        )
+        .withPrint(
+          TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
+        );
 
 List<Print> _prints(ui.Image card) => <Print>[
   for (int i = 0; i < 3; i++)
@@ -396,6 +399,10 @@ FilmChart _chart(double minutes) => FilmChart(
   ],
   logE: <double>[for (int i = 0; i < 9; i++) -2.0 + i * 0.35],
 );
+
+/// Importing is not what a golden is about: the action is there, and does
+/// nothing.
+void _noImport() {}
 
 void _window(WidgetTester tester) {
   tester.view.physicalSize = const Size(1280, 820);
@@ -694,6 +701,7 @@ void main() {
           strip: const TestStrip(photo: '/photographs/uji.jpg'),
           photograph: card,
           prints: _prints(card),
+          onImport: _noImport,
           initialChamber: Chamber.gallery,
           appearance: Brightness.dark,
           chrome: WindowChrome.mac,
@@ -714,6 +722,7 @@ void main() {
           strip: const TestStrip(photo: '/photographs/uji.jpg'),
           photograph: card,
           prints: _prints(card),
+          onImport: _noImport,
           initialChamber: Chamber.gallery,
           appearance: Brightness.light,
           chrome: WindowChrome.mac,
@@ -748,6 +757,7 @@ void main() {
               tempC: 20,
             ),
           ],
+          onImport: _noImport,
           initialChamber: Chamber.gallery,
           appearance: Brightness.dark,
           chrome: WindowChrome.mac,
@@ -768,6 +778,7 @@ void main() {
           strip: const TestStrip(photo: '/photographs/uji.jpg'),
           photograph: card,
           prints: _prints(card),
+          onImport: _noImport,
           initialChamber: Chamber.gallery,
           appearance: Brightness.dark,
           chrome: WindowChrome.mac,
@@ -794,6 +805,32 @@ void main() {
       );
     });
 
+    testWidgets('the gallery, hung by hand', (WidgetTester tester) async {
+      _window(tester);
+      await tester.pumpWidget(
+        KalloApp(
+          catalogue: _catalogue,
+          strip: const TestStrip(photo: '/photographs/uji.jpg'),
+          photograph: card,
+          prints: _prints(card),
+          hanging: const <String, Offset>{
+            '#0': Offset(0, 0),
+            '#1': Offset(380, 80),
+            '#2': Offset(-280, 200),
+          },
+          onImport: _noImport,
+          initialChamber: Chamber.gallery,
+          appearance: Brightness.dark,
+          chrome: WindowChrome.mac,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(KalloApp),
+        matchesGoldenFile('goldens/$_platform/gallery-hung.png'),
+      );
+    });
+
     testWidgets('a print under the loupe', (WidgetTester tester) async {
       _window(tester);
       await tester.pumpWidget(
@@ -802,6 +839,7 @@ void main() {
           strip: const TestStrip(photo: '/photographs/uji.jpg'),
           photograph: card,
           prints: _prints(card),
+          onImport: _noImport,
           initialChamber: Chamber.gallery,
           appearance: Brightness.dark,
           chrome: WindowChrome.mac,

@@ -170,7 +170,6 @@ class ExportSetting {
     required this.custom,
     this.onChoose,
     this.onReset,
-    this.onImport,
     this.canListAll = true,
     this.photoAccess = true,
     this.onPhotoAccess,
@@ -190,9 +189,6 @@ class ExportSetting {
 
   final VoidCallback? onChoose;
   final VoidCallback? onReset;
-
-  /// Import pictures into the library, when there is a library to import into.
-  final VoidCallback? onImport;
 
   /// Whether the platform lets the app see pictures other apps put in the
   /// library. False on a phone with partial photo access.

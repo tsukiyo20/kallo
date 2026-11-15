@@ -234,14 +234,6 @@ class _KalloMobileSettingsState extends State<KalloMobileSettings> {
                                 : null,
                           ),
                         ],
-                        if (export.onImport != null) ...<Widget>[
-                          const KalloMobileDivider(),
-                          KalloMobileRow(
-                            title: s.importImages,
-                            chevron: true,
-                            onTap: export.onImport,
-                          ),
-                        ],
                         if (export.missingPrints > 0 ||
                             export.repairablePrints > 0) ...<Widget>[
                           const KalloMobileDivider(),

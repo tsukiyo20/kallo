@@ -32,6 +32,7 @@ enum KalloGlyph {
   film,
   paper,
   back,
+  importPictures,
 }
 
 class KalloGlyphView extends StatelessWidget {
@@ -333,6 +334,25 @@ class _GlyphPainter extends CustomPainter {
         );
         canvas.drawLine(const Offset(9, 12), const Offset(15, 12), paint);
         canvas.drawLine(const Offset(9, 16), const Offset(13, 16), paint);
+      case KalloGlyph.importPictures:
+        // A tray with an arrow coming down into it: pictures are put on the
+        // wall, not taken off it.
+        canvas.drawPath(
+          Path()
+            ..moveTo(4, 14)
+            ..lineTo(4, 19.5)
+            ..lineTo(20, 19.5)
+            ..lineTo(20, 14),
+          paint,
+        );
+        canvas.drawLine(const Offset(12, 3.5), const Offset(12, 14.5), paint);
+        canvas.drawPath(
+          Path()
+            ..moveTo(8.2, 10.8)
+            ..lineTo(12, 14.5)
+            ..lineTo(15.8, 10.8),
+          paint,
+        );
       case KalloGlyph.back:
         canvas.drawPath(
           Path()

@@ -129,6 +129,8 @@ class KalloApp extends StatefulWidget {
     this.photograph,
     this.catalogue,
     this.prints,
+    this.hanging,
+    this.onImport,
     this.jobs,
     this.exportsFolder,
     this.locale,
@@ -169,6 +171,14 @@ class KalloApp extends StatefulWidget {
   /// Prints to hang. The tests pass them; the app reads the export folder,
   /// which is empty until something has been printed.
   final List<Print>? prints;
+
+  /// The gallery's hanging, by print id. The tests pass one; the app reads the
+  /// wall from the catalog and writes it back when a sheet is moved.
+  final Map<String, Offset>? hanging;
+
+  /// Bringing pictures onto the wall. The tests pin it; the app imports through
+  /// the library it has open, when there is one.
+  final VoidCallback? onImport;
 
   /// Prints in progress. The tests pin them; the app makes them.
   final List<PrintJob>? jobs;
@@ -218,6 +228,10 @@ class _KalloAppState extends State<KalloApp> {
   List<PrintJob> _jobs = const <PrintJob>[];
   PrintLibrary? _library;
 
+  /// Where the gallery's wall hangs each print, by the print's id. Empty means
+  /// nobody has hung this wall and it still arranges its own grid.
+  Map<String, Offset> _hanging = const <String, Offset>{};
+
   /// What Android has allowed of the photo library, when the library is the
   /// system one. Null on a desktop or before the bridge has answered.
   MediaAccess? _mediaAccess;
@@ -261,6 +275,7 @@ class _KalloAppState extends State<KalloApp> {
       unawaited(_openCatalogue());
     }
     final List<Print>? prints = widget.prints;
+    _hanging = widget.hanging ?? const <String, Offset>{};
     _jobs = widget.jobs ?? const <PrintJob>[];
     if (prints != null) {
       _prints = prints;
@@ -973,8 +988,14 @@ class _KalloAppState extends State<KalloApp> {
     }
     final List<Print> previous = _prints;
     final (int missing, int repairable) = _issueCounts();
+    // The wall belongs to the library: a different folder is a different
+    // hanging, and the catalog is where the one that is open remembers it.
+    final Map<String, Offset> hanging = library == null
+        ? _hanging
+        : library.catalog.hangings(library.library.id);
     setState(() {
       _prints = prints;
+      _hanging = hanging;
       _missingPrints = missing;
       _repairablePrints = repairable;
     });
@@ -986,6 +1007,43 @@ class _KalloAppState extends State<KalloApp> {
         print.dispose();
       }
     });
+  }
+
+  /// Hang a sheet where it was put.
+  ///
+  /// The whole hanging is written rather than one place: the first move on an
+  /// untouched wall freezes the whole grid, and after that the map is the wall.
+  void _hang(Map<String, Offset> places) {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _hanging = places);
+    final PrintLibrary? library = _library;
+    if (library == null) {
+      return;
+    }
+    try {
+      library.catalog.setHangings(library.library.id, places);
+    } on Object catch (error) {
+      debugPrint('the hanging could not be written: $error');
+    }
+  }
+
+  /// Hang the wall back in its own grid.
+  void _rehang() {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _hanging = const <String, Offset>{});
+    final PrintLibrary? library = _library;
+    if (library == null) {
+      return;
+    }
+    try {
+      library.catalog.clearHangings(library.library.id);
+    } on Object catch (error) {
+      debugPrint('the wall could not be hung back: $error');
+    }
   }
 
   Future<void> _chooseExport() async {
@@ -1260,7 +1318,6 @@ class _KalloAppState extends State<KalloApp> {
       custom: canChoose && _exportPath != null,
       onChoose: canChoose ? _chooseExport : null,
       onReset: canChoose ? _resetExport : null,
-      onImport: library == null ? null : _importImages,
       canListAll: library?.canListAll ?? true,
       photoAccess: _mediaAccess?.granted ?? true,
       onPhotoAccess: _mediaAccess == null
@@ -1332,6 +1389,12 @@ class _KalloAppState extends State<KalloApp> {
                   ? () => unawaited(_ensurePrints())
                   : null,
               export: _exportSetting,
+              hanging: _hanging,
+              onHang: _hang,
+              onRehang: _rehang,
+              onImport:
+                  widget.onImport ??
+                  (_library == null ? null : () => unawaited(_importImages())),
               locale: _locale,
               onLocale: (Locale? next) => setState(() => _locale = next),
               spectral: _spectral,

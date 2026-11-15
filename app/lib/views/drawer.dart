@@ -440,9 +440,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         KalloSegments(
           options: <String>[s.rendererGpu, s.rendererCpu],
           selected: gpu ? 0 : 1,
-          onSelect: (int i) => widget.onRenderMode(
-            i == 0 ? RenderMode.gpu : RenderMode.cpu,
-          ),
+          onSelect: (int i) =>
+              widget.onRenderMode(i == 0 ? RenderMode.gpu : RenderMode.cpu),
         ),
       ],
     );
@@ -538,13 +537,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ],
           ),
         ),
-        if (export.onImport != null) ...<Widget>[
-          const SizedBox(height: KalloSpace.step2),
-          Align(
-            alignment: Alignment.centerRight,
-            child: KalloButton(label: s.importImages, onTap: export.onImport),
-          ),
-        ],
         if (export.missingPrints > 0 ||
             export.repairablePrints > 0) ...<Widget>[
           const SizedBox(height: KalloSpace.step3),

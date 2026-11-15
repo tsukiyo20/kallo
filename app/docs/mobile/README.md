@@ -382,25 +382,27 @@ tab
 
 ```text
 status 47
-nav 98    Gallery                        ☀
+nav 98    Gallery                    ⤓   ☀
           4 prints · one lamp
 content   ┌─────────┐  ┌─────────┐
-          │ sheet 01│  │ sheet 02│   two columns of paper
-          │  paper  │  │  paper  │
-          └─────────┘  └─────────┘
-          ┌─────────┐  ┌─────────┐
-          │ sheet 03│  │ sheet 04│
-          └─────────┘  └─────────┘
+          │ sheet 01│  │ sheet 02│   paper on a wall that runs past
+          │  paper  │  │  paper  │   the window: drag to walk, pinch
+          └─────────┘  └─────────┘   to step back
+          ┌─────────┐
+          │ sheet 03│
+          └─────────┘
 tab
 ```
 
-- A large title + subtitle; the light is **one sun icon** at the top right, not two text pills reading "Loupe" and "Light". The Loupe switch is removed on the phone.
-- 2 columns of paper prints, margin 16, gap 12; a sheet is about 171 wide. Each hung print is a `PrintSheet`: the picture on the paper, a margin of 3% of the sheet's width on the sides and a deeper one at the bottom — a fine print leaves more paper underneath — with a hairline in a light appearance and the paper's object shadow. The black rebate, the sprocket holes and the edge text are not on this wall: a print is cropped to the frame, and keeping the film's edge is a printing choice made where the print goes to a folder.
-- A portrait print is the same sheet turned, not a bigger sheet; a column may run unevenly because a sheet follows the picture's shape, and there are no uniform squares.
+- A large title + subtitle; two icons at the top right — the import action, then the light as **one sun icon**. The Loupe switch is removed on the phone.
+- The wall is the desktop's wall: it is longer than the window, it opens on its beginning, a drag walks it and a pinch steps back. Each hung print is a `PrintSheet`: the picture on the paper, a margin of 3% of the sheet's width on the sides and a deeper one at the bottom — a fine print leaves more paper underneath — with a hairline in a light appearance and the paper's object shadow. The black rebate, the sprocket holes and the edge text are not on this wall: a print is cropped to the frame, and keeping the film's edge is a printing choice made where the print goes to a folder.
+- The wall's paper has one size (`WallPlaces.sheet`): the same 300-point landscape sheet as the desktop, so a hanging is the same hanging on both. A portrait print is the same paper turned, not a bigger sheet.
 - The label is the print's — stock, development and paper, the development set loud (`wallLabel` in `app/lib/widgets/wall.dart`). At this width a label under a sheet would be four points tall, so the phone wall hangs the sheets bare and the close view carries the label.
-- With 1 print: a single sheet, centred, at most 240 wide; with 2 or more: 2 columns. Empty wall: a wire + the gallery glyph, `An empty wall`, `Prints you make will hang here.`, `Make a Print`.
+- The wall hangs its work in its own grid until a sheet is dragged: the first drag freezes the whole hanging, and then new work is hung in a fresh line beneath it. A quiet `Rehang` pill at the bottom left puts the wall back in its grid, and a `Home` pill appears once the wall has been walked.
+- Empty wall: a wire + the gallery glyph, `An empty wall`, `Prints you make will hang here.`, `Make a Print`.
 - Tap one → full-screen close view: the sheet fits, the picture magnifies inside the paper's margin with pinch and double-tap (1:1 ceiling) and stays flat — the glass bows the picture on the desktop's hover, this view never bends it; the label, the file's pixels and the scale are at the bottom, and back returns to the wall. There is no mouse-hover glass on a touch screen, and no export: the file was written when the print was made. No tab bar.
 - Lamp: one switch changes the wall's `light` and the paper's brightness; with the lamp off the wall goes black and the label goes with it, while the paper stays at a tenth and the window and the back control remain. Motion 240 ms.
+- Import is the wall's own act: the header's tray icon brings pictures into the library and onto the wall, and the wall glides to what arrived. It is not in Settings any more.
 - Sorting is still newest first; if the list is empty when the gallery opens, show the empty state, not an empty wall.
 
 ### 6.5 Settings: a whole page, not a drawer
@@ -421,7 +423,6 @@ content   APPEARANCE
           LIBRARY
           ┌──────────────────────────┐
           │ Location      Kallo album ›│
-          │ Import images            ›│
           │ Repair markers  Up to date│
           └──────────────────────────┘
           RENDERING
@@ -446,7 +447,7 @@ content   APPEARANCE
 - A grouped background + cards with 12–16 radius; section headers 11 uppercase; rows 44, primary text 15, secondary 11–13; dividers inset 14.
 - Language uses checkmark rows (`Follow the system` / `English` / `Chinese`), not a segmented control; `Interface` is a 30 pt segmented control (System / Light / Dark) at the right of its row; the spectral path is a 47 × 28 native switch.
 - Rendering is the only page that talks about hardware: the graphics line names the adapter wgpu will open (the same probe), and the processor line names what the system is willing to give plus the core count (Android may not give a name, and then only the count is shown). The engine defaults to GPU; switching to CPU stops trying the adapter, and a GPU error still finishes that one print on the CPU.
-- On the phone, Library has no "choose folder" any more; it shows the system location (the `Kallo` album on iOS, `Pictures/Kallo` on Android), import and repair status, and a note when iOS grants only partial access.
+- On the phone, Library has no "choose folder" any more and no import row: bringing pictures in is the gallery header's action, because the wall is where they land. It shows the system location (the `Kallo` album on iOS, `Pictures/Kallo` on Android), the repair status, and a note when iOS grants only partial access.
 - Footnotes appear only where they are needed: the spectral path changes new strips and leaves existing ones alone; a phone cannot choose a folder.
 - Leave 24 pt at the bottom, clear of the home indicator; the content scrolls, and does not nest a sheet's scroll.
 
@@ -470,7 +471,7 @@ content   APPEARANCE
 | `EmptyState` | icon 76 on a rounded background; title 22; body 13; CTA 50; at most two lines of note |
 | `Toast` | 12 above the bottom tab bar; pill card; 17/500; disappears after 4 s; carries one action |
 | `PrintCard` (rack) | paper white, 6 pt edge, 0.5 hairline, object shadow, clip, wire; the image is never cropped |
-| `PrintSheet` (gallery) | the picture on paper; a margin of 3% of the sheet's width on the sides and 2.2× that at the bottom; paper and a hairline edge; about 171 wide in the phone's two columns |
+| `PrintSheet` (gallery) | the picture on paper; a margin of 3% of the sheet's width on the sides and 2.2× that at the bottom; paper and a hairline edge; the wall's 300-point landscape sheet (area-equal turned), so a felt width depends on the pinch |
 | `Viewer` | full screen, black; 44 at the top; pinch zoom, double-tap 1:1, swipe down to close; metadata at the bottom; no tab bar |
 
 ---

@@ -71,11 +71,13 @@ Widget _app({
   TestStrip? strip,
   List<Print> prints = const <Print>[],
   Catalogue? catalogue,
+  VoidCallback? onImport,
 }) => KalloApp(
   catalogue: catalogue ?? Catalogue.carried,
   strip: strip ?? const TestStrip(photo: '/photographs/uji.jpg'),
   photograph: card,
   prints: prints,
+  onImport: onImport,
   initialStep: step,
   initialChamber: chamber,
   locale: const Locale('en'),
@@ -322,6 +324,42 @@ void main() {
     // The bench is the first page of the darkroom now: one step back from the
     // strip is the bench, and the next back leaves the room.
     expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the phone wall imports, and the settings do not', (
+    WidgetTester tester,
+  ) async {
+    _phone(tester);
+    int imports = 0;
+    final List<Print> prints = <Print>[_print(card, 1), _print(card, 2)];
+    await tester.pumpWidget(
+      _app(
+        card: card,
+        chamber: Chamber.gallery,
+        prints: prints,
+        onImport: () => imports++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The wall carries its own import action, at the top right of the room.
+    final Finder action = find.byKey(const Key('mobile-import-pictures'));
+    expect(action, findsOneWidget);
+    await tester.tap(action);
+    expect(imports, 1);
+
+    // The settings still say where the pictures go, and no longer bring them
+    // in: the wall is the place that hangs them.
+    await tester.tap(find.byKey(const Key('mobile-settings')));
+    await tester.pumpAndSettle();
+    final Finder page = find.byKey(const Key('mobile-settings-page'));
+    for (int i = 0; i < 6 && find.text('Folder').evaluate().isEmpty; i++) {
+      await tester.drag(page, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Folder'), findsOneWidget);
+    expect(find.text('Import images…'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
