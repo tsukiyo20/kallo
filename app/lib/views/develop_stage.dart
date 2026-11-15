@@ -19,6 +19,7 @@ import '../lab/render_mode.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
+import '../lab/work_clock.dart';
 import '../widgets/button.dart';
 import '../widgets/curves.dart';
 import '../widgets/inspector.dart';
@@ -115,6 +116,10 @@ class _DevelopStageState extends State<DevelopStage> {
   PaperCurve? _paper;
 
   bool _busy = false;
+
+  /// The develop action's progress, 0..1, while it runs; null when idle.
+  double? _progress;
+  Timer? _progressTimer;
   String? _error;
 
   /// Whether the shelf is lying on the bench, and which half of it is open.
@@ -229,6 +234,7 @@ class _DevelopStageState extends State<DevelopStage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _progressTimer?.cancel();
     _generation++;
     if (_ownsPreview) {
       _preview?.dispose();
@@ -681,6 +687,8 @@ class _DevelopStageState extends State<DevelopStage> {
       _busy = true;
       _error = null;
     });
+    final DateTime started = DateTime.now();
+    _beginProgress('develop', const Duration(seconds: 2));
     try {
       await widget.onDevelop(_minutes);
     } on Object catch (error) {
@@ -688,9 +696,49 @@ class _DevelopStageState extends State<DevelopStage> {
         setState(() => _error = error.toString());
       }
     } finally {
+      WorkClock.record('develop', DateTime.now().difference(started));
+      await _endProgress();
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+  }
+
+  /// Fill the button while the model develops: the bar is timed against the
+  /// last develop, which is the only estimate the bench can honestly have.
+  void _beginProgress(String key, Duration fallback) {
+    final double seconds = math.max(
+      0.05,
+      WorkClock.estimate(key, fallback).inMicroseconds / 1e6,
+    );
+    final DateTime started = DateTime.now();
+    _progressTimer?.cancel();
+    setState(() => _progress = 0);
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 33), (
+      Timer timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final double elapsed =
+          DateTime.now().difference(started).inMicroseconds / 1e6;
+      final double filled = 1 - math.exp(-2.4 * elapsed / seconds);
+      setState(() => _progress = math.min(0.97, filled));
+    });
+  }
+
+  /// The work is done: the bar reaches the button's own orange, then the
+  /// button is a button again.
+  Future<void> _endProgress() async {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    if (mounted) {
+      setState(() => _progress = 1);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    if (mounted) {
+      setState(() => _progress = null);
     }
   }
 
@@ -1399,7 +1447,10 @@ class _DevelopStageState extends State<DevelopStage> {
         // The step capsule floats over the bench; the work starts below it.
         padding: EdgeInsets.only(top: widget.topInset),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(32, 18, 32, 18),
+          // The bench is the picture's room: the gutters are the room's edge,
+          // not a column the print sits inside. A landscape print reaches the
+          // panels; the strip below keeps its own width.
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -1901,6 +1952,7 @@ class _DevelopStageState extends State<DevelopStage> {
                   onTap: _busy ? null : _develop,
                   filled: true,
                   height: 36,
+                  progress: _progress,
                 ),
                 if (exact != null) ...<Widget>[
                   const SizedBox(height: 6),

@@ -21,6 +21,7 @@ import '../lab/print_request.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
+import '../lab/work_clock.dart';
 import '../widgets/border_tray.dart';
 import '../widgets/button.dart';
 import '../widgets/chip.dart';
@@ -90,6 +91,11 @@ class _PrintStageState extends State<PrintStage> {
   PrintCurve? _curve;
   int _curveGeneration = 0;
   bool _busy = false;
+
+  /// The print action's progress, 0..1, while it runs; null when idle.
+  double? _progress;
+  Timer? _progressTimer;
+
   bool _printed = false;
   String? _error;
 
@@ -147,6 +153,7 @@ class _PrintStageState extends State<PrintStage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _progressTimer?.cancel();
     _toastTimer?.cancel();
     _generation++;
     _curveGeneration++;
@@ -361,6 +368,8 @@ class _PrintStageState extends State<PrintStage> {
       _error = null;
       _trayOpen = false;
     });
+    final DateTime started = DateTime.now();
+    _beginProgress('print', const Duration(seconds: 6));
     try {
       await widget.onPrint(
         PrintRequest(
@@ -390,9 +399,49 @@ class _PrintStageState extends State<PrintStage> {
         setState(() => _error = error.toString());
       }
     } finally {
+      WorkClock.record('print', DateTime.now().difference(started));
+      await _endProgress();
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+  }
+
+  /// Fill the button while the print is made: timed against the last print,
+  /// which is the only estimate the stage can honestly have. A print at the
+  /// photograph's own size is seconds of work, so the bar moves slowly and
+  /// then is the button's own orange.
+  void _beginProgress(String key, Duration fallback) {
+    final double seconds = math.max(
+      0.05,
+      WorkClock.estimate(key, fallback).inMicroseconds / 1e6,
+    );
+    final DateTime started = DateTime.now();
+    _progressTimer?.cancel();
+    setState(() => _progress = 0);
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 33), (
+      Timer timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final double elapsed =
+          DateTime.now().difference(started).inMicroseconds / 1e6;
+      final double filled = 1 - math.exp(-2.4 * elapsed / seconds);
+      setState(() => _progress = math.min(0.97, filled));
+    });
+  }
+
+  Future<void> _endProgress() async {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    if (mounted) {
+      setState(() => _progress = 1);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    if (mounted) {
+      setState(() => _progress = null);
     }
   }
 
@@ -1004,17 +1053,24 @@ class _PrintStageState extends State<PrintStage> {
               duration: KalloMotion.settle,
               curve: KalloMotion.enter,
               builder: (BuildContext context, double open, Widget? _) {
+                // The bench is the picture's room, not a column with gutters:
+                // the paper takes the full width the pane can give and only
+                // gives some back when the height (or the open tray) is the
+                // thing that runs out first. A landscape print therefore
+                // reaches the side panels, and a portrait one is as tall as
+                // the room allows.
                 final double width = math.max(
                   220,
                   math.min(
-                    math.max(240, room.maxWidth - 140),
+                    room.maxWidth - 16,
                     (room.maxHeight -
-                            150 -
+                            44 -
+                            16 -
                             (borderTrayHeightIn(
                                       room.maxWidth - 56,
                                       borderAspectOf(image),
                                     ) +
-                                    44) *
+                                    20) *
                                 open) /
                         PrintSheet.heightPerWidth(aspect: aspect),
                   ),
@@ -1343,6 +1399,7 @@ class _PrintStageState extends State<PrintStage> {
                   onTap: printable && !_busy ? () => _choosePrint() : null,
                   filled: true,
                   height: 36,
+                  progress: _progress,
                 ),
                 if (_printed) ...<Widget>[
                   const SizedBox(height: KalloSpace.step2),
