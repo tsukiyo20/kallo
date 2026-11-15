@@ -197,6 +197,38 @@ impl std::fmt::Display for GpuError {
 
 impl std::error::Error for GpuError {}
 
+/// The adapter a render would open, named as wgpu describes it.
+///
+/// This is the sentence a settings screen puts beside "GPU". It asks the same
+/// question [`Gpu::new`] asks — same instance, same adapter request — and stops
+/// before the device and its pipelines, which are the render's business and are
+/// worth building only when a print is made.
+///
+/// # Errors
+///
+/// [`GpuError::NoAdapter`] when there is no adapter to open.
+pub fn describe_adapter() -> Result<String, GpuError> {
+    let adapter = open_adapter()?;
+    let info = adapter.get_info();
+    Ok(format!("{} ({:?})", info.name, info.backend))
+}
+
+/// The instance and adapter request every GPU path shares.
+///
+/// `default()` would compile every backend and still honour nothing: the
+/// environment override lives in `from_env_or_default`, so a machine with a
+/// broken driver — or a laptop with two GPUs and the wrong one first — can be
+/// told `WGPU_BACKEND=vulkan` without a rebuild.
+fn open_adapter() -> Result<wgpu::Adapter, GpuError> {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::from_env_or_default());
+    pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        force_fallback_adapter: false,
+        compatible_surface: None,
+    }))
+    .map_err(|error| GpuError::NoAdapter(error.to_string()))
+}
+
 /// A device and the eight compute pipelines, reused across renders.
 pub struct Gpu {
     device: wgpu::Device,
@@ -251,18 +283,7 @@ impl Gpu {
     /// [`GpuError::NoAdapter`] when there is no adapter to open, which is the
     /// normal case on a CI runner.
     pub fn new() -> Result<Self, GpuError> {
-        // `default()` would compile every backend and still honour nothing: the
-        // environment override lives in `from_env_or_default`, so a machine with
-        // a broken driver — or a laptop with two GPUs and the wrong one first —
-        // can be told `WGPU_BACKEND=vulkan` without a rebuild.
-        let descriptor = wgpu::InstanceDescriptor::from_env_or_default();
-        let instance = wgpu::Instance::new(&descriptor);
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
-            compatible_surface: None,
-        }))
-        .map_err(|error| GpuError::NoAdapter(error.to_string()))?;
+        let adapter = open_adapter()?;
 
         // `downlevel_defaults` guarantees four storage buffers; the chain needs
         // seven — the model's tables, the kernels, and three working planes —
