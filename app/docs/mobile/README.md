@@ -1,78 +1,78 @@
-# Kallo 手机端重设计
+# Kallo on the phone
 
-> 状态：**已按此方案实现手机紧凑壳**（见 `app/lib/design/mobile.dart`、`views/mobile/`、`widgets/mobile/`）；桌面工作室未改，桌面 goldens 全部通过。
+> Status: **the compact phone shell is built to this plan** (see `app/lib/design/mobile.dart`, `views/mobile/`, `widgets/mobile/`); the desktop studio is unchanged, and every desktop golden passes.
 >
-> 视觉稿： [工作流](board-1.png) · [印相与两个房间](board-2.png) · [空状态与设置](board-3.png) · [可交互 HTML](mockups.html)
+> Boards: [workflow](board-1.png) · [printing and the two rooms](board-2.png) · [empty states and settings](board-3.png) · [interactive HTML](mockups.html)
 >
-> 现在的手机端：[current-select.png](current-select.png)
+> The phone shell as built: [current-select.png](current-select.png)
 
 ---
 
-## 0. 一句话方向
+## 0. The direction in one sentence
 
-**不要把桌面工作室缩小，要把暗房放进口袋。**
+**Do not shrink the desktop studio. Put the darkroom in a pocket.**
 
-桌面的组织是「两个房间 + 一个晾片架 + 右侧仪表盘」；手机不该把这套家具按比例压进 390 pt，而应该变成：
+The desktop is organised as two rooms, a drying rack and an instrument panel on the right; the phone should not press that furniture into 390 pt at the same proportions. It should become:
 
-> 一个主体（照片或相纸）+ 一块仪表盘（当前这一步的 2–3 个控制）+ 一条步骤（选片 / 显影 / 印相）。
+> One subject (a photograph or a sheet of paper), one instrument deck (the 2–3 controls of the current step), and a strip of steps (Select / Develop / Print).
 
-房间仍然只有三个，步骤仍然只有三个；变化的是它们不再同时出现。**屏幕一次只回答一个问题。**
+Three rooms, still; three steps, still. What changes is that they no longer appear at once. **The screen answers one question at a time.**
 
 ---
 
-## 1. 为什么现在的手机端不对
+## 1. Why the phone is wrong today
 
-现在的紧凑分支不是一套手机布局，而是桌面布局的减法：
+The compact branch today is not a phone layout; it is the desktop layout with things taken away:
 
-- `Studio` 在宽度 `< 700` 时保留 56 pt 顶部 chrome、52 pt 底栏，把侧边栏拿掉（`app/lib/views/studio.dart:109`、`:190`、`:330`）。
-- `SelectStage` 把桌面工作区与 inspector 改成上下两块：上面照片，下面 `_materials(stacked: true)`，面板占屏高 46%（`app/lib/views/select_stage.dart:105–119`）。
-- `DevelopStage` / `PrintStage` 同样把 inspector 压进 46% / 50% 的底部面板（`app/lib/views/develop_stage.dart:553–561`、`app/lib/views/print_stage.dart:379–389`）。
-- 于是手机上同时存在：状态栏、56 pt 顶栏、内容区、第二层可滚动面板、底部 52 pt 导航。**内容很少超过屏幕的一半。**
+- `Studio` keeps 56 pt of top chrome and a 52 pt bottom bar at width `< 700`, and takes the sidebar away (`app/lib/views/studio.dart:109`, `:190`, `:330`).
+- `SelectStage` turns the desktop work area and inspector into two stacked blocks: the photograph above, `_materials(stacked: true)` below, with the panel taking 46% of the screen height (`app/lib/views/select_stage.dart:105–119`).
+- `DevelopStage` / `PrintStage` likewise press the inspector into a bottom panel at 46% / 50% (`app/lib/views/develop_stage.dart:553–561`, `app/lib/views/print_stage.dart:379–389`).
+- So a phone holds all of these at once: the status bar, a 56 pt top bar, the content area, a second scrolling panel, and a 52 pt bottom navigation. **The content rarely takes more than half the screen.**
 
-| 问题 | 具体表现 | 后果 |
+| Problem | What it looks like | Consequence |
 |---|---|---|
-| 两层导航 | 顶部步骤胶囊 + 底部「暗房 / 晾片架 / 观景台 / 设置」 | 同一件事被说两遍；顶栏 56 pt 只为放一个胶囊 |
-| 面板是桌面 inspector | 46% / 50% 固定高度，内部再滚动 | 照片小，控制藏在第二层滚动里；首屏看不到「去显影」 |
-| 触摸目标太小 | 按钮 30–36 pt，步进器 ± 28 pt，chip 约 24 pt，开关 30 pt | 低于 iOS 44 pt；单手容易点错 |
-| 字号是桌面字号 | body 13、small 11.5、caption 10.5；底栏 10.5 | 手机上看起来像缩放过的桌面 |
-| 选择材料是「货架」 | 24 支胶片 + 相纸全部平铺成 chips，塞进 46% 的滚动区 | 找一支胶片要滚很久；选中态只是一块橙色 chip |
-| 手机横向会掉回桌面 | 断点只看宽度 `< 700`；iPhone 横向 844 pt | 出现 232 pt 侧栏 + 304 pt inspector，内容只剩约 300 pt |
-| 晾片架/观景台是桌面几何 | 观景台 40 pt 边距、每行一张巨大 35 mm 框；晾片架一行最多一张 | 一屏一张，翻十张要滑十屏 |
-| 只有 hover 的放大镜 | `Gallery._lookAt` 在 hover 时出玻璃；触摸没有 hover | 手机上的 Loupe 开关没有实际作用 |
-| 设置是压在工作台上的抽屉 | 紧凑分支仍是「横向 tab 轨 + 页面」 | 不是 iOS 的设置页，且遮住正在做的事 |
-| 改材料会静默清空试片 | `_chooseFilm` / `_choosePaper` / `_setTemperature` 直接替换 strip | 有试片时换胶片/相纸/温度，试片消失且没有确认 |
+| Two levels of navigation | a step pill at the top + "Darkroom / Drying rack / Gallery / Settings" at the bottom | the same thing said twice; 56 pt of top bar to hold one pill |
+| The panel is the desktop inspector | a fixed 46% / 50% height, scrolling inside | the photograph is small, the controls hide in a second scroll; "To the developer" is not on the first screen |
+| Touch targets are too small | buttons 30–36 pt, steppers ± 28 pt, chips about 24 pt, switches 30 pt | below iOS's 44 pt; one-handed taps miss |
+| The type sizes are desktop sizes | body 13, small 11.5, caption 10.5; tab bar 10.5 | on a phone it reads like a desktop view scaled down |
+| Choosing materials is a "shelf" | all 24 films plus paper laid out flat as chips, wedged into the 46% scroll area | a long scroll to find one film; selection is just an orange chip |
+| Landscape falls back to the desktop | the breakpoint only looks at width `< 700`; an iPhone in landscape is 844 pt | a 232 pt sidebar + a 304 pt inspector, leaving about 300 pt of content |
+| The rack and gallery are desktop geometry | gallery margins of 40 pt, one huge 35 mm frame per row; the rack fits at most one per row | one per screen; ten prints means ten screens of swiping |
+| A loupe that only works on hover | `Gallery._lookAt` brings out the glass on hover; a touch has no hover | the phone's Loupe switch does nothing |
+| Settings are a drawer pressed over the workbench | the compact branch is still "horizontal tab rail + page" | not an iOS settings page, and it covers the work being done |
+| Changing materials silently clears the strip | `_chooseFilm` / `_choosePaper` / `_setTemperature` replace the strip outright | change film, paper or temperature with prints present and the strip vanishes, with no confirmation |
 
-这些问题不是换几个颜色能解决的。它们来自同一个前提：**桌面的空间关系被当成了产品结构**。手机需要自己的结构。
-
----
-
-## 2. 设计原则
-
-1. **一个主体。** 选片页的主体是原片；显影页是正在显影的试片；印相页是成品；晾片架是纸；观景台是胶片。主体占屏幕的主要面积，控制让路。
-2. **最多两层导航。** 房间 = 底部 tab；步骤 = 顶部分段控件；任务 = sheet。不要再出现「房间胶囊 + 底栏房间」这种重复。
-3. **主要动作永远在拇指下。** 每个工作页只有一个 filled CTA，固定在底部安全区上方；不藏在面板滚动里。
-4. **控制 ≥ 44 pt，正文 ≥ 15 pt。** 这是手机，不是 27 寸显示器。桌面字号不进入紧凑壳。
-5. **渐进披露。** 时间、曝光、滤镜、曲线不在同一屏堆满。曲线、材料参数、纸张数据放进 Details sheet；主屏只留在场的控制。
-6. **Apple 的语义，Kallo 的材质。** 用 iOS 的导航栏、tab bar、segmented control、sheet、grouped list、44 pt 行、动态字体；但颜色仍是 safelight 橙、相纸暖白、胶片黑，字体仍是 Inter，绝无 Material。
-7. **空状态是一扇门。** 每个空房间都告诉人这是什么、下一步去哪，并给一个动作；空不是错误。
-8. **破坏性操作要说出来。** 换胶片/相纸/温度/照片会另起一条试片；有试片时先确认，并写清会丢掉几张。
-9. **桌面不受影响。** 所有手机代码走独立的紧凑壳；桌面 goldens 不变。
+None of this is fixed by changing a few colours. It all comes from one premise: **the desktop's spatial relations were taken for the product's structure**. The phone needs a structure of its own.
 
 ---
 
-## 3. 信息架构
+## 2. Design principles
+
+1. **One subject.** On Select the subject is the original; on Develop it is the test print being developed; on Print it is the finished print; on the drying rack it is paper; in the gallery it is film. The subject takes most of the screen, and the controls give way.
+2. **Two levels of navigation at most.** A room is a bottom tab; a step is a top segmented control; a task is a sheet. Never again a room pill plus a room in the bottom bar.
+3. **The main action is always under the thumb.** Each working page has one filled CTA, pinned above the bottom safe area, never hidden in a scrolling panel.
+4. **Controls ≥ 44 pt, body ≥ 15 pt.** This is a phone, not a 27-inch display. Desktop type sizes do not enter the compact shell.
+5. **Progressive disclosure.** Time, exposure, filters and curves are not piled up on one screen. Curves, material parameters and paper data go into a Details sheet; the main screen keeps only the controls that are present.
+6. **Apple's semantics, Kallo's materials.** Use iOS's navigation bar, tab bar, segmented control, sheet, grouped list, 44 pt rows and Dynamic Type; but the colours stay safelight orange, paper warm white and film black, the type stays Inter, and there is never any Material.
+7. **An empty state is a door.** Every empty room says what this is, where to go next, and offers one action; empty is not an error.
+8. **Destructive actions are said out loud.** Changing the film, paper, temperature or photograph starts a new strip; with prints on the strip, confirm first and say how many will be lost.
+9. **The desktop is untouched.** All phone code goes through its own compact shell; the desktop goldens do not change.
+
+---
+
+## 3. Information architecture
 
 ```text
 Kallo
-├─ Darkroom（底部 tab）
-│  ├─ Select        ← 原片 + 材料
-│  ├─ Develop       ← 试片 + 时间 + 试片条
-│  └─ Print         ← 成品 + 时间/曝光/平衡/玻璃
-├─ Drying rack（底部 tab）
-│  └─ Print viewer（全屏，无 tab）
-├─ Gallery（底部 tab）
-│  └─ Frame viewer（全屏，无 tab）
-└─ Settings（齿轮，模态整页）
+├─ Darkroom (bottom tab)
+│  ├─ Select        ← original + materials
+│  ├─ Develop       ← test print + time + strip
+│  └─ Print         ← finished print + time/exposure/balance/glass
+├─ Drying rack (bottom tab)
+│  └─ Print viewer (full screen, no tabs)
+├─ Gallery (bottom tab)
+│  └─ Frame viewer (full screen, no tabs)
+└─ Settings (gear, a whole page as a modal)
    ├─ Appearance
    ├─ Language
    ├─ Library
@@ -80,29 +80,29 @@ Kallo
    └─ About
 ```
 
-- **三个房间，不是四个。** 设置不是房间，是齿轮打开的整页；底栏只放三个地方。中文标签用「暗房 / 晾片 / 观景」，不放「晾片架 / 观景台」四个字。
-- **三个步骤，不是三个页面栈。** 分段控件切换步骤；状态留在原处。从观景台回到暗房，仍在刚才那一步。
-- **任务用 sheet。** 选胶片、选相纸、温度、Details、印相选项、导出、确认，都是 sheet；不把桌面 inspector 塞回主屏。
-- **查看是全屏。** 晾片架和观景台点开一张，进入无 tab 的全屏 viewer；返回后保留滚动位置。
-- **返回层级（Android 返回键 / iOS 边缘滑动）：** 先关 sheet → 再退一步（Print → Develop → Select）→ 最后退出暗房；viewer/settings 先关自己，不退出 app。
+- **Three rooms, not four.** Settings is not a room; it is a whole page opened from the gear, and the bottom bar holds three places only. The tab labels are the short names: `Darkroom` / `Rack` / `Gallery` in English (`Rack`, not `Drying rack`), and two characters each in Chinese rather than the rooms' longer names — the rooms are the same; only the label is shortened so three fit under a thumb.
+- **Three steps, not three page stacks.** The segmented control switches steps, and state stays where it is. Come back to the Darkroom from the Gallery and you are still on the step you left.
+- **Tasks are sheets.** Film picker, paper picker, temperature, Details, print options, export, confirmation — all sheets; the desktop inspector is not pushed back into the main screen.
+- **Viewing is full screen.** Tapping a print on the rack or a frame in the gallery opens a tab-less full-screen viewer; going back keeps the scroll position.
+- **Back hierarchy (Android back button / iOS edge swipe):** close the sheet first → then one step back (Print → Develop → Select) → finally leave the Darkroom; a viewer or Settings closes itself first and does not leave the app.
 
 ---
 
-## 4. 布局系统
+## 4. Layout system
 
-### 4.1 断点
+### 4.1 Breakpoints
 
-| 壳 | 条件 | 布局 |
+| Shell | Condition | Layout |
 |---|---|---|
-| **compact（手机）** | `shortestSide < 600`，或移动平台且 `shortestSide < 700` | 本方案；单列，底部 tab |
-| **medium（平板/窄窗口）** | `700 ≤ shortestSide < 1100` | 单列，内容最大宽度 600，底部 tab；不恢复侧栏 |
-| **expanded（桌面）** | `shortestSide ≥ 1100` | 现有桌面工作室，完全不动 |
+| **compact (phone)** | `shortestSide < 600`, or a mobile platform with `shortestSide < 700` | this plan; one column, bottom tabs |
+| **medium (tablet / narrow window)** | `700 ≤ shortestSide < 1100` | one column, content at most 600 wide, bottom tabs; no sidebar comes back |
+| **expanded (desktop)** | `shortestSide ≥ 1100` | the existing desktop studio, completely untouched |
 
-这样 iPhone 横向（844 × 390，shortestSide 390）仍然被判定为手机壳；v1 另外把手机锁在竖屏（见 4.3），等到横屏工作台落地再解除。iPad 竖屏（768）进入手机/medium 壳，不会出现 232 + 304 两个侧栏挤掉内容；桌面 1280 仍是现在的样子。
+So an iPhone in landscape (844 × 390, shortestSide 390) is still judged a phone shell; v1 also locks phones to portrait (see 4.3) until the landscape workbench lands. An iPad in portrait (768) enters the phone/medium shell, and the two panes (232 + 304) no longer squeeze the content out; a 1280 desktop stays as it is.
 
-> 现有 `width < 700` 的断点在 iPhone 横向会直接掉回桌面。这是必须在第一阶段修掉的。
+> The existing `width < 700` breakpoint falls straight back to the desktop in iPhone landscape. That is the first thing to fix.
 
-### 4.2 纵向骨架（390 × 844）
+### 4.2 The vertical skeleton (390 × 844)
 
 ```text
 ┌──────────────────────────────┐
@@ -112,151 +112,151 @@ Kallo
 ├──────────────────────────────┤
 │                              │
 │                              │
-│         stage (flex)         │  主体：照片 / 相纸 / 墙
+│         stage (flex)         │  the subject: photograph / paper / wall
 │                              │
 │                              │
 ├──────────────────────────────┤
-│ instrument deck 192–236      │  当前步骤的控制
+│ instrument deck 192–236      │  the controls of this step
 ├──────────────────────────────┤
-│ tab bar 49 + safe 34         │  三个房间
+│ tab bar 49 + safe 34         │  the three rooms
 └──────────────────────────────┘
 ```
 
-- **nav 52**：34 pt 高的三等分 segmented control 居中；左侧 KALLO 字标 9.5 pt；右侧齿轮 44 × 44。没有房间名胶囊。
-- **tab bar 49 + 34 safe**：图标 24、标签 10.5；选中 safelight 橙，未选中 `inkFaint`；顶部 0.5 pt hairline，没有阴影。三个 tab 均分。
-- **deck 192–236**：不是桌面 inspector。显影 236（试片条 + 时间尺），印相 192（2×2 控制）。只放当前步骤必须的控制；CTA 固定在 deck 底部。
-- **stage**：`Expanded`，不是 46%。照片按 `BoxFit.contain`；相纸按纸张比例；永远不裁掉照片本身。
-- **边距 16**：内容、卡片、CTA 都是 16；section 间距 24；卡片内 14–16。
+- **nav 52**: a 34 pt three-way segmented control, centred; the KALLO wordmark at 9.5 pt on the left; a 44 × 44 gear on the right. No room-name pill.
+- **tab bar 49 + 34 safe**: icons 24, labels 10.5; selected is safelight orange, unselected `inkFaint`; a 0.5 pt hairline on top, no shadow. Three tabs, equal.
+- **deck 192–236**: not the desktop inspector. Develop is 236 (strip + time ruler), Print is 192 (a 2×2 of controls). Only the controls the step must have; the CTA is pinned to the deck's bottom.
+- **stage**: `Expanded`, not 46%. The photograph uses `BoxFit.contain`; paper follows the sheet's proportions; the photograph itself is never cropped.
+- **margins 16**: content, cards and CTA are all 16; 24 between sections; 14–16 inside a card.
 
-### 4.3 横向（手机横屏，第二期）
+### 4.3 Landscape (a phone held sideways, second phase)
 
-**当前实现选择先锁竖屏**：390 pt 高的横屏窗口放不下竖向的 stage + deck，而把手机掉回桌面双栏更糟。`main()` 在 iOS/Android 上设置
-`SystemChrome.setPreferredOrientations([portraitUp, portraitDown])`；桌面不受影响。横屏工作台是下一阶段，结构已经写在这里：
+**The current build locks portrait first**: a landscape window 390 pt tall cannot hold a vertical stage + deck, and dropping the phone back to the desktop's two columns is worse. `main()` on iOS/Android sets
+`SystemChrome.setPreferredOrientations([portraitUp, portraitDown])`; the desktop is unaffected. The landscape workbench is the next stage; its structure is already written here:
 
 ```text
 [nav 44]
-[ stage 55% ][ deck 45% ]   ← 左图右控制
-[ tab bar 49 + safe ]       ← 保留，图标 + 标签
+[ stage 55% ][ deck 45% ]   ← picture left, controls right
+[ tab bar 49 + safe ]       ← kept, icon + label
 ```
 
-deck 在右侧成为一列，测试片条水平滚动；如果高度不足，deck 内部滚动，但 CTA 始终固定在右下。等到它落地，再解除竖屏锁。
+The deck becomes a column on the right, and the strip scrolls horizontally; if the height is short, the deck scrolls inside itself, but the CTA stays pinned to the bottom right. When it lands, the portrait lock comes off.
 
-### 4.4 尺寸与安全区
+### 4.4 Sizes and safe areas
 
-- 以 390 × 844（iPhone 12/13/14）为基准；验证 375 × 667（SE）、393 × 852、430 × 932。
-- 顶部用系统 safe area；底部 tab bar 自己吃掉 home indicator 的 34 pt，内容不再额外垫。
-- 键盘弹出时：sheet 上移；主屏不被键盘挤压（所有输入都在 sheet 里）。
-- 状态栏图标亮度跟随当前 stage：暗房显影/印相和 viewer 用 light，亮色页面用 dark；Android edge-to-edge，关闭对比度强制。
-
----
-
-## 5. 视觉语言
-
-### 5.1 颜色
-
-沿用 `KalloColors` 的两套值；手机只增加「bar / stage / paper」三个使用角色，不新增品牌色。
-
-| 角色 | Light | Dark | 用途 |
-|---|---|---|---|
-| `ground` | `#F2F2F7` | `#000000` | 页面/分组背景 |
-| `stage` | 照片垫 `#0B0A09` | 同左 | 原片、显影台的黑卡纸 |
-| `card` | `#FFFFFF` | `#1C1C1E` | 材料卡、deck、sheet、settings 组 |
-| `fill` | `#ECECF0` | `#2C2C2E` | 控件底、搜索框、segmented 轨 |
-| `hairline` | `#D6D6DB` | `#38383A` | 0.5 pt 分隔线 |
-| `ink` | `#1D1D1F` | `#F5F5F7` | 主文字 |
-| `inkMuted` | `#6E6E73` | `#AEAEB2` | 次要文字（正文最小用它） |
-| `inkFaint` | `#8E8E93` | `#8E8E93` | 仅装饰/非关键；白底对比 3.26:1，不用于必读 |
-| `accent` | `#C2410C` | `#FF9F0A` | 唯一强调：主按钮、选中、时间指针 |
-| `accentSoft` | `#FBE9DE` | `#3A2A12` | 选中行/选中 chip 的底 |
-| `paper` | `#FFFCF7` | `#F7F2E9` | 相纸，永远是暖白 |
-| `film` | `#0B0A09` | 同左 | 胶片 rebate |
-
-- **bar**：`card` 86% + `BackdropFilter(blur 18, saturate 160%)`，底部 0.5 pt hairline。不投阴影。
-- **stage**：原片放黑卡纸；显影/印相放相纸，相纸有物体阴影；页面本身是中性 ground。照片和纸是房间里的物体，可以投影；面板和导航是平面，不投影。
-- **accent 只做三件事**：主 CTA、选中态、时间指针。底栏选中也是它。不要用橙色画边框、标题、图标背景。
-- **暗色不是纯黑一片**：nav/tab 用 86% 黑玻璃，deck 用 `#1C1C1E`；相纸在暗处仍是暖白。
-
-### 5.2 字体
-
-仍用 **Inter**（已随包，goldens 用它），不引入 SF Pro，也不引入新字体。手机使用一套独立的、封闭的 compact 字号；桌面 `KalloType` 不动。
-
-| 角色 | 字号/行高 | 字重 | 用途 |
-|---|---|---|---|
-| `largeTitle` | 32 / 38 | 600，-0.8 | 晾片架、观景台、设置 |
-| `title` | 22 / 28 | 600，-0.4 | sheet 标题、空状态标题 |
-| `headline` | 17 / 22 | 600，-0.2 | CTA、列表主行、按钮 |
-| `body` | 17 / 24 | 400 | 正文、说明段 |
-| `callout` | 15 / 20 | 400/500 | 材料名、控制值 |
-| `subhead` | 14 / 19 | 400 | 次级信息、行副标题 |
-| `footnote` | 13 / 18 | 400 | 必要说明（最小正文） |
-| `caption` | 11 / 14 | 500 | tab 标签、缩略图时间（非必读） |
-| `plate` | 32 / 36 | 600，tabular | 显影时钟 |
-| `data` | 15 / 20 | 400，tabular | 温度、EV、CC、像素 |
-| `micro` | 9.5 / 12 | 600，+1.1 大写 | 胶片边缘、极小的元数据 |
-
-规则：
-
-- 只有 **section header** 和 **胶片边缘** 用大写 + 字距；按钮、行标题、控制标签用句首大写（中文不用大写）。
-- 所有数字（时间、EV、温度、CC、像素、张数）用 tabular，值变化时布局不跳。
-- 支持 Dynamic Type 到 1.3×；`largeTitle` 可以缩到 1.15×，避免撑破 nav；正文必须重排，不截断。
-- 中英文混排时，中文行高按 1.5 倍给足；英文更松，不要为了英文把中文挤成两行。
-
-### 5.3 间距、圆角、控件高度
-
-| 项 | 值 | 说明 |
-|---|---|---|
-| 间距 | 4 / 8 / 12 / 16 / 20 / 24 / 32 | 不再加 6、10、14 这类散值 |
-| 屏幕边距 | 16 | 卡片、CTA、内容一致 |
-| 卡片圆角 | 16 | 材料卡、deck、settings 组 |
-| 控件圆角 | 10 | segmented、chip、搜索框 |
-| 动作圆角 | 14 | 50 pt CTA |
-| sheet 圆角 | 28 | 顶部两角 |
-| 胶囊 | 999 | 温度 pill、标签 |
-| nav | 52 | 含 34 pt segmented |
-| tab bar | 49 + safe | iOS 标准 |
-| CTA | 46–50 | 全宽，距 deck 底 12；显影/印相可用 46 |
-| 行 | 56 | 材料/胶片行；最小 44 |
-| 控制 | 44 × 44 | 步进器、图标按钮、关闭 |
-| 缩略图 | 44–58 | 试片条、时间条 |
-| 分段 | 32 | 三等分，点击区 44 |
-
-### 5.4 图标
-
-- 房间/步骤的标记沿用现有 `_DarkroomMark`、`_RackMark`、`_GalleryMark`，放大到 24 pt，描边 1.6，圆头。
-- 系统符号（chevron、gear、xmark、search、sun、back、share、check、info）用同一套 24 网格、1.6 描边、圆头手绘；不引入 Material Icons，也不依赖 SF Symbols。
-- 图标永远配文字（tab 除外），不靠猜。
-
-### 5.5 材质与深度
-
-- **导航/tab**：玻璃 + hairline；没有阴影。
-- **deck**：card 填充 + 0.5 hairline；没有阴影。它是控制面，不是浮起的卡片。
-- **相纸**：允许 `paper` 的物体阴影（已有的 `KalloShadowBox` 纸阴影），因为它是在房间里的纸，不是布局层级。
-- **晾片架卡片**：纸 + 轻物体阴影 + 线 + 夹子；允许，因为它是挂在空中的纸。
-- **胶片框**：黑 rebate、齿孔、边缘字；观景台/晾片架保留。
-- **segmented 选中**：`card` 填充 + 0.5 hairline，不用投影；暗色用 `fillStrong`。
-
-### 5.6 动效与触感
-
-| 事件 | 动效 | 触感 |
-|---|---|---|
-| 步骤切换 | 分段滑块 160 ms `enter` | selection |
-| 打开 sheet | 240 ms 上滑 + scrim 32% | light |
-| 关闭 sheet | 160 ms 下滑 | light |
-| 选胶片/相纸 | 选中行 90 ms 底色 | selection |
-| 拖动时间 | 指针跟手；刻度处轻微吸附 | selection（每 0.5 min 不震，刻度/整数才震） |
-| 显影完成 | 新试片从底部弹入，120 ms 淡入 | success |
-| 印相完成 | CTA → 顶部 toast「Printed」+ View | success |
-| 错误 | 行内红色文字，不弹窗 | warning |
-| 灯开关 | 240 ms 光量变化 | light |
-
-- 减少动态：`MediaQuery.disableAnimations` 时去掉 sheet 位移和试片弹入，只保留交叉淡入。
-- 不用循环动画装饰；进度用 2 pt 细线或 CTA 内文字，不用全屏 spinner。
+- Measure against 390 × 844 (iPhone 12/13/14); check 375 × 667 (SE), 393 × 852, 430 × 932.
+- Use the system safe area at the top; the bottom tab bar eats the 34 pt home indicator itself, so the content adds nothing.
+- When the keyboard appears: sheets move up; the main screen is not squeezed by the keyboard (all input lives in sheets).
+- Status bar icon brightness follows the current stage: light over the darkroom's Develop/Print and viewers, dark over light pages; Android is edge-to-edge, with forced contrast off.
 
 ---
 
-## 6. 逐屏设计
+## 5. Visual language
 
-### 6.1 Select：照片是这一页
+### 5.1 Colour
+
+Both sets of values in `KalloColors` are kept; the phone adds only three usage roles — bar, stage, paper — and no brand colour.
+
+| Role | Light | Dark | Use |
+|---|---|---|---|
+| `ground` | `#F2F2F7` | `#000000` | page / group background |
+| `stage` | photo mat `#0B0A09` | same | the black card under originals and the developing table |
+| `card` | `#FFFFFF` | `#1C1C1E` | material cards, deck, sheets, settings groups |
+| `fill` | `#ECECF0` | `#2C2C2E` | control backgrounds, search field, segmented track |
+| `hairline` | `#D6D6DB` | `#38383A` | 0.5 pt dividers |
+| `ink` | `#1D1D1F` | `#F5F5F7` | primary text |
+| `inkMuted` | `#6E6E73` | `#AEAEB2` | secondary text (the smallest body uses it) |
+| `inkFaint` | `#8E8E93` | `#8E8E93` | decoration / non-critical only; 3.26:1 on white, never for required reading |
+| `accent` | `#C2410C` | `#FF9F0A` | the only emphasis: primary button, selection, time pointer |
+| `accentSoft` | `#FBE9DE` | `#3A2A12` | selected row / selected chip background |
+| `paper` | `#FFFCF7` | `#F7F2E9` | paper, always warm white |
+| `film` | `#0B0A09` | same | film rebate |
+
+- **bar**: `card` 86% + `BackdropFilter(blur 18, saturate 160%)`, a 0.5 pt hairline at the bottom. No shadow.
+- **stage**: the original goes on black card; Develop/Print go on paper, and paper has an object shadow; the page itself is neutral ground. Photographs and paper are objects in the room and may cast a shadow; panels and navigation are flat and cast none.
+- **accent does three things only**: the primary CTA, selection, the time pointer. The selected tab is also it. Do not use orange for borders, headings or icon backgrounds.
+- **Dark is not one flat black**: nav and tab use 86% black glass, the deck uses `#1C1C1E`; paper stays warm white in the dark.
+
+### 5.2 Type
+
+Still **Inter** (bundled; the goldens use it), no SF Pro, no new face. The phone gets its own closed compact type ramp; the desktop `KalloType` is untouched.
+
+| Role | Size / line height | Weight | Use |
+|---|---|---|---|
+| `largeTitle` | 32 / 38 | 600, -0.8 | drying rack, gallery, settings |
+| `title` | 22 / 28 | 600, -0.4 | sheet titles, empty-state titles |
+| `headline` | 17 / 22 | 600, -0.2 | CTAs, list rows, buttons |
+| `body` | 17 / 24 | 400 | body text, note paragraphs |
+| `callout` | 15 / 20 | 400/500 | material names, control values |
+| `subhead` | 14 / 19 | 400 | secondary information, row subtitles |
+| `footnote` | 13 / 18 | 400 | required notes (the smallest body) |
+| `caption` | 11 / 14 | 500 | tab labels, thumbnail times (not required reading) |
+| `plate` | 32 / 36 | 600, tabular | the develop clock |
+| `data` | 15 / 20 | 400, tabular | temperature, EV, CC, pixels |
+| `micro` | 9.5 / 12 | 600, +1.1 uppercase | film edge text, the smallest metadata |
+
+Rules:
+
+- Only **section headers** and **film-edge text** are uppercase and letter-spaced; buttons, row titles and control labels are sentence case (Chinese takes no capitals).
+- All numbers (time, EV, temperature, CC, pixels, print count) are tabular, so the layout does not move when a value changes.
+- Dynamic Type up to 1.3×; `largeTitle` may shrink to 1.15× so it does not break the nav; body must reflow, never truncate.
+- With Chinese and English set together, give the Chinese a line height of 1.5×; English is looser, and the English must not squeeze the Chinese into two lines.
+
+### 5.3 Spacing, radii, control heights
+
+| Item | Value | Note |
+|---|---|---|
+| Spacing | 4 / 8 / 12 / 16 / 20 / 24 / 32 | no loose values such as 6, 10 or 14 any more |
+| Screen margin | 16 | cards, CTA and content agree |
+| Card radius | 16 | material cards, deck, settings groups |
+| Control radius | 10 | segmented, chip, search field |
+| Action radius | 14 | the 50 pt CTA |
+| Sheet radius | 28 | the top two corners |
+| Pill | 999 | temperature pill, tags |
+| nav | 52 | includes the 34 pt segmented |
+| tab bar | 49 + safe | iOS standard |
+| CTA | 46–50 | full width, 12 from the deck's bottom; Develop/Print may use 46 |
+| Row | 56 | material / film rows; 44 minimum |
+| Control | 44 × 44 | steppers, icon buttons, close |
+| Thumbnail | 44–58 | strip, time rail |
+| Segment | 32 | thirds, 44 pt touch area |
+
+### 5.4 Icons
+
+- The room and step marks keep the existing `_DarkroomMark`, `_RackMark`, `_GalleryMark`, enlarged to 24 pt, stroke 1.6, round caps.
+- System symbols (chevron, gear, xmark, search, sun, back, share, check, info) are drawn by hand on the same 24 grid, 1.6 stroke, round caps; no Material Icons, and no relying on SF Symbols.
+- An icon always travels with a word (tabs excepted); nothing is left to be guessed.
+
+### 5.5 Materials and depth
+
+- **Navigation / tab**: glass + hairline; no shadow.
+- **deck**: card fill + 0.5 hairline; no shadow. It is a control surface, not a floating card.
+- **Paper**: the `paper` object shadow is allowed (the existing `KalloShadowBox` paper shadow), because it is paper in a room, not a level of the layout.
+- **Rack cards**: paper + a light object shadow + wire + clip; allowed, because it is paper hanging in the air.
+- **Film frame**: black rebate, sprocket holes, edge text; kept on the gallery and rack.
+- **Segmented selection**: `card` fill + 0.5 hairline, no projection; in the dark, `fillStrong`.
+
+### 5.6 Motion and haptics
+
+| Event | Motion | Haptic |
+|---|---|---|
+| Step switch | segmented thumb, 160 ms `enter` | selection |
+| Open sheet | 240 ms slide up + 32% scrim | light |
+| Close sheet | 160 ms slide down | light |
+| Choose film / paper | selected row, 90 ms background | selection |
+| Drag time | the pointer follows the finger; a slight snap at the ticks | selection (no tick every 0.5 min; only ticks and whole numbers) |
+| Development done | the new test print pops in from the bottom, 120 ms fade | success |
+| Print done | CTA → toast at the top "Printed" + View | success |
+| Error | red text in the row, no dialog | warning |
+| Lamp switch | 240 ms change in light level | light |
+
+- Reduce motion: under `MediaQuery.disableAnimations`, drop the sheet offset and the print pop-in, and keep the cross-fade only.
+- No looping decorative animation; progress is a 2 pt line or text inside the CTA, never a full-screen spinner.
+
+---
+
+## 6. Screen by screen
+
+### 6.1 Select: the photograph is the page
 
 ```text
 status 47
@@ -276,22 +276,22 @@ stage     ┌──────────────────────�
           │   Fujifilm · RA-4            │
           └──────────────────────────────┘
           ● Metered · 0.0 EV · spectral
-CTA 50    [            Continue            ]
+CTA 50    [        To the developer        ]
 tab 49+34 [ Darkroom ] [ Rack ] [ Gallery ]
 ```
 
-- 照片放在**黑卡纸**上（`KalloFilm.rebate`），`contain`，不裁切、不拉满。黑卡纸让原片从页面里出来，也给肖像/横幅一个稳定的框。
-- 左上角小胶囊 `ORIGINAL`；右下角 `Change` 胶囊（32 pt，点击区 44）；不把「换一张」做成标题栏里的橙色小字。
-- 照片下是文件名与像素；再下是 `MATERIALS` section header。
-- 材料只有两行，不是货架：胶片、相纸。行高 64，左侧 35 pt 图标，标题 15/600，副标题 12/400，右侧 chevron；点行开全高 picker。
-- 曝光是事实，不是控制：`● Metered · 0.0 EV · spectral` 一行 11 pt；不可点。
-- **CTA 固定在 tab bar 上方**，不随材料滚动：`Continue` 50 pt，radius 14；无照片时换成 `Choose a Photograph`。
-- 没有照片时，整个 stage 是空状态：76 pt 圆角图标、22 pt 标题「Start with a photograph」、13 pt 说明、CTA，底部一句「Your original is never modified.」。不要出现第二次「选一张照片」。
-- 有照片以后，材料卡出现；如果当前 strip 已有试片，换照片/胶片/相纸前先确认。
-- **反转型胶片**：相纸行变灰并显示「This film is its own picture」；Continue 仍可去显影，Print 步骤显示「没有印相」。
-- 没有模型/目录未加载：材料行显示「Film list unavailable」，CTA 禁用并给一句原因；不假装有材料。
+- The photograph sits on **black card** (`KalloFilm.rebate`), `contain`, never cropped and never stretched to fill. The black card lifts the original out of the page and gives portrait or banner shapes a stable frame.
+- A small `ORIGINAL` pill at the top left; a `Change` pill at the bottom right (32 pt, 44 pt touch area); do not turn "change it" into a small orange word in the title bar.
+- Under the photograph, the filename and pixels; under that, the `MATERIALS` section header.
+- Materials are two rows, not a shelf: film, paper. Row height 64, a 35 pt icon on the left, title 15/600, subtitle 12/400, a chevron on the right; tapping a row opens a full-height picker.
+- Exposure is a fact, not a control: one 11 pt line, `● Metered · 0.0 EV · spectral`; not tappable.
+- **The CTA is fixed above the tab bar** and does not scroll with the materials: `To the developer`, 50 pt, radius 14; with no photograph it becomes `Choose a photograph…`.
+- With no photograph the whole stage is an empty state: a 76 pt rounded icon, a 22 pt title "Start with a photograph", a 13 pt note, the CTA, and one line at the bottom, "Your original is never modified." No second "choose a photograph" anywhere.
+- Once there is a photograph the material card appears; if the current strip already has test prints, confirm before changing the photograph, film or paper.
+- **Reversal film**: the paper row greys out and shows "This film is its own picture"; `To the developer` still reaches Develop, and the Print step says there is no print to make.
+- No model / catalogue not loaded: the material rows show "Film list unavailable", the CTA is disabled with one line of reason; do not pretend there are materials.
 
-**胶片/相纸 picker（sheet）**
+**Film / paper picker (sheet)**
 
 ```text
           ╭──────────────────────────────╮
@@ -311,21 +311,21 @@ tab 49+34 [ Darkroom ] [ Rack ] [ Gallery ]
           ╰──────────────────────────────╯
 ```
 
-- `.large` 高度约 90%，顶部 28 pt 圆角，grabber 5 × 36；scrim 32%。
-- 标题 17/600 居中；右上 32 pt 圆底 `✕`；搜索框 36 pt；四段 filter 32 pt。
-- 行 56 pt，按 maker 分组（`KODAK` / `FUJIFILM` / `ILFORD`），maker 是 section header，不重复在每一行前面。
-- 行主标题是产品名（`PORTRA 400`），副标题是化学与工艺（`Colour negative · C-41`）；选中的行用 `accentSoft` 底 + 右侧对勾，不是橙色 chip。
-- 点一行立即应用并关闭；没有「Done」二段确认。若已有试片，先弹 `Start a new strip?` 确认。
-- 搜索为空、无结果、目录未加载都有行内空状态。
-- 相纸 picker 同一骨架；先按当前胶片可用相纸过滤；反转型显示说明而不是空列表。
+- A `.large` sheet, about 90% of the height; 28 pt corners at the top; a 5 × 36 grabber; 32% scrim.
+- Title 17/600, centred; a 32 pt round `✕` at the top right; search field 36 pt; four filter segments 32 pt.
+- Rows 56 pt, grouped by maker (`KODAK` / `FUJIFILM` / `ILFORD`); the maker is a section header and is not repeated in front of every row.
+- The row's title is the product name (`PORTRA 400`); the subtitle is chemistry and process (`Colour negative · C-41`). A selected row uses an `accentSoft` background + a checkmark on the right, not an orange chip.
+- Tapping a row applies it and closes; there is no second "Done" confirmation. If the strip already has prints, ask `Start a new strip?` first.
+- Empty search, no results and an unloaded catalogue each have an inline empty state.
+- The paper picker is the same skeleton; it filters to the papers available for the current film first; for a reversal film it shows an explanation rather than an empty list.
 
-### 6.2 Develop：一张纸、一条试片、一个时间
+### 6.2 Develop: one sheet, one strip, one time
 
 ```text
 status 47
 nav 52    [Select|Develop|Print]      ⚙
 stage     ┌──────────────────┐
-          │    developed      │  (纸)
+          │    developed      │  (paper)
           │    test print     │
           └──────────────────┘
           PORTRA 400 · CRYSTAL        Test print
@@ -339,19 +339,19 @@ deck 236  ╭──────────────────────�
 tab 49+34
 ```
 
-- **照片就是试片**：当前时间对应的 1200 px 试片，放在暖白相纸上；纸有边、有物体阴影。点纸可以进入全屏预览（隐藏 chrome，双指缩放），这样主屏即使纸只有 250 pt 宽，也能看细节。
-- 纸下只有一行材料名（12 pt muted）+ `Test print`；不要重复温度，温度在 deck 里。
-- **deck 是仪表盘**：
-  - 第一行是试片条：`TEST STRIP` 9.5 大写 + 张数；右侧 `New strip`（13 橙，破坏性确认）。缩略图 44 × 44，下面时间 9 pt；选中 1.5 pt 橙框。
-  - 第二行是时钟 32/600 tabular + 右侧温度 pill（28 pt，点击区 44）。点温度开 `.medium` sheet：大号数值、−/+ 44、滑杆、说明「Changing temperature starts a new strip」；设置后若已有试片先确认。
-  - 第三行是 46 pt 的时间尺：3/6/9/12/15 五个刻度；拖动跟手；数值在 0.5 min 量化；刻度/整数吸附带 selection 触感。
-  - 最后是 44–50 pt 的 `Develop 12:00`。已有该时间的试片时文案变 `Re-develop 12:00`，旁边出现「Remove this print」文本按钮（或长按缩略图 → context menu）。
-- **没有试片**：deck 收起试片条，只留一行「A test print fixes the exposure.」+ `Develop first print`；纸的位置显示原片，上面一枚 `NOT DEVELOPED` 胶囊，而不是空白纸。
-- **渲染中**：保留上一张图；CTA 文字变 `Developing…` 并在按钮内显示 2 pt 进度；禁用时间尺，避免连点。不要用全屏 spinner。
-- **Details**：stage 右上 32 pt `i` 打开 `.large` sheet，放胶片曲线、相纸曲线、Gamma/Dmax、材料全名；桌面 inspector 的密度都在这里，不占主屏。
-- **换温度/胶片/相纸**：都是新 strip 的语义；有试片时确认。确认文案写清「3 test prints will be cleared; the photograph stays.」
+- **The photograph is the test print**: the 1200 px test print for the current time, on warm white paper; the paper has an edge and an object shadow. Tapping the paper opens a full-screen preview (chrome hidden, pinch to zoom), so even though the paper is only 250 pt wide on the main screen, the detail can be read.
+- Under the paper there is only one line of material name (12 pt muted) + `Test print`; do not repeat the temperature there — it lives in the deck.
+- **The deck is an instrument panel**:
+  - The first row is the strip: `TEST STRIP` at 9.5 uppercase + the print count; `New strip` on the right (13, orange, destructive confirmation). Thumbnails 44 × 44, with the time under each at 9 pt; the selected one has a 1.5 pt orange frame.
+  - The second row is the clock, 32/600 tabular, + the temperature pill on the right (28 pt, 44 pt touch area). Tapping the temperature opens a `.medium` sheet: a large value, −/+ at 44 pt, a slider, and one line, "Changing temperature starts a new strip"; after setting it, confirm first if there are prints.
+  - The third row is the 46 pt time ruler: five ticks at 3/6/9/12/15; dragging follows the finger; values are quantised to 0.5 min; ticks and whole numbers snap with a selection haptic.
+  - Last is `Develop 12:00` at 44–50 pt. When a print at that time exists, the label becomes `Re-develop 12:00`, and a text button, "Remove this print", appears beside it (or long-press a thumbnail → context menu).
+- **No prints**: the deck puts the strip away and keeps one line, "A test print fixes the exposure.", + `Develop first print`; the paper's place shows the original with a `NOT DEVELOPED` pill on it, not blank paper.
+- **Rendering**: keep the previous image; the CTA text becomes `Developing…` and a 2 pt progress shows inside the button; disable the time ruler to prevent repeat taps. No full-screen spinner.
+- **Details**: the 32 pt `i` at the stage's top right opens a `.large` sheet for the film curve, the paper curve, Gamma/Dmax and the materials' full names; all the density that the desktop inspector holds lives here, off the main screen.
+- **Changing temperature / film / paper**: all of these are "new strip" semantics; confirm when there are prints. The confirmation names the count: `3 test prints will be cleared.` The photograph stays.
 
-### 6.3 Print：四个值，一张成品
+### 6.3 Print: four values, one finished print
 
 ```text
 status 47
@@ -362,34 +362,34 @@ stage     ┌──────────────────┐
           12:00 · +0.0 EV · Y0 M0 C0 · KG2
 deck 192  ╭────────────────────────────────╮
           │ TIME 12:00      EXPOSURE +0.0  │
-          │ BALANCE Y0M0C0  GLASS KG2      │
+          │ BALANCE Y0M0C0  HEAT GLASS KG2 │
           │ [            Print            ] │
           ╰────────────────────────────────╯
 ```
 
-- 成品是主体，比显影页更大；下方一行 11–12 pt 的状态串（tabular），让人一眼确认当前组合。
-- deck 是 **2 × 2 的控制摘要**（192 高），不是四个 stepper 堆叠：
-  - `TIME 12:00`、`EXPOSURE +0.0 EV`、`BALANCE Y0 M0 C0`、`GLASS KG2`。
-  - 每格 54 高，标签 9 pt 大写，值 14.5/600，右下 chevron；点击区 54。
-  - 点任意一格打开对应 sheet，**主屏的成品仍然可见**：
-    - Time：当前 strip 的试片列表（缩略图 + 时间），选一个。
-    - Exposure：`.medium` sheet，大号 −/+ 44 pt，步进 0.1 EV，范围 ±2；拖动时实时更新。
-    - Balance：Y/M/C 三行，每行 −/+ 44 pt，步进 5；顶部一个 Reset。
-    - Glass：`None / KG1 / KG2 / KG3 / KG5` 列表，44 行，附一句说明。
-- `Print` 打开印相选项 sheet：尺寸（Original / 6000 / 4000 px）与格式（PNG/JPEG/TIFF），每行 56，底部 `Print`。选项 sheet 里显示预计像素和文件类型。
-- 印相中：CTA `Printing…`，禁用控制；成功后顶部 toast `Printed` + `View`，点 View 去晾片架；失败在 CTA 上方一行红字，不弹窗。
-- 没有试片：整页空状态 + `Go to Develop`；不要让 Print 分段可点却空空如也。
-- 反转型：没有 Print；步骤条里的 Print 显示不可用并说明。
-- Details：与显影共用 sheet，显示当前设置下的相纸曲线。
+- The finished print is the subject, larger than on the Develop page; under it, one 11–12 pt status line (tabular) lets you confirm the current combination at a glance.
+- The deck is a **2 × 2 summary of controls** (192 high), not four stacked steppers:
+  - `TIME 12:00`, `EXPOSURE +0.0 EV`, `BALANCE Y0 M0 C0`, `HEAT GLASS KG2`.
+  - Each cell is 54 high; the label is 9 pt uppercase, the value 14.5/600, with a chevron at the bottom right; the touch area is 54.
+  - Tapping any cell opens its sheet, and **the finished print stays visible on the main screen**:
+    - Time: the current strip's test prints (thumbnail + time); pick one.
+    - Exposure: a `.medium` sheet, a large −/+ at 44 pt, 0.1 EV steps, range ±2; updates live while dragging.
+    - Balance: three rows, Y/M/C, each with −/+ at 44 pt, steps of 5; a Reset at the top.
+    - Heat glass: a `None / KG1 / KG2 / KG3 / KG5` list, 44 pt rows, with one line of explanation.
+- `Print` opens the print options sheet: size (Original / 6000 / 4000 px) and format (PNG/JPEG/TIFF), each row 56, with `Print` at the bottom. The options sheet shows the expected pixels and file type.
+- While printing: the CTA says `Printing…` and the controls are disabled; on success a toast at the top, `Printed` + `View`, and View goes to the drying rack; on failure one red line above the CTA, no dialog.
+- No prints: the whole page is an empty state + `To the developer`; do not leave the Print step tappable and empty.
+- Reversal: there is no Print; the Print segment in the step control shows as unavailable and says why.
+- Details: the same sheet as Develop, showing the paper curve for the current settings.
 
-### 6.4 Drying rack：两列纸
+### 6.4 Drying rack: two columns of paper
 
 ```text
 status 47
 nav 98    Drying rack                     ⚙
           4 prints · newest first
 content   ┌─────────┐  ┌─────────┐
-          │ 01 15:00│  │ 01 13:30│   两列
+          │ 01 15:00│  │ 01 13:30│   two columns
           │ paper   │  │ paper   │
           └─────────┘  └─────────┘
           ┌─────────┐  ┌─────────┐
@@ -398,23 +398,23 @@ content   ┌─────────┐  ┌─────────┐
 tab
 ```
 
-- 大标题 32/600，副标题「4 prints · newest first」；右上齿轮。
-- 2 列，边距 16，列距 12；每张纸宽约 171，按原图比例，绝不裁成正方形。
-- 卡片 = 纸 + 6 pt 白边 + 0.5 hairline + 物体阴影 + 顶部一个 9 × 13 夹子 + 一条 1 pt 线；线是房间的，不是分割线。
-- 图下 10 pt：`01 · 15:00`（tabular）+ 胶片短名；不显示无意义的「1 of 1」。
-- 正在显影的 job 在顶部一张 `Developing 15:00…` 卡片，2 pt 进度；不阻塞列表。
-- 空状态：线 + 夹子图标、`Nothing on the rack`、`Make a print in the darkroom. It will hang here while it dries.`、`Open the Darkroom`。
-- 点一张 → 全屏 viewer：黑底、顶部 44 的返回/标题/导出、图片 `contain`、双指缩放、双击 1:1、下滑关闭；底部材料/时间/温度/日期；无 tab bar。
-- 桌面现有的 `Rack` 几何（138 pt 线、28 pt 边距、260 最大宽）留作桌面；手机用新的网格。
+- A large title at 32/600, the subtitle "4 prints · newest first"; the gear at the top right.
+- 2 columns, margin 16, gap 12; each sheet is about 171 wide, following the original's proportions, never cropped to a square.
+- A card = paper + a 6 pt white edge + 0.5 hairline + object shadow + a 9 × 13 clip at the top + a 1 pt wire; the wire is the room's, not a divider.
+- Under the image, at 10 pt: `01 · 15:00` (tabular) + the film's short name; no meaningless "1 of 1".
+- A job still developing sits at the top as one `Developing 15:00…` card with a 2 pt progress; it does not block the list.
+- Empty state: the wire + a clip icon, `Nothing on the rack`, `Make a print in the darkroom. It will hang here while it dries.`, `Open the Darkroom`.
+- Tap one → full-screen viewer: black, a 44 pt back/title/export bar at the top, the image `contain`, pinch to zoom, double-tap 1:1, swipe down to close; material/time/temperature/date at the bottom; no tab bar.
+- The desktop's existing `Rack` geometry (138 pt wire, 28 pt margins, 260 max width) stays for the desktop; the phone gets the new grid.
 
-### 6.5 Gallery：一面墙
+### 6.5 Gallery: a wall
 
 ```text
 status 47
 nav 98    Gallery                        ☀
           4 prints · one lamp
 content   ┌─────────┐  ┌─────────┐
-          │ film 01 │  │ film 02 │   两列 35 mm
+          │ film 01 │  │ film 02 │   two columns of 35 mm
           │         │  │         │
           └─────────┘  └─────────┘
           ┌─────────┐  ┌─────────┐
@@ -423,15 +423,15 @@ content   ┌─────────┐  ┌─────────┐
 tab
 ```
 
-- 大标题 + 副标题；右上 **一个太阳图标** 开关灯，不是「Loupe」「Light」两个文字 pill。手机上删掉 Loupe 开关。
-- 2 列胶片框，边距 16，列距 12；框宽约 171，黑 rebate 9 pt，两侧齿孔 4 pt，边缘字 4.5 pt 只做纹理，不要求读。
-- 一列可以长短错落（竖构图更高）；不做统一正方形，胶片就是胶片。
-- 1 张时：单张居中，最大宽 420；2 张以上：2 列。空墙：一根线 + 空框图标、`An empty wall`、`Prints you make will hang here.`、`Make a Print`。
-- 点一张 → 全屏 35 mm viewer：胶片框 fit，图片在 gate 内双指放大（1:1 上限），顶部返回/标题/导出，底部像素 + 缩放百分比；没有鼠标 hover 的玻璃，触摸用 pinch + double-tap。
-- 灯：一个开关改变墙的 `light` 和纸的亮度；关灯时墙黑、标签退到 10%，窗框和返回仍在。动效 240 ms。
-- 排序仍是 newest first；进入 gallery 时如果列表为空，显示空状态，不显示一块空墙。
+- A large title + subtitle; the light is **one sun icon** at the top right, not two text pills reading "Loupe" and "Light". The Loupe switch is removed on the phone.
+- 2 columns of film frames, margin 16, gap 12; a frame is about 171 wide, with a 9 pt black rebate, 4 pt sprocket holes on both sides, and 4.5 pt edge text that is texture only and not meant to be read.
+- A column may run unevenly (portrait frames are taller); no uniform squares — film is film.
+- With 1 print: a single frame, centred, max width 420; with 2 or more: 2 columns. Empty wall: a wire + an empty-frame icon, `An empty wall`, `Prints you make will hang here.`, `Make a Print`.
+- Tap one → full-screen 35 mm viewer: the frame fits, the picture zooms inside the gate with pinch (1:1 ceiling), back/title/export at the top, pixels + zoom percentage at the bottom; no mouse-hover glass, touch uses pinch + double-tap.
+- Lamp: one switch changes the wall's `light` and the paper's brightness; with the lamp off the wall is black and labels fall to 10%, while the window frame and the back button remain. Motion 240 ms.
+- Sorting is still newest first; if the list is empty when the gallery opens, show the empty state, not an empty wall.
 
-### 6.6 Settings：整页，不是抽屉
+### 6.6 Settings: a whole page, not a drawer
 
 ```text
 status 47
@@ -444,7 +444,7 @@ content   APPEARANCE
           ┌──────────────────────────┐
           │ Follow the system      ✓ │
           │ English                  │
-          │ 中文                     │
+          │ Chinese                  │
           └──────────────────────────┘
           LIBRARY
           ┌──────────────────────────┐
@@ -457,7 +457,7 @@ content   APPEARANCE
           │ Graphics                  │
           │  Adreno 730 (Vulkan)      │
           │ Processor                 │
-          │  Snapdragon · 8 核        │
+          │  Snapdragon · 8 cores    │
           │ Engine          [GPU|CPU] │
           └──────────────────────────┘
           COLOUR
@@ -470,204 +470,206 @@ content   APPEARANCE
           └──────────────────────────┘
 ```
 
-- 从任意房间的齿轮推入，整页覆盖；顶部 48 nav：标题 17/600 居中，右侧 `Done` 16/500 橙色。
-- `grouped background` + 12–16 圆角 card；section header 11 大写；行 44，主字 15，副字 11–13；分隔线 inset 14。
-- 语言用 checkmark 行，不用 segmented；外观用 30 pt segmented 放在行右侧；Colour path 用 47 × 28 原生 switch。
-- 渲染页是唯一说硬件的一页：显卡是 wgpu 渲染时会打开的那一块（同一探测），处理器是系统肯给出的名字加核心数（Android 可能不给名字，就只显示核心数）。引擎默认 GPU；切到 CPU 后不再尝试显卡，而 GPU 出错时那一张仍会自动用 CPU 完成。
-- 手机上的 Library 不再出现「选择文件夹」；显示系统位置（iOS `Kallo` album / Android `Pictures/Kallo`），导入、修复状态，以及 iOS 部分授权时的说明。
-- 页脚说明只在需要时出现：spectral 路径改变会改新 strip，不动已有 strip；手机上不能选文件夹。
-- 底部留 24 pt，不贴 home indicator；内容可滚动，不嵌套 sheet 的滚动。
+- Pushed in from the gear in any room, it covers the whole page; the top 48 nav has the title 17/600 centred and `Done` 16/500 in orange on the right.
+- A grouped background + cards with 12–16 radius; section headers 11 uppercase; rows 44, primary text 15, secondary 11–13; dividers inset 14.
+- Language uses checkmark rows (`Follow the system` / `English` / `Chinese`), not a segmented control; `Interface` is a 30 pt segmented control (System / Light / Dark) at the right of its row; the spectral path is a 47 × 28 native switch.
+- Rendering is the only page that talks about hardware: the graphics line names the adapter wgpu will open (the same probe), and the processor line names what the system is willing to give plus the core count (Android may not give a name, and then only the count is shown). The engine defaults to GPU; switching to CPU stops trying the adapter, and a GPU error still finishes that one print on the CPU.
+- On the phone, Library has no "choose folder" any more; it shows the system location (the `Kallo` album on iOS, `Pictures/Kallo` on Android), import and repair status, and a note when iOS grants only partial access.
+- Footnotes appear only where they are needed: the spectral path changes new strips and leaves existing ones alone; a phone cannot choose a folder.
+- Leave 24 pt at the bottom, clear of the home indicator; the content scrolls, and does not nest a sheet's scroll.
 
 ---
 
-## 7. 组件规格（实现时按这个做）
+## 7. Component specs (build to these)
 
-| 组件 | 规格 |
+| Component | Spec |
 |---|---|
-| `MobileNavBar` | 52 高；seg 34 高、3 等分、轨道 `fill`、选中 `card` + 0.5 hairline；齿轮 44 × 44；左右 16；玻璃 + hairline |
-| `MobileTabBar` | 49 + safe；3 等分；图标 24、标签 10.5；选中 accent；顶部 hairline；无阴影 |
-| `MobileStageTabs` | 3 段；点击区≥44；`Semantics(selected:)`；步骤切换 160 ms |
-| `MobileCTA` | 50 高、radius 14、accent、onAccent、17/600；禁用 fill；最小宽 200 |
-| `InstrumentDeck` | 左右 12、底 12、高 192–236、radius 16、card、hairline；内部 10–14 padding；CTA 贴底 |
-| `TestStrip` | 横滑；缩略图 44–58；选中 1.5–2 pt accent 框；长按 context menu；无滚动条 |
-| `TimeRuler` | 46–54 高；track 1 pt；刻度 8 pt；knob 16–28；触控高度≥44；0.5 min 量化；刻度 selection |
-| `AdjustmentCell` | 54 高；label 9 大写；value 14.5/600；chevron 14；点击开 sheet |
-| `MobileSheet` | top 28 圆角；grabber 5 × 36；scrim 32%；medium/large detent；下拉关闭；键盘避让；`PopScope` |
-| `PickerRow` | 56 高；标题 15/600；副题 11.5；选中 accentSoft + check；分隔 inset 14 |
-| `SettingsGroup` | 12–16 圆角；行 44；header 11 大写；footer 10.5–13；switch/seg 用原生语义 |
-| `EmptyState` | 图标 76 圆角底；标题 22；正文 13；CTA 50；最多两行说明 |
-| `Toast` | 底部 tab 上方 12；胶囊 card；17/500；4 s 自动消失；带一个动作 |
-| `PrintCard`（rack） | 纸白、6 pt 边、0.5 hairline、物体阴影、夹子、线；图不裁切 |
-| `FilmFrame`（gallery） | 沿用现有 35 mm 几何；手机上缩小到 171 宽；边缘字只做纹理 |
-| `Viewer` | 全屏、黑；顶部 44；双指缩放、双击 1:1、下滑关闭；底部元数据；无 tab bar |
+| `MobileNavBar` | 52 high; segment 34 high, 3 equal parts, track `fill`, selected `card` + 0.5 hairline; gear 44 × 44; 16 on both sides; glass + hairline |
+| `MobileTabBar` | 49 + safe; 3 equal parts; icons 24, labels 10.5; selected accent; top hairline; no shadow |
+| `MobileStageTabs` | 3 segments; touch area ≥ 44; `Semantics(selected:)`; step switch 160 ms |
+| `MobileCTA` | 50 high, radius 14, accent, onAccent, 17/600; disabled fill; min width 200 |
+| `InstrumentDeck` | 12 on both sides, 12 at the bottom, 192–236 high, radius 16, card, hairline; 10–14 padding inside; CTA pinned to the bottom |
+| `TestStrip` | horizontal scrolling; thumbnails 44–58; selected 1.5–2 pt accent frame; long-press context menu; no scrollbar |
+| `TimeRuler` | 46–54 high; track 1 pt; ticks 8 pt; knob 16–28; touch height ≥ 44; 0.5 min quantised; ticks selection |
+| `AdjustmentCell` | 54 high; label 9 uppercase; value 14.5/600; chevron 14; tap opens a sheet |
+| `MobileSheet` | top radius 28; grabber 5 × 36; scrim 32%; medium/large detents; drag down to close; keyboard aware; `PopScope` |
+| `PickerRow` | 56 high; title 15/600; subtitle 11.5; selected accentSoft + check; divider inset 14 |
+| `SettingsGroup` | 12–16 radius; rows 44; header 11 uppercase; footer 10.5–13; switch/segments use native semantics |
+| `EmptyState` | icon 76 on a rounded background; title 22; body 13; CTA 50; at most two lines of note |
+| `Toast` | 12 above the bottom tab bar; pill card; 17/500; disappears after 4 s; carries one action |
+| `PrintCard` (rack) | paper white, 6 pt edge, 0.5 hairline, object shadow, clip, wire; the image is never cropped |
+| `FilmFrame` (gallery) | keep the existing 35 mm geometry; shrink it to 171 wide on the phone; edge text is texture only |
+| `Viewer` | full screen, black; 44 at the top; pinch zoom, double-tap 1:1, swipe down to close; metadata at the bottom; no tab bar |
 
 ---
 
-## 8. 交互与状态
+## 8. Interaction and state
 
-### 8.1 破坏性确认
+### 8.1 Destructive confirmations
 
-| 动作 | 条件 | 确认 |
+| Action | Condition | Confirmation |
 |---|---|---|
-| 换照片 | 有试片 | `Replace the photograph?` · `N test prints will be cleared. The film and paper stay.` |
-| 换胶片 | 有试片 | `Start a new strip with PORTRA 800?` · `N test prints will be cleared.` |
-| 换相纸 | 有试片 | 同上，指名相纸 |
-| 换温度 | 有试片 | `Change to 24.0 °C?` · `Temperature belongs to the strip; N test prints will be cleared.` |
-| New strip | 有试片 | 同上；保留照片/材料/温度 |
-| Remove print | 选中试片 | 长按 → context menu；或行内文本按钮；直接移除，可再做一张 |
-| Repair markers | 有可修复项 | 直接执行，完成后 toast |
+| Change the photograph | prints on the strip | `Replace the photograph?` · `N test prints will be cleared. The film and paper stay.` |
+| Change the film | prints on the strip | `Change the film?` · `N test prints will be cleared. The photograph and paper stay.` |
+| Change the paper | prints on the strip | `Change the paper?` · `N test prints will be cleared. The photograph and film stay.` |
+| Change the temperature | prints on the strip | `Change the temperature?` · `Temperature belongs to the strip; N test prints will be cleared.` |
+| New strip | prints on the strip | `Start a new strip?` · `N test prints will be cleared. The photograph and materials stay.` |
+| Remove print | a selected test print | long-press → context menu; or an inline text button; removed directly, and another can be made |
+| Repair markers | repairable items | run directly, toast when done |
 
-确认用 iOS action sheet 风格：标题 + 一句说明 + 红色 destructive + Cancel；不用 Alert 大段文字。
+Confirmations use the iOS action-sheet shape: a title + one line of explanation + a red destructive + Cancel; no Alert with a paragraph.
 
-### 8.2 返回
+### 8.2 Back
 
-- Android 返回键：sheet → 关；viewer/settings → 关；Print → Develop → Select；再返回退出。
-- iOS：sheet 下拉；viewer/settings 边缘右滑；步骤不拦截边缘手势（避免和系统返回冲突）。
-- 关闭 sheet 时恢复触发它的控件焦点/滚动位置。
+- Android back button: sheet → close; viewer/Settings → close; Print → Develop → Select; back again exits.
+- iOS: sheet pulls down; viewer/Settings swipe in from the edge; steps do not intercept the edge gesture (so they do not fight the system back).
+- Closing a sheet restores the focus/scroll position of the control that opened it.
 
-### 8.3 加载、错误、空
+### 8.3 Loading, errors, empty
 
-| 场景 | 处理 |
+| Case | Handling |
 |---|---|
-| 照片解码中 | 黑卡纸上 2 pt 进度线；不显示「请稍候」大段文字 |
-| 照片解码失败 | 卡纸内一行错误 + `Choose another` |
-| 目录未加载 | 材料行 skeleton；CTA 禁用；一行原因 |
-| 显影预览渲染 | 保留旧图；纸角 2 pt 进度；CTA 内文案变化 |
-| 显影失败 | CTA 上方一行红字；保留当前试片；可重试 |
-| 印相中 | CTA `Printing…`；控制禁用；toast 成功 |
-| 印相失败 | 行内红字 + 重试；不丢当前设置 |
-| 无试片 | 空状态 + 去显影 |
-| 晾片架空 | 空状态 + 去暗房 |
-| 观景台空 | 空墙 + 去印相 |
-| 库权限受限 | settings/library 行给出解释；不假装有全部照片 |
-| 无网络 | 无网络依赖；只有 GitHub 链接失败时交给系统 |
+| Photograph decoding | a 2 pt progress line on the black card; no "please wait" paragraph |
+| Photograph failed to decode | one error line inside the card + `Choose another` |
+| Catalogue not loaded | material rows as a skeleton; CTA disabled; one line of reason |
+| Developing the preview | keep the old image; 2 pt progress at the paper's corner; the CTA's text changes |
+| Development failed | one red line above the CTA; keep the current test print; can retry |
+| Printing | CTA `Printing…`; controls disabled; success toast |
+| Print failed | red line in place + retry; current settings are not lost |
+| No test prints | empty state + go to Develop |
+| The rack is empty | empty state + go to the Darkroom |
+| The gallery is empty | an empty wall + go to Print |
+| Library permission limited | the settings/library rows explain; do not pretend all photographs are there |
+| No network | nothing depends on the network; only a failed GitHub link is handed to the system |
 
-### 8.4 无障碍
+### 8.4 Accessibility
 
-- 所有可点元素 ≥ 44 × 44；缩略图 44 时用 8 pt 外边距扩展命中。
-- 自定义 slider 提供 `Semantics(slider, value)` 和 `increase/decrease` 动作；时间读数用 `darkroomClock`。
-- 步骤 segmented 提供 `selected`；材料行提供「Film, PORTRA 400, Colour negative」。
-- 对比度：正文用 `inkMuted` 以上；`inkFaint` 只用于装饰。accent 白底 5.18:1，onAccent 5.18:1；暗色 10.22:1。
-- Dynamic Type 1.3× 下 deck 可滚动，CTA 不被挤走；不允许文字截断成「…」表达关键值。
-- VoiceOver 顺序：stage 主体 → deck 控制 → CTA → tab bar。
-- 减少动态：sheet 淡入、试片不弹入；不做视差。
+- Every tappable element ≥ 44 × 44; when a thumbnail is 44, use an 8 pt outer margin to extend the hit area.
+- The custom slider provides `Semantics(slider, value)` and `increase/decrease` actions; time readings use `darkroomClock`.
+- The step segmented control provides `selected`; a material row provides "Film, PORTRA 400, Colour negative".
+- Contrast: body uses `inkMuted` or darker; `inkFaint` is decoration only. Accent on white 5.18:1, onAccent 5.18:1; dark 10.22:1.
+- At Dynamic Type 1.3× the deck may scroll and the CTA is not pushed away; text is never truncated to "…" where it carries a key value.
+- VoiceOver order: the stage subject → the deck's controls → the CTA → the tab bar.
+- Reduce motion: sheets fade in, prints do not pop in; no parallax.
 
-### 8.5 语言与文案
+### 8.5 Language and copy
 
-- 中文 tab：`暗房 / 晾片 / 观景`；英文 `Darkroom / Rack / Gallery`。
-- 按钮用动词：`Continue`、`Develop`、`Print`、`Choose a Photograph`、`Open the Darkroom`。
-- 破坏性按钮用具体名词：`Start a New Strip`，不是 `OK`。
-- 技术词保留：`C-41`、`RA-4`、`EV`、`CC`、`KG2`、`Gamma`、`D-max`、`sRGB`；数字不翻译。
-- 英文句首大写，中文不加空格；film 名保持厂商写法。
+- The app has two languages: English and Chinese. Settings offers three options — `Follow the system`, `English`, `Chinese` — and the words follow the choice.
+- The Chinese tabs are two characters each where English needs `Darkroom` / `Rack` / `Gallery`; the shorter labels are why both languages fit the same three-slot bar, and the layout is measured against the longer English labels.
+- Buttons are verbs: `To the developer`, `Develop`, `Print`, `Choose a photograph…`, `Open the Darkroom`.
+- Destructive buttons name the thing: `Start a New Strip`, never `OK`.
+- Technical words stay: `C-41`, `RA-4`, `EV`, `CC`, `KG2`, `Gamma`, `D-max`, `sRGB`; numbers are not translated in either language.
+- English is sentence case; Chinese takes no capitals and no spaces between its characters. Film names keep the maker's spelling in both languages.
+- The words live in `app/lib/design/strings.dart`, in two tables, English and Chinese; the film's own vocabulary never translates, and switching language moves no layout.
 
 ---
 
-## 9. 实现映射
+## 9. Implementation mapping
 
-### 9.1 新增/修改
+### 9.1 New / modified
 
 ```text
 app/lib/
   design/
-    mobile.dart             ← KalloLayout、compact 字号/间距/圆角/高度
-    strings.dart            ← 手机标签与空状态文案（中英）
+    mobile.dart             ← KalloLayout, compact type/spacing/radius/heights
+    strings.dart            ← the phone's labels and empty-state copy (Chinese and English)
   views/mobile/
-    mobile_picker.dart      ← 胶片/相纸搜索式 picker
-    mobile_settings.dart    ← grouped Settings 整页
+    mobile_picker.dart      ← searchable film/paper picker
+    mobile_settings.dart    ← grouped, full-page Settings
   widgets/mobile/
-    mobile_chrome.dart      ← darkroom bar、room header、三格 tab bar
-    mobile_controls.dart    ← 按钮、段控、开关、行、分组、空状态
-    mobile_icon.dart        ← 24 网格手绘图标，无 Material
-    mobile_sheet.dart       ← sheet、confirm、choice、全屏 viewer
+    mobile_chrome.dart      ← darkroom bar, room header, three-slot tab bar
+    mobile_controls.dart    ← buttons, segments, switches, rows, groups, empty states
+    mobile_icon.dart        ← 24-grid hand-drawn icons, no Material
+    mobile_sheet.dart       ← sheet, confirm, choice, full-screen viewer
   views/
-    studio.dart             ← 只加 compact 分支；桌面路径原样
-    select_stage.dart       ← compact 分支：原片 + 材料两行 + picker
-    develop_stage.dart      ← compact 分支：纸 + 试片条 + 时钟/尺/CTA
-    print_stage.dart        ← compact 分支：2×2 控制 + 印相选项
-    rack.dart / gallery.dart ← compact 网格、空状态、viewer 回调
-  main.dart                 ← 手机竖屏锁定；不改回调 API
+    studio.dart             ← only adds the compact branch; the desktop path is untouched
+    select_stage.dart       ← compact branch: original + two material rows + picker
+    develop_stage.dart      ← compact branch: paper + strip + clock/ruler/CTA
+    print_stage.dart        ← compact branch: 2×2 controls + print options
+    rack.dart / gallery.dart ← compact grid, empty states, viewer callbacks
+  main.dart                 ← portrait lock on phones; callback API unchanged
 ```
 
-- `Studio`：`_compact` 改为 `KalloLayout.isCompact(context)`；compact 直接返回 `MobileStudio`，**不再进入现有 sidebar/StudioTopBar/StageTabs 路径**。桌面仍走原来的 `_shell`。
-- 手机 stage 使用现有 `TestStrip`、`Print`、`Catalogue`、`ui.Image` 数据；不复制模型逻辑，不改 `main.dart` 的回调签名。
-- 选取 sheet 由 `MobileStudio` 用 `Overlay` + `AnimationController` 实现；不用 Material `showModalBottomSheet`（会引入 Material 语义/主题）。
-- 现有 `KalloShadowBox` 的 paper/sheet 资产继续用于相纸和 sheet；deck/nav 不用。
-- `Rack` / `Gallery`：桌面实现不动；手机新建 `rack_view` / `gallery_view`，复用 `Print`、`PrintThumbnailCache`、`FilmFrameMetrics`、`PrintViewer` 的缩放/预览核心（把纯图片逻辑抽出来，不复制解码逻辑）。
-- `SettingsDrawer`：桌面保留；手机新 `settings_view`，复用 `ExportSetting`、`Settings`、`AppInfo`。
-- 手机状态栏：`AnnotatedRegion<SystemUiOverlayStyle>`；Android `SystemChrome.setEnabledSystemUIMode(edgeToEdge)` 已有配置检查。
-- 性能：`BackdropFilter` 只用在 52 pt nav 和 83 pt tab bar，不给整页/整张照片加 blur；晾片架和观景台继续走 `PrintThumbnailCache`（512 缩略图 + viewer 的 preview/detail 两级），不因两列网格而多解码原图；sheet 动画只改 transform/opacity，避免整页重排。
+- `Studio`: `_compact` becomes `KalloLayout.isCompact(context)`; compact returns `MobileStudio` directly and **no longer enters the existing sidebar/StudioTopBar/StageTabs path**. The desktop still goes through the original `_shell`.
+- The phone's stages use the existing `TestStrip`, `Print`, `Catalogue` and `ui.Image` data; no model logic is copied, and the callback signatures in `main.dart` are unchanged.
+- The picker sheets are implemented by `MobileStudio` with `Overlay` + `AnimationController`; not Material's `showModalBottomSheet` (which would bring in Material semantics/theme).
+- The existing `KalloShadowBox` paper/sheet assets stay in use for paper and sheets; the deck and nav do not use them.
+- `Rack` / `Gallery`: the desktop implementation is untouched; the phone gets new `rack_view` / `gallery_view` that reuse the zoom/preview core of `Print`, `PrintThumbnailCache`, `FilmFrameMetrics` and `PrintViewer` (the pure image logic is extracted; the decode logic is not copied).
+- `SettingsDrawer`: kept on the desktop; the phone gets a new `settings_view` that reuses `ExportSetting`, `Settings` and `AppInfo`.
+- Phone status bar: `AnnotatedRegion<SystemUiOverlayStyle>`; on Android, `SystemChrome.setEnabledSystemUIMode(edgeToEdge)` already has a configuration check.
+- Performance: `BackdropFilter` is used only on the 52 pt nav and the 83 pt tab bar, never on a whole page or a whole photograph; the rack and gallery keep going through `PrintThumbnailCache` (512 thumbnails + the viewer's preview/detail two levels), so a two-column grid does not decode more originals; sheet animations change only transform/opacity, avoiding a whole-page relayout.
 
-### 9.2 分阶段
+### 9.2 Phases
 
-| 阶段 | 内容 | 完成标准 |
+| Phase | Content | Done when |
 |---|---|---|
-| **1. 壳与 token** | 断点、`MobileStudio`、nav/tab/step/CTA/sheet、44 pt 基准 | 390 × 844 上三个空 tab 可切换；iPhone 横向不再出现桌面双栏；桌面 goldens 不变 |
-| **2. Select** | 黑卡纸原片、材料两行、picker sheet、空状态、破坏性确认 | 一屏内看到照片、材料、CTA；无 24 个 chip；换材料有确认 |
-| **3. Develop** | 试片主体、deck、时间尺、试片条、温度/Details sheet | 一屏内看到纸、时间、试片、CTA；拖动不卡；曲线不占主屏 |
-| **4. Print** | 2×2 控制、四个 sheet、印相选项、成功 toast | 四个值都能改且图片实时更新；Print 不需要滚面板 |
-| **5. Rack / Gallery / Viewer** | 两列网格、空状态、灯、pinch viewer、删 hover loupe | 一屏至少两张纸/两帧；viewer 可缩放、可返回 |
-| **6. Settings / 横屏 / 无障碍** | grouped settings、横屏工作台、Dynamic Type、VoiceOver、haptics | 1.3× 不溢出；横屏不崩；tab/sheet 返回正确 |
+| **1. Shell and tokens** | breakpoints, `MobileStudio`, nav/tab/step/CTA/sheet, the 44 pt baseline | three empty tabs switch on 390 × 844; iPhone landscape no longer shows the desktop's two columns; the desktop goldens are unchanged |
+| **2. Select** | original on black card, two material rows, picker sheet, empty state, destructive confirmations | the photograph, materials and CTA fit in one screen; no 24 chips; material changes confirm first |
+| **3. Develop** | test print as the subject, deck, time ruler, strip, temperature/Details sheets | paper, time, prints and CTA fit in one screen; dragging is smooth; curves are off the main screen |
+| **4. Print** | 2×2 controls, four sheets, print options, success toast | all four values change and the image updates live; Print needs no panel scrolling |
+| **5. Rack / Gallery / Viewer** | two-column grid, empty states, lamp, pinch viewer, no hover loupe | at least two papers/frames per screen; the viewer zooms and returns |
+| **6. Settings / landscape / accessibility** | grouped settings, landscape workbench, Dynamic Type, VoiceOver, haptics | no overflow at 1.3×; landscape does not crash; tab/sheet back is correct |
 
-### 9.3 测试
+### 9.3 Tests
 
-- 新增 `app/test/mobile/` widget tests：
-  - 390 × 844、375 × 667、430 × 932 三种尺寸；light/dark；
-  - 每个可点元素 ≥ 44（遍历 semantics/rect）；
-  - 文本缩放 1.3 不 overflow；
-  - Android back 层级；
-  - 换胶片/相纸/温度有试片时出确认；
-  - 空状态 CTA 能到下一步；
-  - sheet 下拉/点 scrim 关闭。
-- 新增手机 goldens：`test/goldens/macos/mobile/{select,develop,print,rack,gallery}.png`，使用合成的 test card，不引入真人照片。沿用现有 `studio-goldens` opt-in。
-- 集成测试：iPhone/Android 用 **合成图** 走 选片 → 胶片 → 相纸 → 显影 3/6/9 → 印相 → 晾片架 → 观景台 → 设置；不把个人照片带进仓库。
-- 桌面：现有 12 张 macOS goldens、widget tests 全绿；CI 7 项全绿。
+- New widget tests under `app/test/mobile/`:
+  - the three sizes 390 × 844, 375 × 667, 430 × 932; light/dark;
+  - every tappable element ≥ 44 (walking semantics/rect);
+  - text scaling 1.3 does not overflow;
+  - the Android back hierarchy;
+  - changing film/paper/temperature with prints present asks for confirmation;
+  - an empty state's CTA reaches the next step;
+  - sheets close by pulling down or tapping the scrim.
+- New phone goldens: `test/goldens/macos/mobile/{select,develop,print,rack,gallery}.png`, drawn with the synthetic test card, with no photographs of people. They use the existing `studio-goldens` opt-in.
+- Integration test: on iPhone/Android, drive a **synthetic picture** through Select → film → paper → develop 3/6/9 → print → drying rack → gallery → settings; personal photographs never enter the repository.
+- Desktop: the existing 12 macOS goldens and the widget tests all pass; the 7 CI checks all pass.
 
-### 9.4 不做什么
+### 9.4 Not doing
 
-- 不改模型的数学、数据文件、XMP、catalog；PhotoKit/MediaStore 只在 Android 权限时机上调整。
-- 不改桌面布局、桌面 sidebars、桌面 goldens。
-- 不引入 `MaterialApp` / `Material` / `CupertinoApp` / `CupertinoPageScaffold`；不引入新字体。
-- 不为了「像 iOS」而把 safelight 橙换成系统蓝；Kallo 的强调色就是 safelight。
-- 不把手机做成桌面工作室的响应式缩小版；手机是独立壳。
-- 不在这一版做 iPad 专门布局；medium 先保证不崩、可读、单列。
-
----
-
-## 10. 验收清单
-
-- [ ] 390 × 844 下，Select/Develop/Print 的主体区至少占内容高度 50%；照片/纸本身 ≥ 280 pt（Select ≥ 300 pt）；CTA 首屏可见，不需要滚动。
-- [ ] 没有任何可点元素 < 44 × 44；正文 ≥ 15，必要说明 ≥ 13。
-- [ ] 顶栏只有一套步骤分段；底栏只有三个房间；没有房间名胶囊。
-- [ ] iPhone 横向（844 × 390）不出现桌面 sidebar/inspector；至少保持单列可操作。
-- [ ] 选胶片/相纸是 56 pt 行 + 搜索 + 化学分组，不是 24 个 chip。
-- [ ] 换胶片/相纸/温度/照片，在有试片时先确认，并说明会清掉几张。
-- [ ] 显影页的主屏只有纸、时间尺、试片条、CTA；曲线在 Details sheet。
-- [ ] 印相页四个值一眼可见；点任意值开 sheet，图片仍可见；Print 开选项 sheet。
-- [ ] 晾片架/观景台手机是 2 列；一张时观景台单张居中；空状态有 CTA。
-- [ ] 手机没有 Loupe 开关；viewer 支持 pinch、双击 1:1、下滑关闭。
-- [ ] 设置是整页 grouped list，不是横向 tab 轨 + 抽屉。
-- [ ] 1.3× 字号不溢出；VoiceOver 能读步骤/材料/时间/CC/灯。
-- [ ] 桌面 12 张 goldens 不变；CI 全绿。
+- Not changing the model's mathematics, data files, XMP or catalogue; PhotoKit/MediaStore are adjusted only in Android permission timing.
+- Not changing the desktop layout, the desktop sidebars or the desktop goldens.
+- Not introducing `MaterialApp` / `Material` / `CupertinoApp` / `CupertinoPageScaffold`; not introducing a new font.
+- Not swapping safelight orange for the system blue just to "look like iOS"; Kallo's accent is safelight.
+- Not making the phone a responsive reduction of the desktop studio; the phone is a shell of its own.
+- Not building an iPad-specific layout in this version; medium only has to not break, be readable, and stay one column.
 
 ---
 
-## 11. 已拍板
+## 10. Acceptance checklist
 
-1. **底栏 3 个房间 + 齿轮**，设置不是房间。
-2. **观景台 2 列胶片**；一张时仍按单张居中。
-3. **换胶片/相纸/温度/照片时，有试片先确认**；文案说明会清掉几张。桌面保持原行为，是否同步由另一次改动决定。
-
-一个实现层面的决定也一并记下：Android Adreno 730 把单个 storage buffer binding 截在 128 MiB，12 MP 成品是 195 MiB，所以旧实现会在 `create_bind_group` 报 wgpu validation error、退回 CPU。现在 GPU 后端把大于 binding 上限的帧按水平 band 渲染，band 上下带够垂直 effect 的 guard 行，body 行与整帧渲染逐位相同（Rust 有对照测试）；`FfiModel.develop` 的 CPU 重试仍在，作为驱动异常的兜底。预览会话（`PreviewBench`）失败时，显影/印相页仍退回一次性的 CPU 渲染。
-
-Android 照片权限也改成按需：启动只读状态、不弹窗；第一次点「选择照片」时先用自己的 sheet 解释「权限买到的是看到其他应用放进 `Pictures/Kallo` 的照片，不是选片本身」，同意后才进系统对话框；「暂不」仍然打开系统选择器。设置页保留「照片访问」行，永久拒绝时走系统设置。
+- [ ] At 390 × 844, the subject area of Select/Develop/Print is at least 50% of the content height; the photograph/paper itself is ≥ 280 pt (Select ≥ 300 pt); the CTA is visible on the first screen without scrolling.
+- [ ] No tappable element is < 44 × 44; body ≥ 15, required notes ≥ 13.
+- [ ] The top bar holds one step control only; the bottom bar holds three rooms only; there is no room-name pill.
+- [ ] In iPhone landscape (844 × 390) there is no desktop sidebar/inspector; at least one operable column remains.
+- [ ] Choosing film/paper is a 56 pt row + search + chemistry grouping, not 24 chips.
+- [ ] Changing film/paper/temperature/photograph confirms first when prints exist, and says how many will be cleared.
+- [ ] The main Develop screen holds only paper, time ruler, strip and CTA; curves are in the Details sheet.
+- [ ] The four Print values are visible at a glance; tapping any opens a sheet and the picture stays visible; Print opens the options sheet.
+- [ ] The rack and gallery are 2 columns on the phone; a single frame is centred on the wall; the empty states have a CTA.
+- [ ] The phone has no Loupe switch; the viewer supports pinch, double-tap 1:1, and swipe down to close.
+- [ ] Settings is a whole-page grouped list, not a horizontal tab rail + drawer.
+- [ ] 1.3× type does not overflow; VoiceOver can read steps/materials/time/CC/lamp.
+- [ ] The 12 desktop goldens are unchanged; CI is green.
 
 ---
 
-## 12. 参考
+## 11. Decided
 
-- 现有设计规则：`app/README.md`（无 Material、无布局阴影、一个强调色、封闭的间距/圆角/字号、胶片是几何）。
-- 现有桌面 goldens：`app/test/goldens/macos/`。
-- 现有紧凑分支：`app/lib/views/studio.dart`、`select_stage.dart`、`develop_stage.dart`、`print_stage.dart`、`gallery.dart`、`rack.dart`、`drawer.dart`。
-- 本方案视觉稿：[board-1.png](board-1.png)、[board-2.png](board-2.png)、[board-3.png](board-3.png)、[mockups.html](mockups.html)。
+1. **A bottom bar with 3 rooms + a gear**; Settings is not a room.
+2. **The gallery is 2 columns of film**; with one frame it is still a single centred frame.
+3. **Changing film/paper/temperature/photograph confirms first when there are prints**; the copy says how many will be cleared. The desktop keeps its current behaviour; whether it follows is a separate change.
 
-> 视觉稿是方向稿：390 × 844、Inter、真实字号与触控尺寸。落地时以第 5 节的封闭 token 为准；桌面不动。当前实现已通过 `flutter analyze`、完整 widget 测试和 12 张桌面 goldens；手机测试在 `app/test/mobile_test.dart`。
+One implementation-level decision is recorded here too: an Android Adreno 730 caps a single storage buffer binding at 128 MiB, and a 12 MP print is 195 MiB, so the old implementation hit a wgpu validation error in `create_bind_group` and fell back to the CPU. The GPU backend now renders frames larger than the binding limit in horizontal bands, with enough guard rows above and below the band for the vertical effect, and the body rows are bit-for-bit identical to a whole-frame render (Rust has a comparison test); `FfiModel.develop`'s CPU retry remains as the fallback for driver faults. When the preview session (`PreviewBench`) fails, the Develop and Print pages still fall back to a one-off CPU render.
+
+Android photo permission is on demand too: the app reads the state at launch and shows no dialog; the first time `Choose a photograph…` is tapped, it explains in its own sheet that what the permission buys is sight of pictures other apps put in `Pictures/Kallo`, not the choosing itself, and only after agreeing does the system dialog appear; `Not now` still opens the system picker. The settings page keeps a `Photo access` row, and a permanent denial goes through system settings.
+
+---
+
+## 12. References
+
+- The existing design rules: `app/README.md` (no Material, no layout shadows, one accent, closed spacing/radius/type ramps, the film is geometry).
+- The existing desktop goldens: `app/test/goldens/macos/`.
+- The existing compact branch: `app/lib/views/studio.dart`, `select_stage.dart`, `develop_stage.dart`, `print_stage.dart`, `gallery.dart`, `rack.dart`, `drawer.dart`.
+- The boards for this plan: [board-1.png](board-1.png), [board-2.png](board-2.png), [board-3.png](board-3.png), [mockups.html](mockups.html).
+
+> The boards are a direction, not final pixels: 390 × 844, Inter, real type sizes and touch targets. When building, the closed tokens of section 5 are the authority; the desktop does not move. The current implementation passes `flutter analyze`, the full widget tests and the 12 desktop goldens; the phone tests live in `app/test/mobile_test.dart`.
