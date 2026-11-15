@@ -384,6 +384,26 @@ LRESULT CALLBACK Win32Window::ChildProc(HWND child,
   return DefSubclassProc(child, message, wparam, lparam);
 }
 
+void Win32Window::ReleasePointerToContent() {
+  // Windows takes the pointer for its own move and resize loops: the app asks
+  // for one from a gesture it started, and from then on the loop owns the
+  // mouse -- the release that ends that gesture is delivered to the loop and
+  // never to the view. Flutter keeps the left button down for the rest of the
+  // session as a result: the frame still resizes, the system caption button
+  // still works, and every click inside the app is ignored. Once the loop is
+  // over, the button up is owed to the content.
+  if (child_content_ == nullptr) {
+    return;
+  }
+  POINT cursor{};
+  if (!GetCursorPos(&cursor)) {
+    return;
+  }
+  ScreenToClient(child_content_, &cursor);
+  PostMessage(child_content_, WM_LBUTTONUP, 0,
+              MAKELPARAM(cursor.x, cursor.y));
+}
+
 RECT Win32Window::GetClientArea() {
   RECT frame;
   GetClientRect(window_handle_, &frame);

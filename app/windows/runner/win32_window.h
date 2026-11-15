@@ -45,6 +45,15 @@ class Win32Window {
   // Inserts |content| into the window tree.
   void SetChildContent(HWND content);
 
+  // Give the content the button up Windows' own move and resize loops took.
+  //
+  // A loop that the app starts from its own gesture owns the pointer until the
+  // drag ends, and the view never sees the release. The content would hold the
+  // left button down from then on and ignore every click. Call this once such a
+  // loop is over -- on WM_EXITSIZEMOVE -- so the content learns the pointer is
+  // up again.
+  void ReleasePointerToContent();
+
   // Returns the backing Window handle to enable clients to set icon and other
   // window properties. Returns nullptr if the window has been destroyed.
   HWND GetHandle();

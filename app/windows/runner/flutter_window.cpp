@@ -130,6 +130,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     }
   }
 
+  if (message == WM_EXITSIZEMOVE) {
+    // A drag or a resize the app started is Windows' from the press on, so the
+    // view is still holding a button that the loop has already seen released.
+    // Answered before the plugins: window_manager's delegate takes this
+    // message and returns a value of its own.
+    ReleasePointerToContent();
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
