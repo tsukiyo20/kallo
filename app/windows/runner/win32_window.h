@@ -55,6 +55,14 @@ class Win32Window {
   // Return a RECT representing the bounds of the current client area.
   RECT GetClientArea();
 
+  // Where the app draws the one control Windows still has an opinion about, in
+  // device pixels from the client's top-left. Inside this rectangle the window
+  // answers HTMAXBUTTON, which is the only way a window that draws its own
+  // caption gets the Windows 11 snap layouts flyout: that menu belongs to the
+  // system's maximize button, and this is how a window says "there is one
+  // here". An empty rectangle turns it off.
+  void SetCaptionButton(const RECT& rect);
+
  protected:
   // Processes and route salient window messages for mouse handling,
   // size change and DPI. Delegates handling of these to member overloads that
@@ -87,6 +95,15 @@ class Win32Window {
   // Retrieves a class instance pointer for |window|
   static Win32Window* GetThisFromHandle(HWND const window) noexcept;
 
+  // The message procedure the Flutter view is subclassed with, so the one
+  // rectangle that belongs to Windows can be passed through to the window.
+  static LRESULT CALLBACK ChildProc(HWND child,
+                                    UINT const message,
+                                    WPARAM const wparam,
+                                    LPARAM const lparam,
+                                    UINT_PTR const id,
+                                    DWORD_PTR const ref) noexcept;
+
   // Update the window frame's theme to match the system theme.
   static void UpdateTheme(HWND const window);
 
@@ -96,6 +113,10 @@ class Win32Window {
   // device pixels: the app draws the frame, so nothing else knows how thick a
   // resize edge is on this display.
   double scale_factor_ = 1.0;
+
+  // The maximize button the app draws.
+  RECT caption_button_{};
+  bool has_caption_button_ = false;
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;

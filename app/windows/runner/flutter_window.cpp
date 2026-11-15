@@ -4,6 +4,31 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+
+/// One side of the maximize button's rectangle, in device pixels. Dart sends
+/// them as a map of ints; a double is answered too, because a codec is free to
+/// hand a whole number back as one.
+long FrameNumber(const flutter::EncodableMap& map, const char* key) {
+  const auto found = map.find(flutter::EncodableValue(key));
+  if (found == map.end()) {
+    return 0;
+  }
+  const flutter::EncodableValue& value = found->second;
+  if (const auto* whole = std::get_if<int32_t>(&value)) {
+    return *whole;
+  }
+  if (const auto* large = std::get_if<int64_t>(&value)) {
+    return static_cast<long>(*large);
+  }
+  if (const auto* fraction = std::get_if<double>(&value)) {
+    return static_cast<long>(*fraction);
+  }
+  return 0;
+}
+
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -27,6 +52,39 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // The app draws the window's controls, so it has to tell the runner where
+  // the one control Windows cares about is. In return the runner tells it when
+  // the pointer is over that rectangle, because the pointer stops being the
+  // app's there: the system takes it for the snap layouts flyout.
+  frame_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "com.kallo.app/frame",
+          &flutter::StandardMethodCodec::GetInstance());
+  frame_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                 result) {
+        if (call.method_name() != "maximizeButton") {
+          result->NotImplemented();
+          return;
+        }
+        const flutter::EncodableValue* arguments = call.arguments();
+        const auto* rectangle =
+            arguments == nullptr
+                ? nullptr
+                : std::get_if<flutter::EncodableMap>(arguments);
+        if (rectangle == nullptr) {
+          result->Error("bad_arguments", "maximizeButton needs a rectangle");
+          return;
+        }
+        RECT rect{};
+        rect.left = FrameNumber(*rectangle, "left");
+        rect.top = FrameNumber(*rectangle, "top");
+        rect.right = rect.left + FrameNumber(*rectangle, "width");
+        rect.bottom = rect.top + FrameNumber(*rectangle, "height");
+        SetCaptionButton(rect);
+        result->Success();
+      });
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
