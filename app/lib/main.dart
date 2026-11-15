@@ -28,7 +28,6 @@ import 'lab/print_library.dart';
 import 'lab/open_print_library.dart';
 import 'lab/print_marker.dart';
 import 'lab/print_meta.dart';
-import 'lab/print_out.dart';
 import 'lab/print_request.dart';
 import 'lab/roll.dart';
 import 'lab/roll_store.dart';
@@ -131,7 +130,6 @@ class KalloApp extends StatefulWidget {
     this.prints,
     this.hanging,
     this.onImport,
-    this.jobs,
     this.exportsFolder,
     this.locale,
     this.appearance,
@@ -180,9 +178,6 @@ class KalloApp extends StatefulWidget {
   /// the library it has open, when there is one.
   final VoidCallback? onImport;
 
-  /// Prints in progress. The tests pin them; the app makes them.
-  final List<PrintJob>? jobs;
-
   /// Where prints come from. The tests pin it, so that a golden does not show
   /// the folder of whoever ran it.
   final Directory? exportsFolder;
@@ -221,11 +216,10 @@ class _KalloAppState extends State<KalloApp> {
 
   /// Whether the export folder has been read into [_prints].
   ///
-  /// Entering the rack or the gallery used to read and decode every print
-  /// again, which left a little more of the last set in the allocator each
-  /// time. A print changes the list; walking into a room does not.
+  /// Entering the gallery used to read and decode every print again, which
+  /// left a little more of the last set in the allocator each time. A print
+  /// changes the list; walking into the room does not.
   bool _printsLoaded = false;
-  List<PrintJob> _jobs = const <PrintJob>[];
   PrintLibrary? _library;
 
   /// Where the gallery's wall hangs each print, by the print's id. Empty means
@@ -276,7 +270,6 @@ class _KalloAppState extends State<KalloApp> {
     }
     final List<Print>? prints = widget.prints;
     _hanging = widget.hanging ?? const <String, Offset>{};
-    _jobs = widget.jobs ?? const <PrintJob>[];
     if (prints != null) {
       _prints = prints;
       _printsLoaded = true;
@@ -748,22 +741,6 @@ class _KalloAppState extends State<KalloApp> {
       return;
     }
     final Directory exports = library.workFolder;
-    int number = 0;
-    for (int i = 0; i < strip.prints.length; i++) {
-      if (strip.prints[i].minutes == request.minutes) {
-        number = i + 1;
-        break;
-      }
-    }
-    final PrintJob job = PrintJob(
-      frame: Frame(
-        number: number == 0 ? 1 : number,
-        minutes: request.minutes,
-        tempC: strip.tempC,
-      ),
-      exports: exports,
-    );
-    setState(() => _jobs = <PrintJob>[job, ..._jobs]);
     try {
       final String filmName =
           _catalogue?.film(strip.stockId)?.displayName ?? strip.stockLabel;
@@ -813,14 +790,8 @@ class _KalloAppState extends State<KalloApp> {
       }
       await _reloadPrints();
     } finally {
-      if (mounted) {
-        setState(
-          () => _jobs = <PrintJob>[
-            for (final PrintJob other in _jobs)
-              if (!identical(other, job)) other,
-          ],
-        );
-      }
+      // The print step is the one that says it is working; the wall is where
+      // the paper is when it is done.
     }
   }
 
@@ -1375,7 +1346,6 @@ class _KalloAppState extends State<KalloApp> {
               catalogue: _catalogue ?? Catalogue.carried,
               prints: _prints,
               exports: _library?.workFolder ?? _folder,
-              jobs: _jobs,
               onChoosePhoto: () => unawaited(_choosePhoto()),
               onFilm: (Stock film) => unawaited(_chooseFilm(film)),
               onPaper: (Stock? paper) => unawaited(_choosePaper(paper)),

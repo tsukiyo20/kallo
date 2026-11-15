@@ -14,7 +14,6 @@ import '../../design/tokens.dart';
 /// design language.
 enum KalloGlyph {
   darkroom,
-  rack,
   gallery,
   gear,
   chevronRight,
@@ -166,19 +165,6 @@ class _GlyphPainter extends CustomPainter {
         canvas.drawCircle(const Offset(12, 17.2), 2.1, paint);
         canvas.drawLine(const Offset(4.5, 21), const Offset(8.5, 21), paint);
         canvas.drawLine(const Offset(15.5, 21), const Offset(19.5, 21), paint);
-      case KalloGlyph.rack:
-        canvas.drawLine(const Offset(3, 6), const Offset(21, 6), paint);
-        for (final double x in <double>[8, 16]) {
-          canvas.drawLine(Offset(x, 6), Offset(x, 9), paint);
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(x - 2.6, 9, 5.2, 8.4),
-              const Radius.circular(1),
-            ),
-            paint,
-          );
-        }
-        canvas.drawLine(const Offset(6, 21), const Offset(18, 21), paint);
       case KalloGlyph.gallery:
         final Path wire = Path()
           ..moveTo(5, 9)

@@ -233,7 +233,7 @@ Future<Directory> _pumpBench(
         filmProcess: FilmProcess.negative,
         onPrint: onPrint,
         onGoDevelop: () {},
-        onGoRack: () {},
+        onGoGallery: () {},
       ),
     ),
   );
