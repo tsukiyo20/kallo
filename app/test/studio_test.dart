@@ -22,6 +22,7 @@ import 'package:kallo/widgets/stepper.dart';
 import 'package:kallo/widgets/print_image.dart';
 import 'package:kallo/widgets/print_viewer.dart';
 import 'package:kallo/widgets/studio_sidebar.dart';
+import 'package:kallo/widgets/studio_top_bar.dart';
 import 'package:kallo/widgets/wall.dart';
 import 'package:kallo/widgets/window_controls.dart';
 
@@ -116,6 +117,123 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(asked, 1);
+  });
+
+  testWidgets('a double click still fills the screen where the band drags', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int asked = 0;
+    int dragged = 0;
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+        chrome: WindowChrome.windows,
+        onDragWindow: () => dragged++,
+        onToggleMaximize: () => asked++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A band that only knows how to drag starts one on the press itself: the
+    // double click would be swallowed and the window would move instead.
+    const Offset band = Offset(320, 28);
+    await tester.tapAt(band);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(band);
+    await tester.pumpAndSettle();
+
+    expect(asked, 1);
+    expect(dragged, 0);
+  });
+
+  testWidgets('a press on the band is not a drag until it moves', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int dragged = 0;
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.select,
+        locale: const Locale('zh'),
+        chrome: WindowChrome.windows,
+        onDragWindow: () => dragged++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final TestGesture press = await tester.startGesture(const Offset(320, 28));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(dragged, 0);
+
+    await press.up();
+    await tester.pumpAndSettle();
+    expect(dragged, 0);
+  });
+
+  testWidgets('a control in the band answers on the click, not on a timer', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    int inspector = 0;
+    await tester.pumpWidget(
+      KalloScope(
+        colors: KalloColors.dark,
+        pinned: Brightness.dark,
+        onPin: (Brightness? _) {},
+        child: Localizations(
+          locale: const Locale('zh'),
+          delegates: const <LocalizationsDelegate<Object>>[
+            KalloStrings.delegate,
+            DefaultWidgetsLocalizations.delegate,
+          ],
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 1280,
+                child: StudioTopBar(
+                  sidebarOpen: false,
+                  onSidebar: () {},
+                  chrome: WindowChrome.windows,
+                  inspectorOpen: true,
+                  onInspector: () => inspector++,
+                  onDragWindow: () {},
+                  onToggleMaximize: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The window's caption is the band behind the controls, not the controls
+    // themselves: a tap on the inspector switch is the app's, and must not
+    // wait out the double click that fills the screen.
+    await tester.tap(find.byKey(const Key('inspector-toggle')));
+    await tester.pump();
+    expect(inspector, 1);
   });
 
   testWidgets('a single click on the band does not fill the screen', (

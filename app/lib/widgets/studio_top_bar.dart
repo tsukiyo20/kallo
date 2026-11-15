@@ -84,67 +84,75 @@ class StudioTopBar extends StatelessWidget {
     final double edge = controls ? 8 + WindowControls.width + 12 : 16;
     return SizedBox(
       height: height,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onPanStart: onDragWindow == null ? null : (_) => onDragWindow!(),
-        onDoubleTap: onToggleMaximize,
-        child: Stack(
-          children: <Widget>[
-            if (center != null)
-              AnimatedPositioned(
-                duration: KalloMotion.settle,
-                curve: KalloMotion.enter,
-                left: 0,
-                right: rightInset,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: center,
-                  ),
+      child: Stack(
+        children: <Widget>[
+          // The band is the window's caption, and only the band: it goes
+          // underneath the controls, so a press on one of them is that
+          // control's and never waits for a double click that belongs to the
+          // window. The tap is here so the pan is not alone in the arena --
+          // a lone pan wins on the press itself and would grab the window for
+          // every click, and the double click would never be recognised.
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onDragWindow == null ? null : () {},
+              onPanStart: onDragWindow == null ? null : (_) => onDragWindow!(),
+              onDoubleTap: onToggleMaximize,
+            ),
+          ),
+          if (center != null)
+            AnimatedPositioned(
+              duration: KalloMotion.settle,
+              curve: KalloMotion.enter,
+              left: 0,
+              right: rightInset,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: center,
                 ),
               ),
-            if (showSidebar && !sidebarOpen)
-              AnimatedPositioned(
-                duration: KalloMotion.settle,
-                curve: KalloMotion.enter,
-                left: left,
-                top: (height - 34) / 2,
-                child: PaneButton(
-                  key: const Key('sidebar-toggle'),
-                  side: PaneSide.left,
-                  open: false,
-                  label: s.showSidebar,
-                  onTap: onSidebar,
-                ),
+            ),
+          if (showSidebar && !sidebarOpen)
+            AnimatedPositioned(
+              duration: KalloMotion.settle,
+              curve: KalloMotion.enter,
+              left: left,
+              top: (height - 34) / 2,
+              child: PaneButton(
+                key: const Key('sidebar-toggle'),
+                side: PaneSide.left,
+                open: false,
+                label: s.showSidebar,
+                onTap: onSidebar,
               ),
-            if (trailing != null)
-              Positioned(right: edge, top: (height - 30) / 2, child: trailing!)
-            else if (onInspector != null)
-              Positioned(
-                right: edge,
-                top: (height - 34) / 2,
-                child: PaneButton(
-                  key: const Key('inspector-toggle'),
-                  side: PaneSide.right,
-                  open: inspectorOpen ?? true,
-                  label: (inspectorOpen ?? true)
-                      ? s.hideInspector
-                      : s.showInspector,
-                  onTap: onInspector!,
-                ),
+            ),
+          if (trailing != null)
+            Positioned(right: edge, top: (height - 30) / 2, child: trailing!)
+          else if (onInspector != null)
+            Positioned(
+              right: edge,
+              top: (height - 34) / 2,
+              child: PaneButton(
+                key: const Key('inspector-toggle'),
+                side: PaneSide.right,
+                open: inspectorOpen ?? true,
+                label: (inspectorOpen ?? true)
+                    ? s.hideInspector
+                    : s.showInspector,
+                onTap: onInspector!,
               ),
-            if (controls)
-              Positioned(
-                right: 8,
-                top: (height - 34) / 2,
-                child: const WindowControls(),
-              ),
-          ],
-        ),
+            ),
+          if (controls)
+            Positioned(
+              right: 8,
+              top: (height - 34) / 2,
+              child: const WindowControls(),
+            ),
+        ],
       ),
     );
   }
 }
-

@@ -259,6 +259,12 @@ class _StudioState extends State<Studio> {
             height: 44,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
+              // A press here is not a drag until it moves. Without a tap in
+              // the same arena the pan is alone in it, wins on the press, and
+              // hands the pointer to Windows' move loop: the loop takes the
+              // button up away from Flutter, which then holds that button down
+              // for the rest of the session and ignores every click.
+              onTap: () {},
               onPanStart: (_) => widget.onDragWindow!(),
             ),
           ),
@@ -577,7 +583,8 @@ class _StudioState extends State<Studio> {
       sidebarOpen: _sidebar,
       showSidebar: !_compact,
       onSidebar: () => setState(() => _sidebar = !_sidebar),
-      chrome: widget.chrome,      inspectorOpen: _hasInspector ? _inspector : null,
+      chrome: widget.chrome,
+      inspectorOpen: _hasInspector ? _inspector : null,
       onInspector: _hasInspector
           ? () => setState(() => _inspector = !_inspector)
           : null,
