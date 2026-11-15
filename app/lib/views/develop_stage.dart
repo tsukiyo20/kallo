@@ -875,6 +875,9 @@ class _DevelopStageState extends State<DevelopStage> {
                           aspect: aspect,
                           paper: colors.print,
                           outline: colors.hairline,
+                          footnote: _compareOn
+                              ? _compareFooter(s, compact: true)
+                              : null,
                           child: image == null
                               ? Center(
                                   child: Text(
@@ -1410,6 +1413,9 @@ class _DevelopStageState extends State<DevelopStage> {
                           aspect: aspect,
                           paper: colors.print,
                           outline: colors.hairline,
+                          footnote: _compareOn
+                              ? _compareFooter(s, compact: false)
+                              : null,
                           child: image == null
                               ? Center(
                                   child: Text(
@@ -1572,6 +1578,27 @@ class _DevelopStageState extends State<DevelopStage> {
             onSettled: _settled,
           ),
         ),
+      ],
+    );
+  }
+
+  /// The wipe's two sides, named in the paper's bottom margin. The picture
+  /// itself is not written on: the margin is where a print is held.
+  Widget _compareFooter(KalloStrings s, {required bool compact}) {
+    final TextStyle style = (compact
+            ? KalloMobileType.caption
+            : KalloType.caption)
+        .copyWith(
+          fontSize: 8.5,
+          letterSpacing: 1.2,
+          fontWeight: FontWeight.w500,
+          color: KalloInk.faint,
+        );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        Text(s.theOriginal, style: style),
+        Text(s.testPrint, style: style),
       ],
     );
   }

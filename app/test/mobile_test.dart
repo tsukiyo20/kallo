@@ -229,6 +229,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the phone names the two sides of the wipe', (
+    WidgetTester tester,
+  ) async {
+    _phone(tester);
+    final TestStrip strip = const TestStrip(photo: '/photographs/uji.jpg')
+        .withPrint(
+          TestPrint(minutes: 12, tempC: 20, image: card, chart: _chart(12)),
+        );
+    await tester.pumpWidget(
+      _app(card: card, step: DarkroomStep.develop, strip: strip),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ORIGINAL'), findsNothing);
+    await tester.tap(find.byKey(const Key('phone-compare')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // The paper's bottom margin names the two sides; the deck's caption still
+    // names the print, so "Test print" is twice.
+    expect(find.text('ORIGINAL'), findsOneWidget);
+    expect(find.text('Test print'), findsNWidgets(2));
+  });
+
   testWidgets('the print step shows its values and the edge control', (
     WidgetTester tester,
   ) async {

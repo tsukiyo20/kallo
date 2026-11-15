@@ -557,6 +557,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('对比'), findsOneWidget);
+    expect(find.text('试片'), findsNothing);
     final int before = find.byType(RawImage).evaluate().length;
     await tester.tap(find.text('对比'));
     await tester.pumpAndSettle();
@@ -565,6 +566,9 @@ void main() {
       before + 1,
       reason: 'the original is laid behind the wipe',
     );
+    // The wipe names its two sides in the paper's bottom margin.
+    expect(find.text('试片'), findsOneWidget);
+    expect(find.text('原片'), findsNWidgets(2));
 
     // The wipe follows the pointer inside the picture, with no divider to grab.
     final Offset centre = tester.getCenter(find.byKey(const Key('bench-print')));
@@ -576,6 +580,7 @@ void main() {
     await tester.tap(find.text('对比'));
     await tester.pumpAndSettle();
     expect(find.byType(RawImage).evaluate().length, before);
+    expect(find.text('试片'), findsNothing);
   });
 
   testWidgets('the temperature dial asks for the next step', (
