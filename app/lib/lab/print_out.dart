@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'model.dart';
 import 'roll.dart';
@@ -44,14 +43,16 @@ Future<File> printFrame({
     final File file = File(photograph);
     if (file.existsSync()) {
       try {
-        final int width = await _width(file);
+        // The ceiling, not the frame's own width: the window's decoder cannot
+        // measure a camera raw, and the model's resize only ever shrinks, so a
+        // smaller frame passes through untouched and the print never grows.
         await Model.find().develop(
           photograph: file,
           stock: roll.stockId,
           paper: roll.paper,
           minutes: frame.minutes,
           tempC: frame.tempC,
-          width: width > _largest ? _largest : width,
+          width: _largest,
           output: image,
           spectral: roll.spectral,
         );
@@ -88,16 +89,3 @@ Future<File> printFrame({
 /// is a bigger file and not a better print.
 const int _largest = 6000;
 
-/// A file's width, read from its header rather than by decoding it.
-Future<int> _width(File file) async {
-  final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(
-    await file.readAsBytes(),
-  );
-  final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(
-    buffer,
-  );
-  final int width = descriptor.width;
-  descriptor.dispose();
-  buffer.dispose();
-  return width;
-}

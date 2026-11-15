@@ -775,6 +775,7 @@ class _KalloAppState extends State<KalloApp> {
         printEv: request.printEv,
         filters: request.filters,
         heatGlass: request.heatGlass,
+        border: request.border.name,
       );
       final DateTime now = DateTime.now().toUtc();
       final PrintMeta meta = PrintMeta(
