@@ -3,6 +3,14 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # A dry run: build the desktop apps and upload them as workflow artifacts,
+  # without publishing a release. A tag still does both.
+  workflow_dispatch:
+    inputs:
+      desktop_only:
+        description: Skip the CLI builds
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -13,6 +21,7 @@ env:
 jobs:
   build:
     name: ${{ matrix.target }}
+    if: github.event_name == 'push' || !inputs.desktop_only
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -55,13 +64,14 @@ jobs:
           tar -czf "dist/${name}.tar.gz" -C dist "${name}"
 
       - uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push'
         with:
           files: dist/*.tar.gz
           generate_release_notes: true
 
-  # A tag publishes two things: the CLI built above, and the desktop app built
+  # A tag publishes two things: the CLI built above, and the desktop apps built
   # here. The asset names below are the updater's contract: app/lib/lab/updates.dart
-  # looks for exactly these three file names on the release, so renaming one
+  # looks for exactly these four file names on the release, so renaming one
   # here breaks self-update unless the updater changes with it.
   desktop:
     name: desktop (macOS)
@@ -113,6 +123,54 @@ jobs:
           mkdir -p app/dist
           ditto -c -k --keepParent "$bundle" "app/dist/${name}"
 
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: kallo-desktop-macos
+          path: app/dist/*.zip
+
       - uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push'
+        with:
+          files: app/dist/*.zip
+
+  desktop-windows:
+    name: desktop (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: build
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build windows --release
+
+      - name: package
+        shell: pwsh
+        run: |
+          $release = "app/build/windows/x64/runner/Release"
+          if (-Not (Test-Path "$release/kallo.exe")) {
+            throw "the build has no kallo.exe"
+          }
+          New-Item -ItemType Directory -Force app/dist | Out-Null
+          Compress-Archive -Path "$release/*" `
+            -DestinationPath "app/dist/kallo-desktop-windows-x86_64.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: kallo-desktop-windows
+          path: app/dist/*.zip
+
+      - uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push'
         with:
           files: app/dist/*.zip

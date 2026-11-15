@@ -231,7 +231,8 @@ Future<Directory> _pumpBench(
         exports: folder,
         filmName: 'KODAK ULTRA MAX 400',
         filmProcess: FilmProcess.negative,
-        onPrint: onPrint,
+        onPrint: (PrintRequest request, {void Function(double)? onProgress}) =>
+            onPrint(request),
         onGoDevelop: () {},
         onGoGallery: () {},
       ),

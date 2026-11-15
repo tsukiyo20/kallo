@@ -128,7 +128,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<PaperCurve> crateApiChartMakePaperCurve({required String paper});
 
-  Future<PrintReport> crateApiPrintMakePrint({required PrintJob job});
+  Stream<PrintStep> crateApiPrintMakePrint({required PrintJob job});
 
   Future<PrintCurve> crateApiChartMakePrintCurve({required PrintCurveJob job});
 
@@ -495,32 +495,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "make_paper_curve", argNames: ["paper"]);
 
   @override
-  Future<PrintReport> crateApiPrintMakePrint({required PrintJob job}) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_box_autoadd_print_job(job, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 11,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_print_report,
-          decodeErrorData: sse_decode_String,
+  Stream<PrintStep> crateApiPrintMakePrint({required PrintJob job}) {
+    final progress = RustStreamSink<PrintStep>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_box_autoadd_print_job(job, serializer);
+            sse_encode_StreamSink_print_step_Sse(progress, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 11,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiPrintMakePrintConstMeta,
+          argValues: [job, progress],
+          apiImpl: this,
         ),
-        constMeta: kCrateApiPrintMakePrintConstMeta,
-        argValues: [job],
-        apiImpl: this,
       ),
     );
+    return progress.stream;
   }
 
-  TaskConstMeta get kCrateApiPrintMakePrintConstMeta =>
-      const TaskConstMeta(debugName: "make_print", argNames: ["job"]);
+  TaskConstMeta get kCrateApiPrintMakePrintConstMeta => const TaskConstMeta(
+    debugName: "make_print",
+    argNames: ["job", "progress"],
+  );
 
   @override
   Future<PrintCurve> crateApiChartMakePrintCurve({required PrintCurveJob job}) {
@@ -670,6 +677,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return PreviewSessionImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  RustStreamSink<PrintStep> dco_decode_StreamSink_print_step_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
   }
 
   @protected
@@ -995,16 +1008,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PrintReport dco_decode_print_report(dynamic raw) {
+  PrintStep dco_decode_print_step(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
-    return PrintReport(
-      width: dco_decode_u_32(arr[0]),
-      height: dco_decode_u_32(arr[1]),
-      backend: dco_decode_String(arr[2]),
-      exposureEv: dco_decode_f_64(arr[3]),
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return PrintStep(
+      fraction: dco_decode_f_64(arr[0]),
+      stage: dco_decode_String(arr[1]),
+      backend: dco_decode_opt_String(arr[2]),
     );
   }
 
@@ -1136,6 +1148,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
+  }
+
+  @protected
+  RustStreamSink<PrintStep> sse_decode_StreamSink_print_step_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
   }
 
   @protected
@@ -1558,17 +1578,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PrintReport sse_decode_print_report(SseDeserializer deserializer) {
+  PrintStep sse_decode_print_step(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    final var_width = sse_decode_u_32(deserializer);
-    final var_height = sse_decode_u_32(deserializer);
-    final var_backend = sse_decode_String(deserializer);
-    final var_exposureEv = sse_decode_f_64(deserializer);
-    return PrintReport(
-      width: var_width,
-      height: var_height,
+    final var_fraction = sse_decode_f_64(deserializer);
+    final var_stage = sse_decode_String(deserializer);
+    final var_backend = sse_decode_opt_String(deserializer);
+    return PrintStep(
+      fraction: var_fraction,
+      stage: var_stage,
       backend: var_backend,
-      exposureEv: var_exposureEv,
     );
   }
 
@@ -1724,6 +1742,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as PreviewSessionImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_print_step_Sse(
+    RustStreamSink<PrintStep> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_print_step,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
       serializer,
     );
   }
@@ -2058,12 +2093,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_print_report(PrintReport self, SseSerializer serializer) {
+  void sse_encode_print_step(PrintStep self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_32(self.width, serializer);
-    sse_encode_u_32(self.height, serializer);
-    sse_encode_String(self.backend, serializer);
-    sse_encode_f_64(self.exposureEv, serializer);
+    sse_encode_f_64(self.fraction, serializer);
+    sse_encode_String(self.stage, serializer);
+    sse_encode_opt_String(self.backend, serializer);
   }
 
   @protected

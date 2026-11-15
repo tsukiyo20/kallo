@@ -1,7 +1,8 @@
 //! One print, at the size a print is.
 
-use kallo_api::{render, resolve, Exposure, RenderOptions, StockChoice};
-use kallo_io::resize_to_width;
+use crate::frb_generated::StreamSink;
+use kallo_api::{render_image_with_progress, resolve, Exposure, RenderOptions, StockChoice};
+use kallo_io::{resize_to_width, save_with_progress};
 
 /// What a print asks for.
 #[derive(Debug, Clone)]
@@ -51,24 +52,48 @@ pub struct PrintJob {
     pub output: String,
 }
 
-/// What a print produced.
+/// One step of a print on its way to the disk.
+///
+/// The fraction is the model's, not a clock's: the decode, the resize, the
+/// render's own stages and the file's rows each report themselves. A bar built
+/// from these moves when the work moves and stops when it stops.
 #[derive(Debug, Clone)]
-pub struct PrintReport {
-    /// Width in pixels.
-    pub width: u32,
-    /// Height in pixels.
-    pub height: u32,
-    /// `cpu` or `gpu — …`.
-    pub backend: String,
-    /// The exposure the print was made at.
-    pub exposure_ev: f64,
+pub struct PrintStep {
+    /// How much of the print is done, 0..1.
+    pub fraction: f64,
+    /// `reading`, `resizing`, `rendering`, `writing` or `done`.
+    pub stage: String,
+    /// The backend that rendered it, on the `done` step.
+    pub backend: Option<String>,
 }
 
 /// Develop and print one frame, at the size the export asks for.
 ///
 /// This is the same pipeline as a roll's frames; it exists separately because a
 /// print is rendered from the photograph again, at a size the bench never uses.
-pub fn make_print(job: PrintJob) -> Result<PrintReport, String> {
+/// The steps are reported as they land, so the interface draws the print's
+/// progress rather than its own guess at how long a print takes.
+pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), String> {
+    let mut emitted = 0.0_f64;
+    let mut started = false;
+    let mut report = |stage: &str, fraction: f64| {
+        // A GPU render that falls back to the CPU starts its stages again. The
+        // bar is the print's, not a backend's, so it must not go backwards.
+        let fraction = emitted.max(fraction.clamp(0.0, 1.0));
+        // A save reports every row; the bar moves in half-percent steps so a
+        // large print does not send a message per row across the bridge.
+        if started && fraction < emitted + 0.005 {
+            return;
+        }
+        started = true;
+        emitted = fraction;
+        let _ = progress.add(PrintStep {
+            fraction: emitted,
+            stage: stage.to_owned(),
+            backend: None,
+        });
+    };
+
     let choice = StockChoice {
         film: job.film,
         paper: job.paper,
@@ -86,14 +111,19 @@ pub fn make_print(job: PrintJob) -> Result<PrintReport, String> {
         ..StockChoice::default()
     };
     let selection = resolve(&choice).map_err(|error| error.to_string())?;
+
+    report("reading", 0.0);
     let mut image = kallo_api::read_input(
         std::path::Path::new(&job.input),
         kallo_io::InputEncoding::Srgb,
     )
     .map_err(|error| error.to_string())?;
+    report("reading", 0.1);
     if job.width > 0 {
         image = resize_to_width(&image, job.width);
     }
+    report("resizing", 0.14);
+
     let options = RenderOptions {
         ev: if job.ev_auto {
             Exposure::Auto
@@ -110,18 +140,27 @@ pub fn make_print(job: PrintJob) -> Result<PrintReport, String> {
         gpu: job.gpu,
         ..RenderOptions::default()
     };
-    let outcome = render(
-        &mut image,
-        None,
-        &selection,
-        &options,
-        std::path::Path::new(&job.output),
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(PrintReport {
-        width: outcome.width,
-        height: outcome.height,
-        backend: outcome.backend.to_string(),
-        exposure_ev: outcome.params.exposure_ev,
-    })
+    let outcome = {
+        let mut render = |fraction: f32| {
+            report("rendering", 0.14 + f64::from(fraction) * 0.58);
+        };
+        render_image_with_progress(&mut image, None, &selection, &options, &mut render)
+            .map_err(|error| error.to_string())?
+    };
+
+    let output = std::path::Path::new(&job.output);
+    {
+        let mut writing = |fraction: f32| {
+            report("writing", 0.72 + f64::from(fraction) * 0.28);
+        };
+        save_with_progress(output, &image, &mut writing).map_err(|error| error.to_string())?;
+    }
+
+    let backend = outcome.backend.to_string();
+    let _ = progress.add(PrintStep {
+        fraction: 1.0,
+        stage: "done".to_owned(),
+        backend: Some(backend),
+    });
+    Ok(())
 }

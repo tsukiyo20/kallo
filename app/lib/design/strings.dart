@@ -598,18 +598,17 @@ class KalloStrings {
   /// becomes a link to the page instead of a button that cannot work.
   String get openReleases => zh ? '打开发布页' : 'Open releases page';
 
-  /// The preview channel's switch, and what the two channels follow. The
-  /// note is the switch's whole explanation, so it says both halves.
-  String get previewBuilds => zh ? '预览版' : 'Preview builds';
-  String get previewBuildsNote => zh
-      ? '稳定版跟随 GitHub 的 latest 发布，不含预览版。预览版取最新的非草稿发布，包含预览版。'
-      : 'Stable follows GitHub\'s latest release, which is never a prerelease. Preview takes the newest published release, prereleases included.';
-
   /// The updater refuses a read-only or translocated bundle; moving the app
   /// is the only way forward, so the row says so where the failure is.
   String get updateNeedsApplications => zh
       ? '请先把 Kallo 移到“应用程序”文件夹，再更新。'
       : 'Move Kallo to Applications, then update.';
+
+  /// The same refusal on Windows: there is no Applications folder to name, only
+  /// a folder the app may or may not be allowed to write.
+  String get updateNeedsWritable => zh
+      ? '请先把 Kallo 移到可写入的文件夹，再更新。'
+      : 'Move Kallo to a folder it can write, then update.';
 
   String get applyAtOnce => zh ? '更改会立即生效。' : 'Changes apply immediately.';
 }

@@ -442,12 +442,47 @@ impl Gpu {
         height: usize,
         finishing: &Finishing,
     ) -> Result<Vec<[f64; 3]>, GpuError> {
-        self.run(pixels, prepared, width, height, finishing, false)
+        self.run(pixels, prepared, width, height, finishing, false, None)
+    }
+
+    /// [`render_finished`](Self::render_finished), reporting how much of the
+    /// device's work is done.
+    ///
+    /// The fraction counts the dispatches and the frame traffic around them:
+    /// uploading a band, each pass the chain actually runs, and reading the
+    /// band back. Those are the points at which the host knows a real step has
+    /// finished; a single dispatch is one step, so the bar can move between
+    /// passes but not inside one.
+    ///
+    /// # Errors
+    ///
+    /// As [`render_finished`](Self::render_finished).
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_finished_with_progress(
+        &self,
+        pixels: &[[f64; 3]],
+        prepared: &PreparedRender,
+        width: usize,
+        height: usize,
+        finishing: &Finishing,
+        progress: &mut dyn FnMut(f32),
+    ) -> Result<Vec<[f64; 3]>, GpuError> {
+        self.run_with_binding(
+            pixels,
+            prepared,
+            width,
+            height,
+            finishing,
+            self.max_binding_bytes,
+            false,
+            Some(progress),
+        )
     }
 
     /// The render itself. `force_chain` is a test hook: it runs the chain even
     /// when no effect needs it, which is the only way to compare the two shapes
     /// of the same model against each other.
+    #[allow(clippy::too_many_arguments)]
     fn run(
         &self,
         pixels: &[[f64; 3]],
@@ -456,6 +491,7 @@ impl Gpu {
         height: usize,
         finishing: &Finishing,
         force_chain: bool,
+        progress: Option<&mut dyn FnMut(f32)>,
     ) -> Result<Vec<[f64; 3]>, GpuError> {
         self.run_with_binding(
             pixels,
@@ -465,6 +501,7 @@ impl Gpu {
             finishing,
             self.max_binding_bytes,
             force_chain,
+            progress,
         )
     }
 
@@ -487,6 +524,7 @@ impl Gpu {
         finishing: &Finishing,
         max_binding_bytes: u64,
         force_chain: bool,
+        mut progress: Option<&mut dyn FnMut(f32)>,
     ) -> Result<Vec<[f64; 3]>, GpuError> {
         if pixels.is_empty() {
             return Err(GpuError::Empty);
@@ -560,6 +598,21 @@ impl Gpu {
             height as usize
         };
         let band_bytes = capacity_rows as u64 * row_bytes;
+
+        // What a watcher is told about: each band uploads its rows, runs the
+        // passes the chain actually contains, and reads its body back. The
+        // count is known before the first dispatch, so the fraction is a real
+        // position in the work rather than a guess at it.
+        let bands = (height as usize).div_ceil(body_rows.max(1));
+        let passes = if chain {
+            3 + usize::from(emulsion.is_some()) * 2
+                + usize::from(halation.is_some()) * 2
+                + usize::from(couplers.is_some()) * 2
+        } else {
+            1
+        };
+        let total_steps = bands * (passes + 2);
+        let mut done_steps = 0usize;
 
         let uniform = uniform(
             &scalar,
@@ -708,6 +761,7 @@ impl Gpu {
                 }
             }
             self.queue.write_buffer(&source, 0, &source_bytes);
+            report_step(&mut progress, &mut done_steps, total_steps);
 
             let mut params = uniform.clone();
             write_u32_at(
@@ -736,22 +790,32 @@ impl Gpu {
                 };
                 if chain {
                     dispatch(&self.passes.expose);
+                    report_step(&mut progress, &mut done_steps, total_steps);
                     if emulsion.is_some() {
                         dispatch(&self.passes.blur_horizontal);
+                        report_step(&mut progress, &mut done_steps, total_steps);
                         dispatch(&self.passes.blur_vertical);
+                        report_step(&mut progress, &mut done_steps, total_steps);
                     }
                     if halation.is_some() {
                         dispatch(&self.passes.halation_horizontal);
+                        report_step(&mut progress, &mut done_steps, total_steps);
                         dispatch(&self.passes.halation_vertical);
+                        report_step(&mut progress, &mut done_steps, total_steps);
                     }
                     dispatch(&self.passes.develop);
+                    report_step(&mut progress, &mut done_steps, total_steps);
                     if couplers.is_some() {
                         dispatch(&self.passes.couplers_horizontal);
+                        report_step(&mut progress, &mut done_steps, total_steps);
                         dispatch(&self.passes.couplers_vertical);
+                        report_step(&mut progress, &mut done_steps, total_steps);
                     }
                     dispatch(&self.passes.positive);
+                    report_step(&mut progress, &mut done_steps, total_steps);
                 } else {
                     dispatch(&self.passes.simple);
+                    report_step(&mut progress, &mut done_steps, total_steps);
                 }
             }
             encoder.copy_buffer_to_buffer(&output, body_offset, &staging, 0, body_bytes);
@@ -793,6 +857,7 @@ impl Gpu {
             }
             drop(mapped);
             staging.unmap();
+            report_step(&mut progress, &mut done_steps, total_steps);
 
             start = end;
         }
@@ -821,6 +886,18 @@ impl Gpu {
                 self.adapter.name, self.adapter.backend
             ))
         })
+    }
+}
+
+/// One real step of the device's work, reported as a fraction of the total.
+///
+/// A step is a band's upload, one pass, or its readback — the places where the
+/// host knows the device has finished something. Inside a dispatch there is no
+/// progress to ask the GPU for.
+fn report_step(progress: &mut Option<&mut dyn FnMut(f32)>, done: &mut usize, total: usize) {
+    *done += 1;
+    if let Some(callback) = progress.as_deref_mut() {
+        callback((*done as f32 / total as f32).min(1.0));
     }
 }
 
@@ -1739,6 +1816,7 @@ mod tests {
                 &finishing,
                 u64::MAX,
                 false,
+                None,
             )
             .expect("the whole frame renders");
         // 128 rows of 64 pixels is 128 KiB, less than the 256 KiB frame and
@@ -1753,6 +1831,7 @@ mod tests {
                 &finishing,
                 band_limit,
                 false,
+                None,
             )
             .expect("the frame renders in bands");
 
@@ -1796,6 +1875,7 @@ mod tests {
                 HEIGHT,
                 &Finishing::default(),
                 true,
+                None,
             )
             .expect("renders");
 
@@ -2010,6 +2090,32 @@ mod tests {
             }
             assert!(worst < 1e-9, "{name}: the replay differs by {worst:.2e}");
         }
+    }
+    /// The device reports the steps it really took, and the last one is the end.
+    #[test]
+    fn progress_walks_the_device_steps_to_the_end() {
+        let gpu = match Gpu::new() {
+            Ok(gpu) => gpu,
+            Err(_) => return,
+        };
+        let prepared = RenderParams::default().prepare();
+        let input = frame();
+        let mut steps = Vec::new();
+        gpu.render_finished_with_progress(
+            &input,
+            &prepared,
+            WIDTH,
+            HEIGHT,
+            &Finishing::default(),
+            &mut |fraction| steps.push(fraction),
+        )
+        .expect("renders");
+        assert_eq!(steps.len(), 3, "upload, one dispatch, readback: {steps:?}");
+        assert_eq!(steps.last().copied(), Some(1.0));
+        assert!(
+            steps.windows(2).all(|pair| pair[0] <= pair[1]),
+            "a device render does not go backwards: {steps:?}"
+        );
     }
 }
 

@@ -64,6 +64,7 @@ class FfiModel implements Model {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    void Function(double)? onProgress,
   }) async {
     if (!RenderPreference.gpu) {
       // The CPU was chosen: there is no attempt to fail, and no retry to make.
@@ -81,6 +82,7 @@ class FfiModel implements Model {
         filters: filters,
         heatGlass: heatGlass,
         gpu: false,
+        onProgress: onProgress,
       );
       return;
     }
@@ -99,6 +101,7 @@ class FfiModel implements Model {
         filters: filters,
         heatGlass: heatGlass,
         gpu: true,
+        onProgress: onProgress,
       );
     } on Object catch (error) {
       // Some Android Vulkan drivers reject a valid render at print size. The
@@ -119,6 +122,7 @@ class FfiModel implements Model {
         filters: filters,
         heatGlass: heatGlass,
         gpu: false,
+        onProgress: onProgress,
       );
     }
   }
@@ -137,8 +141,9 @@ class FfiModel implements Model {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    void Function(double)? onProgress,
   }) async {
-    final print_api.PrintReport report = await print_api.makePrint(
+    final Stream<print_api.PrintStep> steps = print_api.makePrint(
       job: print_api.PrintJob(
         input: photograph.path,
         film: stock,
@@ -162,8 +167,13 @@ class FfiModel implements Model {
         output: output.path,
       ),
     );
-    if (gpu) {
-      Model.log('the print at ${report.width}px is on ${report.backend}');
+    String? backend;
+    await for (final print_api.PrintStep step in steps) {
+      onProgress?.call(step.fraction);
+      backend = step.backend ?? backend;
+    }
+    if (gpu && backend != null) {
+      Model.log('the print is on $backend');
     }
   }
 

@@ -36,6 +36,7 @@ pub use input::{handles_raw, read_input};
 pub use preview::{PreviewFrame, PreviewRequest, PreviewSession};
 pub use render::{
     Backend, Exposure, OwnedFinishing, RenderOptions, RenderOutcome, render, render_image,
+    render_image_with_progress,
 };
 pub use roll::{Progress, RollOutcome, RollRequest, roll};
 pub use selection::{Selection, StockChoice, camera_profile, check_model, resolve};

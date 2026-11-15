@@ -10,7 +10,6 @@ import 'package:kallo/design/strings.dart';
 import 'package:kallo/design/tokens.dart';
 import 'package:kallo/lab/exports.dart';
 import 'package:kallo/lab/render_mode.dart';
-import 'package:kallo/lab/settings.dart';
 import 'package:kallo/lab/updates.dart';
 import 'package:kallo/views/drawer.dart';
 
@@ -49,10 +48,12 @@ UpdateService _service(
   String body, {
   Abi abi = Abi.macosArm64,
   bool macos = true,
+  bool windows = false,
   List<Uri>? requests,
 }) => UpdateService(
   abi: abi,
   macos: macos,
+  windows: windows,
   fetcher: (Uri url) async {
     requests?.add(url);
     return body;
@@ -81,14 +82,20 @@ UpdateDownloadOpener _bytes(List<int> bytes) =>
 /// A service with a fake download, for the install paths that get that far.
 UpdateService _installService({
   required UpdateDownloadOpener download,
-  required String bundlePath,
+  String bundlePath = '/Applications/Kallo.app',
   Future<void> Function(String script)? launchInstaller,
   bool macos = true,
+  bool windows = false,
+  String? executablePath,
+  Future<void> Function(File archive, Directory into)? unpack,
   List<String>? launches,
 }) => UpdateService(
   macos: macos,
-  abi: Abi.macosArm64,
-  bundlePath: bundlePath,
+  windows: windows,
+  abi: windows ? Abi.windowsX64 : Abi.macosArm64,
+  bundlePath: macos ? bundlePath : null,
+  executablePath: executablePath,
+  unpack: unpack,
   fetcher: (Uri url) async => '{}',
   openDownload: download,
   launchInstaller:
@@ -141,7 +148,7 @@ void main() {
   });
 
   group('checking', () {
-    test('stable asks latest and reads the release', () async {
+    test('latest reads the release GitHub answers', () async {
       final List<Uri> requests = <Uri>[];
       final UpdateService service = _service(
         _json(
@@ -155,7 +162,7 @@ void main() {
         requests: requests,
       );
 
-      final UpdateCheck check = await service.check(UpdateChannel.stable);
+      final UpdateCheck check = await service.check();
 
       expect(requests.single.path, '/repos/tsukiyo20/kallo/releases/latest');
       expect(requests.single.host, 'api.github.com');
@@ -166,7 +173,6 @@ void main() {
       expect(release.notes, 'the notes');
       expect(release.page.toString(), '$kReleases/tag/v0.2.0');
       expect(release.publishedAt, DateTime.utc(2026, 1, 2));
-      expect(release.isPreview, isFalse);
       // The arm build is the exact fit even when a universal one is present.
       expect(release.asset?.name, kUpdateAssetArm);
       expect(release.asset?.size, 4096);
@@ -179,7 +185,7 @@ void main() {
         'v0.1.0-preview.2',
       ]) {
         final UpdateCheck check = await _service(_json(_release(tag: tag)))
-            .check(UpdateChannel.stable);
+            .check();
         expect(check, isA<UpdateUpToDate>(), reason: tag);
       }
     });
@@ -187,74 +193,15 @@ void main() {
     test('a draft is never offered', () async {
       final UpdateCheck check = await _service(
         _json(_release(tag: 'v0.3.0', draft: true)),
-      ).check(UpdateChannel.stable);
+      ).check();
       expect(check, isA<UpdateUpToDate>());
     });
 
-    test(
-      'preview takes the newest published release, drafts ignored',
-      () async {
-        final List<Uri> requests = <Uri>[];
-        final UpdateService service = _service(
-          _json(<Map<String, Object?>>[
-            _release(
-              tag: 'v0.2.0',
-              published: '2026-01-01T00:00:00Z',
-              assets: <Map<String, Object?>>[_asset(kUpdateAssetArm)],
-            ),
-            _release(
-              tag: 'v0.4.0',
-              draft: true,
-              published: '2026-03-01T00:00:00Z',
-            ),
-            _release(
-              tag: 'v0.2.1-preview.1',
-              prerelease: true,
-              published: '2026-02-01T00:00:00Z',
-              assets: <Map<String, Object?>>[_asset(kUpdateAssetArm)],
-            ),
-          ]),
-          requests: requests,
-        );
-
-        final UpdateCheck check = await service.check(UpdateChannel.preview);
-
-        expect(requests.single.path, '/repos/tsukiyo20/kallo/releases');
-        expect(requests.single.query, 'per_page=10');
-        expect(check, isA<UpdateAvailable>());
-        final UpdateRelease release = (check as UpdateAvailable).release;
-        expect(release.version, '0.2.1-preview.1');
-        expect(release.isPreview, isTrue);
-      },
-    );
-
-    test('preview can offer a stable release when it is the newest', () async {
-      final UpdateCheck check = await _service(
-        _json(<Map<String, Object?>>[
-          _release(tag: 'v0.2.0', published: '2026-02-01T00:00:00Z'),
-          _release(tag: 'v0.1.5', published: '2026-01-01T00:00:00Z'),
-        ]),
-      ).check(UpdateChannel.preview);
-      expect(check, isA<UpdateAvailable>());
-      expect((check as UpdateAvailable).release.version, '0.2.0');
-      expect(check.release.isPreview, isFalse);
-    });
-
-    test('an empty preview list is up to date, not a failure', () async {
-      final UpdateCheck check = await _service(_json(<Object?>[]))
-          .check(UpdateChannel.preview);
-      expect(check, isA<UpdateUpToDate>());
-    });
-
-    test('a tag the updater cannot order is skipped, not guessed at', () async {
-      final UpdateCheck check = await _service(
-        _json(<Map<String, Object?>>[
-          _release(tag: 'nightly', published: '2026-03-01T00:00:00Z'),
-          _release(tag: 'v0.0.9', published: '2026-01-01T00:00:00Z'),
-        ]),
-      ).check(UpdateChannel.preview);
-      // The only orderable tag is older than the installed 0.1.0.
-      expect(check, isA<UpdateUpToDate>());
+    test('latest with a tag it cannot order is a malformed answer', () async {
+      final UpdateCheck check = await _service(_json(_release(tag: 'nightly')))
+          .check();
+      expect(check, isA<UpdateFailed>());
+      expect((check as UpdateFailed).problem, UpdateProblem.malformed);
     });
 
     test(
@@ -262,8 +209,7 @@ void main() {
       () async {
         final Map<String, Object?> raw = _release();
         raw.remove('html_url');
-        final UpdateCheck check = await _service(_json(raw))
-            .check(UpdateChannel.stable);
+        final UpdateCheck check = await _service(_json(raw)).check();
         expect((check as UpdateAvailable).release.page.toString(), kReleases);
       },
     );
@@ -275,14 +221,10 @@ void main() {
         '{"tag_name": 7}',
         '{"tag_name": "nightly"}',
       ]) {
-        final UpdateCheck check = await _service(body)
-            .check(UpdateChannel.stable);
+        final UpdateCheck check = await _service(body).check();
         expect(check, isA<UpdateFailed>(), reason: body);
         expect((check as UpdateFailed).problem, UpdateProblem.malformed);
       }
-      final UpdateCheck list = await _service('{}')
-          .check(UpdateChannel.preview);
-      expect((list as UpdateFailed).problem, UpdateProblem.malformed);
     });
 
     test('an HTTP failure is a retryable failure', () async {
@@ -293,7 +235,7 @@ void main() {
           throw const UpdateRequestException(500, 'GitHub answered 500.');
         },
       );
-      final UpdateCheck check = await denied.check(UpdateChannel.stable);
+      final UpdateCheck check = await denied.check();
       expect(check, isA<UpdateFailed>());
       expect((check as UpdateFailed).problem, UpdateProblem.network);
 
@@ -302,7 +244,7 @@ void main() {
         macos: true,
         fetcher: (Uri url) async => throw const SocketException('down'),
       );
-      expect(await down.check(UpdateChannel.stable), isA<UpdateFailed>());
+      expect(await down.check(), isA<UpdateFailed>());
 
       final UpdateService slow = UpdateService(
         abi: Abi.macosArm64,
@@ -313,7 +255,7 @@ void main() {
           return '{}';
         },
       );
-      final UpdateCheck timedOut = await slow.check(UpdateChannel.stable);
+      final UpdateCheck timedOut = await slow.check();
       expect(timedOut, isA<UpdateFailed>());
       expect((timedOut as UpdateFailed).problem, UpdateProblem.network);
     });
@@ -326,7 +268,7 @@ void main() {
           throw const UpdateRequestException(404, 'no release');
         },
       );
-      expect(await service.check(UpdateChannel.stable), isA<UpdateUpToDate>());
+      expect(await service.check(), isA<UpdateUpToDate>());
     });
   });
 
@@ -341,7 +283,7 @@ void main() {
           ),
         ),
         abi: abi,
-      ).check(UpdateChannel.stable);
+      ).check();
       return (check as UpdateAvailable).release;
     }
 
@@ -378,6 +320,27 @@ void main() {
           kUpdateAssetUniversal,
         ])).asset?.name,
         kUpdateAssetUniversal,
+      );
+    });
+
+    test('a Windows PC takes the Windows archive', () async {
+      final UpdateService service = _service(
+        _json(
+          _release(
+            assets: <Map<String, Object?>>[
+              _asset(kUpdateAssetWindows),
+              _asset(kUpdateAssetArm),
+            ],
+          ),
+        ),
+        abi: Abi.windowsX64,
+        macos: false,
+        windows: true,
+      );
+      final UpdateCheck check = await service.check();
+      expect(
+        (check as UpdateAvailable).release.asset?.name,
+        kUpdateAssetWindows,
       );
     });
 
@@ -659,6 +622,84 @@ void main() {
     );
   });
 
+  test('the Windows script quotes paths and waits for the old process', () {
+    final String script = windowsInstallerScript(
+      pid: 4242,
+      folder: r"C:\Program Files\Kallo's",
+      replacement: r'C:\Temp\kallo-update-1\unpacked',
+      temporary: r'C:\Temp\kallo-update-1',
+      executable: 'kallo.exe',
+    );
+    expect(script, contains(r"Get-Process -Id 4242"));
+    expect(script, contains(r'Remove-Item -LiteralPath'));
+    expect(script, contains(r'Start-Process'));
+    // An apostrophe is doubled, so the folder stays one argument.
+    expect(script, contains(r"'C:\Program Files\Kallo''s'"));
+    expect(script, contains("'kallo.exe'"));
+  });
+
+  test('a Windows install hands PowerShell a swap script', () async {
+    final Directory folder = Directory.systemTemp.createTempSync('kallo-');
+    addTearDown(() => folder.deleteSync(recursive: true));
+    final Directory install = Directory('${folder.path}/Kallo')..createSync();
+    final File oldExe = File('${install.path}/kallo.exe')
+      ..writeAsStringSync('old');
+
+    final List<String> launches = <String>[];
+    final UpdateService service = _installService(
+      download: _bytes(List<int>.filled(16, 1)),
+      macos: false,
+      windows: true,
+      executablePath: oldExe.path,
+      unpack: (File archive, Directory into) async {
+        File('${into.path}/kallo.exe').writeAsStringSync('new');
+        Directory('${into.path}/data').createSync();
+      },
+      launchInstaller: (String script) async => launches.add(script),
+    );
+    final UpdateRelease release = UpdateRelease(
+      tag: 'v0.2.0',
+      version: '0.2.0',
+      notes: '',
+      page: Uri.parse(kReleases),
+      asset: UpdateAsset(
+        name: kUpdateAssetWindows,
+        url: Uri.parse('https://example.test/$kUpdateAssetWindows'),
+        size: 16,
+      ),
+    );
+
+    await service.install(release, onProgress: (double _) {});
+    expect(launches, hasLength(1));
+    final String script = File(launches.single).readAsStringSync();
+    expect(script, contains(install.path));
+    expect(script, contains('unpacked'));
+    expect(script, contains('kallo.exe'));
+    // The running folder is untouched: only the script moves it, after exit.
+    expect(oldExe.readAsStringSync(), 'old');
+  });
+
+  test('a Windows install away from a writable folder is refused', () async {
+    final Directory folder = Directory.systemTemp.createTempSync('kallo-');
+    addTearDown(() => folder.deleteSync(recursive: true));
+    final UpdateService service = _installService(
+      download: _bytes(List<int>.filled(16, 1)),
+      macos: false,
+      windows: true,
+      executablePath: '${folder.path}/gone/kallo.exe',
+    );
+    await expectLater(
+      service.install(_releaseModel(), onProgress: (double _) {}),
+      throwsA(
+        isA<UpdateInstallException>().having(
+          (UpdateInstallException error) => error.problem,
+          'problem',
+          UpdateProblem.location,
+        ),
+      ),
+    );
+  });
+
   group('controller', () {
     test('a check moves through checking to available or failed', () async {
       final _FakeService service = _FakeService();
@@ -687,32 +728,10 @@ void main() {
       final Future<void> first = controller.check();
       expect(controller.stage, UpdateStage.checking);
       await controller.check();
-      expect(service.checked, hasLength(1));
+      expect(service.checks, 1);
       service.gate!.complete();
       await first;
     });
-
-    test(
-      'moving the channel forgets the answer and reports the choice',
-      () async {
-        final _FakeService service = _FakeService();
-        final List<UpdateChannel> changes = <UpdateChannel>[];
-        final UpdateController controller = UpdateController(
-          service: service,
-          onChannelChanged: changes.add,
-        );
-        addTearDown(controller.dispose);
-        service.next = UpdateAvailable(_releaseModel());
-        await controller.check();
-        expect(controller.release, isNotNull);
-
-        controller.setChannel(UpdateChannel.preview);
-        expect(controller.channel, UpdateChannel.preview);
-        expect(controller.release, isNull);
-        expect(controller.stage, UpdateStage.idle);
-        expect(changes, <UpdateChannel>[UpdateChannel.preview]);
-      },
-    );
 
     test('an install failure keeps the release for a retry', () async {
       final _FakeService service = _FakeService()
@@ -746,7 +765,7 @@ void main() {
       expect(find.text('Check for updates'), findsOneWidget);
       expect(find.text('Changelog'), findsOneWidget);
       expect(find.text('GitHub Releases'), findsOneWidget);
-      expect(service.checked, isEmpty);
+      expect(service.checks, 0);
     });
 
     testWidgets('an available release installs with progress, then restarts', (
@@ -795,29 +814,6 @@ void main() {
       await tester.tap(find.byKey(const Key('about-update')));
       await tester.pumpAndSettle();
       expect(find.text('Up to date'), findsOneWidget);
-    });
-
-    testWidgets('the preview switch checks the preview channel next time', (
-      WidgetTester tester,
-    ) async {
-      final _FakeService service = _FakeService();
-      final List<UpdateChannel> changes = <UpdateChannel>[];
-      final UpdateController controller = UpdateController(
-        service: service,
-        onChannelChanged: changes.add,
-      );
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(_about(controller));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('about-preview')));
-      await tester.pumpAndSettle();
-      expect(changes, <UpdateChannel>[UpdateChannel.preview]);
-      expect(find.textContaining('Stable follows GitHub'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('about-update')));
-      await tester.pumpAndSettle();
-      expect(service.checked, <UpdateChannel>[UpdateChannel.preview]);
     });
 
     testWidgets('a release with no installable file opens its page instead', (
@@ -918,15 +914,15 @@ class _FakeService extends UpdateService {
   /// A gate a check waits on, for the checking state.
   Completer<void>? checkGate;
 
-  final List<UpdateChannel> checked = <UpdateChannel>[];
+  int checks = 0;
   final List<String> events = <String>[];
 
   @override
   bool get canInstall => true;
 
   @override
-  Future<UpdateCheck> check(UpdateChannel channel) async {
-    checked.add(channel);
+  Future<UpdateCheck> check() async {
+    checks++;
     final Completer<void>? gate = checkGate;
     if (gate != null) {
       await gate.future;

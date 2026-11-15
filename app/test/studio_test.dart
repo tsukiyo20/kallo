@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -15,6 +16,7 @@ import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/develop_stage.dart';
 import 'package:kallo/views/steps.dart';
+import 'package:kallo/widgets/button.dart';
 import 'package:kallo/widgets/materials_card.dart';
 import 'package:kallo/widgets/stage_tabs.dart';
 import 'package:kallo/widgets/stepper.dart';
@@ -690,7 +692,7 @@ void main() {
               onFilm: (_) {},
               onPaper: (_) {},
               onTemperature: (double value) => chosen = value,
-              onDevelop: (_) async {},
+              onDevelop: (_, {onProgress}) async {},
               onRemove: (_) async {},
             ),
           ),
@@ -816,7 +818,8 @@ void main() {
     expect(find.text('GitHub Releases'), findsOneWidget);
     expect(find.text('更新'), findsOneWidget);
     expect(find.text('检查更新'), findsOneWidget);
-    expect(find.text('预览版'), findsOneWidget);
+    // One update answer: latest, never a preview channel to choose.
+    expect(find.text('预览版'), findsNothing);
     expect(
       tester.getTopLeft(find.text('关于')).dy,
       lessThan(tester.getTopLeft(find.text('语言')).dy),
@@ -830,6 +833,75 @@ void main() {
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('不可用'), findsOneWidget);
     expect(find.textContaining('核'), findsWidgets);
+  });
+
+  testWidgets("the develop button follows the model's progress", (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    void Function(double)? report;
+    final Completer<void> gate = Completer<void>();
+    const TestStrip strip = TestStrip(photo: '/photographs/uji.jpg', tempC: 20);
+    await tester.pumpWidget(
+      KalloScope(
+        colors: KalloColors.dark,
+        pinned: Brightness.dark,
+        onPin: (Brightness? _) {},
+        child: Localizations(
+          locale: const Locale('zh'),
+          delegates: const <LocalizationsDelegate<Object>>[
+            KalloStrings.delegate,
+            DefaultWidgetsLocalizations.delegate,
+          ],
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: DevelopStage(
+              strip: strip,
+              catalogue: Catalogue.carried,
+              photograph: card,
+              onChoosePhoto: () {},
+              onFilm: (_) {},
+              onPaper: (_) {},
+              onTemperature: (double value) {},
+              onDevelop: (_, {onProgress}) async {
+                report = onProgress;
+                await gate.future;
+              },
+              onRemove: (_) async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder button = find.byKey(const Key('develop-action'));
+    expect(button, findsOneWidget);
+    expect(tester.widget<KalloButton>(button).progress, isNull);
+
+    await tester.tap(button);
+    for (int i = 0; i < 20 && report == null; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(report, isNotNull, reason: 'the action should ask for progress');
+
+    // The model's stage is what the bar follows: not a clock, and not a frame
+    // of its own.
+    report!(0.4);
+    await tester.pump();
+    expect(tester.widget<KalloButton>(button).progress, closeTo(0.4, 0.0001));
+    report!(0.7);
+    await tester.pump();
+    expect(tester.widget<KalloButton>(button).progress, closeTo(0.7, 0.0001));
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    expect(tester.widget<KalloButton>(button).progress, isNull);
   });
 
   testWidgets('the gallery is the other place, and it hangs paper', (

@@ -62,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<PrintStep> dco_decode_StreamSink_print_step_Sse(dynamic raw);
+
+  @protected
   RustStreamSink<RollProgress> dco_decode_StreamSink_roll_progress_Sse(
     dynamic raw,
   );
@@ -151,7 +154,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PrintJob dco_decode_print_job(dynamic raw);
 
   @protected
-  PrintReport dco_decode_print_report(dynamic raw);
+  PrintStep dco_decode_print_step(dynamic raw);
 
   @protected
   RollJob dco_decode_roll_job(dynamic raw);
@@ -198,6 +201,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   PreviewSession
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPreviewSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<PrintStep> sse_decode_StreamSink_print_step_Sse(
     SseDeserializer deserializer,
   );
 
@@ -295,7 +303,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PrintJob sse_decode_print_job(SseDeserializer deserializer);
 
   @protected
-  PrintReport sse_decode_print_report(SseDeserializer deserializer);
+  PrintStep sse_decode_print_step(SseDeserializer deserializer);
 
   @protected
   RollJob sse_decode_roll_job(SseDeserializer deserializer);
@@ -352,6 +360,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPreviewSession(
     PreviewSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_print_step_Sse(
+    RustStreamSink<PrintStep> self,
     SseSerializer serializer,
   );
 
@@ -476,7 +490,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_print_job(PrintJob self, SseSerializer serializer);
 
   @protected
-  void sse_encode_print_report(PrintReport self, SseSerializer serializer);
+  void sse_encode_print_step(PrintStep self, SseSerializer serializer);
 
   @protected
   void sse_encode_roll_job(RollJob self, SseSerializer serializer);

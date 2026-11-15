@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,11 +11,9 @@ import '../design/tokens.dart';
 import '../lab/exports.dart';
 import '../lab/render_device.dart';
 import '../lab/render_mode.dart';
-import '../lab/settings.dart';
 import '../lab/updates.dart';
 import '../widgets/button.dart';
 import '../widgets/segments.dart';
-import '../widgets/switch.dart';
 
 /// Settings, as a drawer in the bench.
 ///
@@ -34,8 +33,6 @@ class SettingsDrawer extends StatefulWidget {
     required this.export,
     required this.onClose,
     this.updates,
-    this.updateChannel = UpdateChannel.stable,
-    this.onUpdateChannel,
   });
 
   /// What the user pinned, or null to follow the device.
@@ -59,14 +56,6 @@ class SettingsDrawer extends StatefulWidget {
   /// drawer makes its own otherwise, and never asks it for anything until a
   /// person does.
   final UpdateController? updates;
-
-  /// Which releases the check follows, from the app's settings. A drawer made
-  /// without one follows the stable channel, like a fresh install.
-  final UpdateChannel updateChannel;
-
-  /// Remembers a channel the person moved, when there is a settings file to
-  /// remember it in. Null in a test, where the switch only has to move.
-  final ValueChanged<UpdateChannel>? onUpdateChannel;
 
   @override
   State<SettingsDrawer> createState() => _SettingsDrawerState();
@@ -97,12 +86,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   void initState() {
     super.initState();
     final UpdateController? injected = widget.updates;
-    _updates =
-        injected ??
-        UpdateController(
-          initialChannel: widget.updateChannel,
-          onChannelChanged: widget.onUpdateChannel,
-        );
+    _updates = injected ?? UpdateController();
     _ownsUpdates = injected == null;
     unawaited(_probeDevice());
   }
@@ -410,12 +394,11 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
   }
 
-  /// The update row and the channel it follows.
+  /// The update row.
   ///
   /// The update is a thing a person asks for, so the row starts as a check and
-  /// nothing here runs until it is tapped. The preview switch resets the row:
-  /// the two channels are different answers, and the old one would be a lie
-  /// beside the new one.
+  /// nothing here runs until it is tapped. There is one answer — GitHub's
+  /// latest release — not a channel to choose between.
   Widget _updateBlock(KalloStrings s, KalloColors colors) {
     final UpdateController updates = _updates;
     return ListenableBuilder(
@@ -435,30 +418,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               width: _fieldWidth(context),
               colors: colors,
             ),
-            const SizedBox(height: KalloSpace.step3),
-            KalloSwitch(
-              key: const Key('about-preview'),
-              label: s.previewBuilds,
-              control: colors.inkMuted,
-              on: updates.preview,
-              onTap: () => updates.setChannel(
-                updates.preview ? UpdateChannel.stable : UpdateChannel.preview,
-              ),
-            ),
-            const SizedBox(height: KalloSpace.step2),
-            SizedBox(
-              width: _fieldWidth(context),
-              child: Text(
-                s.previewBuildsNote,
-                style: KalloType.small.copyWith(color: colors.inkFaint),
-              ),
-            ),
             if (updates.problem == UpdateProblem.location) ...<Widget>[
               const SizedBox(height: KalloSpace.step2),
               SizedBox(
                 width: _fieldWidth(context),
                 child: Text(
-                  s.updateNeedsApplications,
+                  Platform.isWindows
+                      ? s.updateNeedsWritable
+                      : s.updateNeedsApplications,
                   style: KalloType.small.copyWith(color: colors.inkMuted),
                 ),
               ),

@@ -6,18 +6,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../app_info.dart';
-import 'settings.dart';
 
 /// Kallo updating itself, from the GitHub Releases page it is published on.
 ///
 /// A desktop app installed from a zip has no store behind it, so the two
 /// things a store would do are here: ask GitHub what the newest release is,
-/// and, on macOS, replace the running bundle with it. Nothing in this file
-/// touches a widget; the drawer reads it through [UpdateController].
+/// and, on macOS or Windows, replace the running installation with it. Nothing
+/// in this file touches a widget; the drawer reads it through
+/// [UpdateController].
 ///
 /// The whole flow is one-directional — check, download, restart — because a
-/// half-updated app is the one outcome worth designing against. The bundle is
-/// only touched by a detached shell script, after this process has exited.
+/// half-updated app is the one outcome worth designing against. The bundle or
+/// folder is only touched by a detached script, after this process has exited.
 
 /// The file name release.yml attaches for an Apple-silicon Mac.
 const String kUpdateAssetArm = 'kallo-desktop-macos-aarch64.zip';
@@ -27,6 +27,9 @@ const String kUpdateAssetIntel = 'kallo-desktop-macos-x86_64.zip';
 
 /// The file name release.yml attaches when one build carries both slices.
 const String kUpdateAssetUniversal = 'kallo-desktop-macos-universal.zip';
+
+/// The file name release.yml attaches for a Windows PC.
+const String kUpdateAssetWindows = 'kallo-desktop-windows-x86_64.zip';
 
 /// What went wrong, in the few kinds the interface has words for.
 enum UpdateProblem {
@@ -91,7 +94,6 @@ class UpdateRelease {
     required this.page,
     this.publishedAt,
     this.asset,
-    this.isPreview = false,
   });
 
   /// The tag as GitHub writes it: `v0.2.0`, `app-v0.2.0`, …
@@ -111,9 +113,6 @@ class UpdateRelease {
 
   /// The one file this machine can install, or null when the release has none.
   final UpdateAsset? asset;
-
-  /// Whether GitHub calls the release a prerelease.
-  final bool isPreview;
 
   /// The version as the interface names it: `v0.2.0`.
   String get label => 'v$version';
@@ -287,8 +286,11 @@ class UpdateService {
     this.openDownload,
     this.abi,
     this.macos,
+    this.windows,
     this.timeout = const Duration(seconds: 10),
     this.bundlePath,
+    this.executablePath,
+    this.unpack,
     this.launchInstaller,
   });
 
@@ -300,38 +302,41 @@ class UpdateService {
   /// The architecture an asset is chosen for; null asks the running process.
   final Abi? abi;
 
-  /// Whether the platform can replace its own bundle; null asks the system.
+  /// Whether the platform can replace its own files; null asks the system.
   final bool? macos;
+  final bool? windows;
 
   /// How long any one step may take. The row must never hang on a check.
   final Duration timeout;
 
-  /// Injected by tests: the bundle to replace, and the way to start the
-  /// script. The real installer derives the first and exits from the second.
+  /// Injected by tests: the file to replace, the archive to unpack, and the
+  /// way to start the script. The real installer derives the first, unpacks
+  /// with the platform's own tool, and exits from the last.
   final String? bundlePath;
+  final String? executablePath;
+  final Future<void> Function(File archive, Directory into)? unpack;
   final Future<void> Function(String script)? launchInstaller;
 
-  /// Whether this machine's Kallo can replace itself. Only macOS for now: it
-  /// is the only build published as a self-contained bundle.
-  bool get canInstall => macos ?? Platform.isMacOS;
+  /// Whether this machine's Kallo can replace itself: a macOS bundle or a
+  /// Windows folder both can.
+  bool get canInstall => _macos || _windows;
+
+  bool get _windows => windows ?? Platform.isWindows;
+  bool get _macos => macos ?? (Platform.isMacOS && !_windows);
 
   Abi get _currentAbi => abi ?? Abi.current();
 
-  /// What the channel offers now. Never throws: a check that cannot answer is
+  /// What the newest release is. Never throws: a check that cannot answer is
   /// a failure the row can show and retry.
-  Future<UpdateCheck> check(UpdateChannel channel) async {
+  ///
+  /// Only `latest` is asked for: a prerelease is not a build this app offers,
+  /// so there is one answer and no channel to choose between.
+  Future<UpdateCheck> check() async {
     try {
-      final bool listing = channel == UpdateChannel.preview;
-      final Uri url = Uri.parse(
-        listing
-            ? '${KalloInfo.api}/releases?per_page=10'
-            : '${KalloInfo.api}/releases/latest',
-      );
+      final Uri url = Uri.parse('${KalloInfo.api}/releases/latest');
       final String body = await _fetch(url).timeout(timeout);
       final Object? json = jsonDecode(body);
-      final UpdateRelease? release = listing
-          ? _newestRelease(json)
-          : _singleRelease(json);
+      final UpdateRelease? release = _singleRelease(json);
       if (release == null) {
         return const UpdateUpToDate();
       }
@@ -368,11 +373,11 @@ class UpdateService {
     }
   }
 
-  /// Downloads and starts the installer for [release] on macOS.
+  /// Downloads and starts the installer for [release].
   ///
   /// The returned future in a real run never completes: the detached script
-  /// waits for this process to exit, so this process exits (see
-  /// [_launchAndExit]). A test injects a launcher that returns instead.
+  /// waits for this process to exit, so this process exits (see [_launch]).
+  /// A test injects a launcher that returns instead.
   Future<void> install(
     UpdateRelease release, {
     required ValueChanged<double> onProgress,
@@ -381,7 +386,7 @@ class UpdateService {
     if (!canInstall) {
       throw const UpdateInstallException(
         UpdateProblem.unsupported,
-        'this platform cannot replace its own bundle',
+        'this platform cannot replace its own installation',
       );
     }
     final UpdateAsset? asset = release.asset;
@@ -391,19 +396,34 @@ class UpdateService {
         'the release has no file for this machine',
       );
     }
-    final String? bundle =
-        bundlePath ?? bundleFromExecutable(Platform.resolvedExecutable);
-    if (bundle == null) {
-      throw const UpdateInstallException(
-        UpdateProblem.location,
-        'the app is not running from a .app bundle',
-      );
-    }
-    if (bundle.contains('/Volumes/') || bundle.contains('AppTranslocation')) {
-      throw UpdateInstallException(
-        UpdateProblem.location,
-        'the bundle is read-only or translocated: $bundle',
-      );
+
+    // A location the script could never replace is refused before the
+    // download: a release this machine cannot install is not worth fetching.
+    if (_windows) {
+      final Directory folder = File(
+        executablePath ?? Platform.resolvedExecutable,
+      ).parent;
+      if (!folder.existsSync() || !_isWritable(folder)) {
+        throw UpdateInstallException(
+          UpdateProblem.location,
+          'the installation folder cannot be written: ${folder.path}',
+        );
+      }
+    } else {
+      final String? bundle =
+          bundlePath ?? bundleFromExecutable(Platform.resolvedExecutable);
+      if (bundle == null) {
+        throw const UpdateInstallException(
+          UpdateProblem.location,
+          'the app is not running from a .app bundle',
+        );
+      }
+      if (bundle.contains('/Volumes/') || bundle.contains('AppTranslocation')) {
+        throw UpdateInstallException(
+          UpdateProblem.location,
+          'the bundle is read-only or translocated: $bundle',
+        );
+      }
     }
 
     final Directory temporary = await Directory.systemTemp.createTemp(
@@ -424,29 +444,23 @@ class UpdateService {
 
       final Directory unpacked = Directory('${temporary.path}/unpacked');
       await unpacked.create();
-      await _unzip(archive, unpacked);
-      final Directory? app = _findApp(unpacked);
-      if (app == null) {
-        throw const UpdateInstallException(
-          UpdateProblem.extraction,
-          'the archive held no .app',
+      if (_windows) {
+        await _installWindows(
+          archive: archive,
+          unpacked: unpacked,
+          temporary: temporary,
+          onRestarting: onRestarting,
+          handedOff: () => handedOff = true,
+        );
+      } else {
+        await _installMacos(
+          archive: archive,
+          unpacked: unpacked,
+          temporary: temporary,
+          onRestarting: onRestarting,
+          handedOff: () => handedOff = true,
         );
       }
-
-      final File script = File('${temporary.path}/install.sh');
-      await script.writeAsString(
-        installerScript(
-          pid: pid,
-          bundle: bundle,
-          replacement: app.path,
-          temporary: temporary.path,
-        ),
-      );
-      // The row says it is restarting before the process that would draw it is
-      // gone; a person sees the last state the old app can show.
-      onRestarting?.call();
-      handedOff = true;
-      await _startInstaller(script.path);
     } finally {
       if (!handedOff) {
         // The next launch can start from a fresh folder; a half-downloaded
@@ -460,9 +474,114 @@ class UpdateService {
     }
   }
 
+  Future<void> _installMacos({
+    required File archive,
+    required Directory unpacked,
+    required Directory temporary,
+    required VoidCallback? onRestarting,
+    required VoidCallback handedOff,
+  }) async {
+    final String? bundle =
+        bundlePath ?? bundleFromExecutable(Platform.resolvedExecutable);
+    if (bundle == null) {
+      throw const UpdateInstallException(
+        UpdateProblem.location,
+        'the app is not running from a .app bundle',
+      );
+    }
+    if (bundle.contains('/Volumes/') || bundle.contains('AppTranslocation')) {
+      throw UpdateInstallException(
+        UpdateProblem.location,
+        'the bundle is read-only or translocated: $bundle',
+      );
+    }
+    await _unpack(archive, unpacked);
+    final Directory? app = _findApp(unpacked);
+    if (app == null) {
+      throw const UpdateInstallException(
+        UpdateProblem.extraction,
+        'the archive held no .app',
+      );
+    }
+    final File script = File('${temporary.path}/install.sh');
+    await script.writeAsString(
+      installerScript(
+        pid: pid,
+        bundle: bundle,
+        replacement: app.path,
+        temporary: temporary.path,
+      ),
+    );
+    // The row says it is restarting before the process that would draw it is
+    // gone; a person sees the last state the old app can show.
+    onRestarting?.call();
+    handedOff();
+    await _startInstaller(script.path);
+  }
+
+  Future<void> _installWindows({
+    required File archive,
+    required Directory unpacked,
+    required Directory temporary,
+    required VoidCallback? onRestarting,
+    required VoidCallback handedOff,
+  }) async {
+    final String executable = executablePath ?? Platform.resolvedExecutable;
+    final Directory folder = File(executable).parent;
+    if (!folder.existsSync()) {
+      throw UpdateInstallException(
+        UpdateProblem.location,
+        'the installation folder is gone: ${folder.path}',
+      );
+    }
+    if (!_isWritable(folder)) {
+      throw UpdateInstallException(
+        UpdateProblem.location,
+        'the installation folder cannot be written: ${folder.path}',
+      );
+    }
+    await _unpack(archive, unpacked);
+    final File exe = _findWindowsExe(unpacked);
+    final String name = exe.uri.pathSegments.last;
+    final File script = File('${temporary.path}/install.ps1');
+    await script.writeAsBytes(
+      _powershellBytes(
+        windowsInstallerScript(
+          pid: pid,
+          folder: folder.path,
+          replacement: exe.parent.path,
+          temporary: temporary.path,
+          executable: name,
+        ),
+      ),
+    );
+    onRestarting?.call();
+    handedOff();
+    await _startInstaller(script.path);
+  }
+
+  /// Whether a replacement of [folder] could be written at all.
+  ///
+  /// A portable install in somebody's user folder can; an install under
+  /// `Program Files` cannot without an administrator. Finding out before the
+  /// download would be worse — the row would refuse a release it never needed
+  /// to install — so this is asked once, right before the script is written.
+  bool _isWritable(Directory folder) {
+    final File probe = File(
+      '${folder.path}${Platform.pathSeparator}.kallo-write',
+    );
+    try {
+      probe.writeAsStringSync('kallo');
+      probe.deleteSync();
+      return true;
+    } on FileSystemException {
+      return false;
+    }
+  }
+
   Future<void> _startInstaller(String script) async {
     try {
-      await (launchInstaller ?? _launchAndExit)(script);
+      await (launchInstaller ?? _launch)(script);
     } on Object catch (error) {
       throw UpdateInstallException(UpdateProblem.launch, '$error');
     }
@@ -470,10 +589,23 @@ class UpdateService {
 
   /// Starts the script detached and exits, so the script can outlive the app
   /// it is replacing.
-  static Future<void> _launchAndExit(String script) async {
-    await Process.start('/bin/sh', <String>[
-      script,
-    ], mode: ProcessStartMode.detached);
+  Future<void> _launch(String script) async {
+    if (_windows) {
+      await Process.start('powershell.exe', <String>[
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-WindowStyle',
+        'Hidden',
+        '-File',
+        script,
+      ], mode: ProcessStartMode.detached);
+    } else {
+      await Process.start('/bin/sh', <String>[
+        script,
+      ], mode: ProcessStartMode.detached);
+    }
     exit(0);
   }
 
@@ -505,24 +637,79 @@ class UpdateService {
     return received;
   }
 
-  Future<void> _unzip(File archive, Directory into) async {
+  Future<void> _unpack(File archive, Directory into) async {
+    final Future<void> Function(File archive, Directory into)? injected =
+        unpack;
+    if (injected != null) {
+      await injected(archive, into);
+      return;
+    }
     final ProcessResult result;
     try {
-      result = await Process.run('/usr/bin/ditto', <String>[
-        '-x',
-        '-k',
-        archive.path,
-        into.path,
-      ]).timeout(timeout);
+      result = _windows
+          ? await Process.run('powershell.exe', <String>[
+              '-NoProfile',
+              '-NonInteractive',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-Command',
+              'Expand-Archive -LiteralPath '
+                  "'${archive.path.replaceAll("'", "''")}' "
+                  '-DestinationPath '
+                  "'${into.path.replaceAll("'", "''")}' "
+                  '-Force',
+            ]).timeout(timeout)
+          : await Process.run('/usr/bin/ditto', <String>[
+              '-x',
+              '-k',
+              archive.path,
+              into.path,
+            ]).timeout(timeout);
     } on Object catch (error) {
       throw UpdateInstallException(UpdateProblem.extraction, '$error');
     }
     if (result.exitCode != 0) {
       throw UpdateInstallException(
         UpdateProblem.extraction,
-        'ditto exited ${result.exitCode}: ${result.stderr}',
+        'the archive could not be unpacked: ${result.stderr}',
       );
     }
+  }
+
+  /// The executable a Windows archive carries.
+  ///
+  /// The updater's contract is that the archive holds the app at its root, so
+  /// the executable's folder is the folder that replaces the installation.
+  /// Finding it anywhere deeper is a packaging mistake, not a layout to guess
+  /// at: moving the wrong folder would leave the app without its DLLs.
+  File _findWindowsExe(Directory root) {
+    final List<File> exes = root
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((File file) => file.path.toLowerCase().endsWith('.exe'))
+        .toList(growable: false);
+    final List<File> named = exes
+        .where(
+          (File file) =>
+              file.uri.pathSegments.last.toLowerCase() == 'kallo.exe',
+        )
+        .toList(growable: false);
+    final File? found = named.length == 1
+        ? named.single
+        : (exes.length == 1 ? exes.single : null);
+    if (found == null) {
+      throw UpdateInstallException(
+        UpdateProblem.extraction,
+        'the archive held ${exes.length} executables',
+      );
+    }
+    if (found.parent.path != root.path) {
+      throw const UpdateInstallException(
+        UpdateProblem.extraction,
+        'the archive puts its executable below the root',
+      );
+    }
+    return found;
   }
 
   /// The one `.app` at the archive's root, or null when there is not one.
@@ -542,49 +729,6 @@ class UpdateService {
       );
     }
     return null;
-  }
-
-  /// The newest release in a list, prereleases included and drafts ignored.
-  UpdateRelease? _newestRelease(Object? json) {
-    if (json is! List) {
-      throw const FormatException('the release list was not a list');
-    }
-    final List<UpdateRelease> releases = <UpdateRelease>[];
-    for (final Object? entry in json) {
-      if (entry is! Map<String, dynamic>) {
-        continue;
-      }
-      if (entry['draft'] == true) {
-        continue;
-      }
-      final Object? tag = entry['tag_name'];
-      if (tag is! String || UpdateVersion.parse(tag) == null) {
-        // A tag this updater cannot order is skipped rather than guessed at.
-        continue;
-      }
-      final UpdateRelease? release = _parseRelease(entry);
-      if (release != null) {
-        releases.add(release);
-      }
-    }
-    if (releases.isEmpty) {
-      return null;
-    }
-    releases.sort((UpdateRelease a, UpdateRelease b) {
-      final DateTime? first = a.publishedAt;
-      final DateTime? second = b.publishedAt;
-      if (first == null && second == null) {
-        return 0;
-      }
-      if (first == null) {
-        return 1;
-      }
-      if (second == null) {
-        return -1;
-      }
-      return second.compareTo(first);
-    });
-    return releases.first;
   }
 
   /// The single release `latest` answers with.
@@ -624,7 +768,6 @@ class UpdateService {
       page: pageUrl,
       publishedAt: published is String ? DateTime.tryParse(published) : null,
       asset: _selectAsset(_assets(json['assets'])),
-      isPreview: json['prerelease'] == true,
     );
   }
 
@@ -656,6 +799,14 @@ class UpdateService {
 
   /// The file for this machine's architecture, or the universal one.
   UpdateAsset? _selectAsset(List<UpdateAsset> assets) {
+    if (_windows) {
+      for (final UpdateAsset asset in assets) {
+        if (asset.name == kUpdateAssetWindows) {
+          return asset;
+        }
+      }
+      return null;
+    }
     final String? preferred = switch (_currentAbi) {
       Abi.macosArm64 => kUpdateAssetArm,
       Abi.macosX64 => kUpdateAssetIntel,
@@ -809,6 +960,60 @@ rm -rf $temp
 ''';
 }
 
+/// Quotes one path for PowerShell, apostrophes and all.
+String _psQuote(String value) => "'${value.replaceAll("'", "''")}'";
+
+/// The script that replaces a Windows installation once this process is gone.
+///
+/// Windows locks a running executable, so the swap cannot happen while the app
+/// is alive; a detached PowerShell waits for this process, deletes the old
+/// folder, moves the unpacked one into its place and starts the new Kallo.
+/// The unpacked folder is kept until the move succeeds, so a failed script
+/// leaves the installation it started with.
+String windowsInstallerScript({
+  required int pid,
+  required String folder,
+  required String replacement,
+  required String temporary,
+  required String executable,
+}) {
+  final String old = _psQuote(folder);
+  final String newPath = _psQuote(replacement);
+  final String temp = _psQuote(temporary);
+  final String name = _psQuote(executable);
+  return '''\$ErrorActionPreference = 'Stop'
+# Kallo replaces its own installation. This runs detached, after the app has
+# exited: Windows will not let a running executable be deleted.
+\$old = $old
+\$new = $newPath
+\$exe = $name
+while (Get-Process -Id $pid -ErrorAction SilentlyContinue) {
+  Start-Sleep -Milliseconds 200
+}
+\$backup = \$old + '.kallo-old'
+if (Test-Path \$backup) { Remove-Item -LiteralPath \$backup -Recurse -Force }
+Move-Item -LiteralPath \$old -Destination \$backup
+try {
+  Move-Item -LiteralPath \$new -Destination \$old
+} catch {
+  # Put the old installation back rather than leave nothing to open.
+  Move-Item -LiteralPath \$backup -Destination \$old
+  throw
+}
+Start-Process -FilePath (Join-Path \$old \$exe)
+Remove-Item -LiteralPath \$backup -Recurse -Force
+Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+''';
+}
+
+/// A PowerShell script, with the byte-order mark Windows PowerShell expects.
+List<int> _powershellBytes(String source) => <int>[
+  0xEF,
+  0xBB,
+  0xBF,
+  ...utf8.encode(source),
+];
+
 /// What the update row is doing.
 enum UpdateStage {
   /// Nothing has been asked yet. The row offers the first check.
@@ -827,21 +1032,11 @@ enum UpdateStage {
 /// row never reads a variable it did not see change. It never checks by
 /// itself: an update is something a person asks for.
 class UpdateController extends ChangeNotifier {
-  UpdateController({
-    UpdateService? service,
-    UpdateChannel initialChannel = UpdateChannel.stable,
-    this.onChannelChanged,
-  }) : _service = service ?? UpdateService(),
-       _channel = initialChannel;
+  UpdateController({UpdateService? service})
+    : _service = service ?? UpdateService();
 
   final UpdateService _service;
 
-  /// Called when a person moves the switch, so the choice can be remembered
-  /// beyond the window. The drawer's own controller has no callback: the
-  /// settings file is loaded and saved by the app, not by this row.
-  final ValueChanged<UpdateChannel>? onChannelChanged;
-
-  UpdateChannel _channel;
   UpdateStage _stage = UpdateStage.idle;
   UpdateRelease? _release;
   UpdateProblem? _problem;
@@ -849,8 +1044,6 @@ class UpdateController extends ChangeNotifier {
   int _checks = 0;
   bool _disposed = false;
 
-  UpdateChannel get channel => _channel;
-  bool get preview => _channel == UpdateChannel.preview;
   UpdateStage get stage => _stage;
 
   /// The release the row is about, while there is one.
@@ -871,23 +1064,7 @@ class UpdateController extends ChangeNotifier {
       _stage == UpdateStage.downloading ||
       _stage == UpdateStage.restarting;
 
-  /// Switches channel and forgets the old answer: a preview and a stable
-  /// release are different facts, so the row starts again.
-  void setChannel(UpdateChannel next) {
-    if (next == _channel || busy) {
-      return;
-    }
-    _channel = next;
-    _checks++;
-    _stage = UpdateStage.idle;
-    _release = null;
-    _problem = null;
-    _progress = 0;
-    _notify();
-    onChannelChanged?.call(next);
-  }
-
-  /// Asks GitHub what the channel offers, and shows the answer.
+  /// Asks GitHub what the newest release is, and shows the answer.
   Future<void> check() async {
     if (busy) {
       return;
@@ -900,7 +1077,7 @@ class UpdateController extends ChangeNotifier {
     _notify();
     UpdateCheck result;
     try {
-      result = await _service.check(_channel);
+      result = await _service.check();
     } on Object catch (error) {
       // The service answers its own failures; this is the last guard, so a row
       // can never be left waiting on a future that threw.

@@ -31,6 +31,7 @@ Future<TestStrip> developTestPrint({
   required double minutes,
   Directory? folder,
   int width = stripWidth,
+  void Function(double)? onProgress,
 }) async {
   final String? photo = strip.photo;
   if (photo == null) {
@@ -57,6 +58,9 @@ Future<TestStrip> developTestPrint({
     output: output,
     spectral: strip.spectral,
     balanceFrom: strip.balanceFrom,
+    onProgress: onProgress == null
+        ? null
+        : (double value) => onProgress(value * 0.95),
   );
 
   FilmChart? chart;
@@ -82,6 +86,7 @@ Future<TestStrip> developTestPrint({
     ),
   );
   await StripStore.save(next, folder: target);
+  onProgress?.call(1.0);
   return next;
 }
 
@@ -172,10 +177,16 @@ Future<File> printTest({
   String? heatGlass,
   int? width,
   ExportFormat format = ExportFormat.png,
+
   /// The edge this print carries, as its own name. A print of the same
   /// development with another edge is another sheet, and its file must not
   /// replace the first one.
   String border = 'none',
+
+  /// How much of the print is done, 0..1: the model's stages, then the file's
+  /// own re-encoding. The darkroom's edge and the gallery's shelf are still to
+  /// come, so a caller with those to do keeps the last tenth for them.
+  void Function(double)? onProgress,
 }) async {
   final String? photo = strip.photo;
   if (photo == null) {
@@ -222,9 +233,13 @@ Future<File> printTest({
     printEv: printEv,
     filters: filters,
     heatGlass: heatGlass,
+    onProgress: onProgress == null
+        ? null
+        : (double value) => onProgress(value * 0.85),
   );
   if (format == ExportFormat.png) {
     await _dropOtherFormats(exports, stem, format);
+    onProgress?.call(0.9);
     return output;
   }
   final Uint8List png = await output.readAsBytes();
@@ -235,6 +250,7 @@ Future<File> printTest({
   await finalFile.writeAsBytes(encoded, flush: true);
   await output.delete();
   await _dropOtherFormats(exports, stem, format);
+  onProgress?.call(0.9);
   return finalFile;
 }
 
@@ -261,4 +277,3 @@ Future<void> _dropOtherFormats(
     }
   }
 }
-

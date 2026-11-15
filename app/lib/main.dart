@@ -208,7 +208,6 @@ class _KalloAppState extends State<KalloApp> {
   Brightness? _pinned;
   late bool _spectral = widget.spectral;
   RenderMode _renderMode = RenderMode.gpu;
-  UpdateChannel _updateChannel = UpdateChannel.stable;
   TestStrip? _strip;
   ui.Image? _photograph;
   bool _ownsPhotograph = false;
@@ -695,7 +694,10 @@ class _KalloAppState extends State<KalloApp> {
   }
 
   /// Develop one print and add it to the strip.
-  Future<void> _develop(double minutes) async {
+  Future<void> _develop(
+    double minutes, {
+    void Function(double)? onProgress,
+  }) async {
     final TestStrip? strip = _strip;
     if (strip == null || strip.photo == null) {
       return;
@@ -711,6 +713,7 @@ class _KalloAppState extends State<KalloApp> {
       model: Model.find(),
       strip: strip,
       minutes: minutes,
+      onProgress: onProgress,
     );
     if (!mounted) {
       return;
@@ -752,7 +755,10 @@ class _KalloAppState extends State<KalloApp> {
   }
 
   /// Make a finished print and hang it.
-  Future<void> _print(PrintRequest request) async {
+  Future<void> _print(
+    PrintRequest request, {
+    void Function(double)? onProgress,
+  }) async {
     final TestStrip? strip = _strip;
     final PrintLibrary? library = _library;
     if (strip == null || library == null || strip.photo == null) {
@@ -777,6 +783,7 @@ class _KalloAppState extends State<KalloApp> {
         filters: request.filters,
         heatGlass: request.heatGlass,
         border: request.border.name,
+        onProgress: onProgress,
       );
       final DateTime now = DateTime.now().toUtc();
       final PrintMeta meta = PrintMeta(
@@ -794,9 +801,12 @@ class _KalloAppState extends State<KalloApp> {
         tempC: strip.tempC,
       );
       if (request.border != BorderTemplate.none) {
+        onProgress?.call(0.92);
         await _printBorder(output, request);
+        onProgress?.call(0.97);
       }
       await library.addFile(output, meta);
+      onProgress?.call(1.0);
       if (library.folder == null) {
         try {
           if (await output.exists()) {
@@ -848,14 +858,12 @@ class _KalloAppState extends State<KalloApp> {
       _settings = await Settings.read();
       _spectral = _settings.spectral;
       _renderMode = _settings.renderer;
-      _updateChannel = _settings.updateChannel;
       RenderPreference.set(_renderMode);
     } else {
       _settings = await Settings.read();
       _exportPath = _settings.exportPath;
       _spectral = _settings.spectral;
       _renderMode = _settings.renderer;
-      _updateChannel = _settings.updateChannel;
       RenderPreference.set(_renderMode);
       await _openLibrary();
     }
@@ -957,11 +965,6 @@ class _KalloAppState extends State<KalloApp> {
 
   /// Which releases the update row follows. It outlives the window, like the
   /// renderer: a preview reader does not choose again every launch.
-  Future<void> _setUpdateChannel(UpdateChannel channel) async {
-    setState(() => _updateChannel = channel);
-    _settings = _settings.withUpdateChannel(channel);
-    await _settings.write();
-  }
 
   /// Read the export folder only when it has not been read yet.
   ///
@@ -1400,8 +1403,6 @@ class _KalloAppState extends State<KalloApp> {
               onSpectral: _setSpectral,
               renderMode: _renderMode,
               onRenderMode: _setRenderMode,
-              updateChannel: _updateChannel,
-              onUpdateChannel: _setUpdateChannel,
               initiallyOpen: widget.drawerOpen,
               initialChamber: widget.initialChamber,
               initialStep: widget.initialStep,

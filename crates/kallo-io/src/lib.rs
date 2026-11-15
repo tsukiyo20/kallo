@@ -14,6 +14,8 @@
 
 #![forbid(unsafe_code)]
 
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use image::ImageDecoder as _;
@@ -48,6 +50,10 @@ pub enum IoError {
     Image(image::ImageError),
     /// The buffer length did not match the declared dimensions.
     Buffer,
+    /// The PNG encoder rejected a header, a row or its finish.
+    Png(png::EncodingError),
+    /// The output file could not be opened or written.
+    Io(std::io::Error),
 }
 
 impl std::fmt::Display for IoError {
@@ -58,6 +64,8 @@ impl std::fmt::Display for IoError {
                 f,
                 "could not build an output buffer from the rendered pixels"
             ),
+            Self::Png(error) => write!(f, "png error: {error}"),
+            Self::Io(error) => write!(f, "io error: {error}"),
         }
     }
 }
@@ -66,7 +74,7 @@ impl std::error::Error for IoError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Image(error) => Some(error),
-            Self::Buffer => None,
+            Self::Buffer | Self::Png(_) | Self::Io(_) => None,
         }
     }
 }
@@ -74,6 +82,12 @@ impl std::error::Error for IoError {
 impl From<image::ImageError> for IoError {
     fn from(error: image::ImageError) -> Self {
         Self::Image(error)
+    }
+}
+
+impl From<std::io::Error> for IoError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
     }
 }
 
@@ -247,6 +261,65 @@ pub fn save(path: impl AsRef<Path>, image: &Image) -> Result<(), IoError> {
     Ok(())
 }
 
+/// [`save`], reporting how much of the file has been written.
+///
+/// A PNG is encoded a row at a time — the same rows [`save`] would hand the
+/// image crate — so the fraction is about bytes actually written and not about
+/// elapsed time. A container without a row-level hook falls back to [`save`]
+/// and reports completion once.
+pub fn save_with_progress(
+    path: impl AsRef<Path>,
+    image: &Image,
+    progress: &mut dyn FnMut(f32),
+) -> Result<(), IoError> {
+    let path = path.as_ref();
+    let png = path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("png"));
+    if !png {
+        save(path, image)?;
+        progress(1.0);
+        return Ok(());
+    }
+    save_png_with_progress(path, image, progress)
+}
+
+/// A PNG written row by row, so the caller can move while its file is made.
+fn save_png_with_progress(
+    path: &Path,
+    image: &Image,
+    progress: &mut dyn FnMut(f32),
+) -> Result<(), IoError> {
+    let file = File::create(path)?;
+    let mut encoder = png::Encoder::new(BufWriter::new(file), image.width, image.height);
+    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_depth(png::BitDepth::Eight);
+    // The image crate saves a PNG at its default (fast) compression with the
+    // adaptive filter; a print written here must be the same kind of file.
+    encoder.set_compression(png::Compression::Fast);
+    encoder.set_filter(png::Filter::Adaptive);
+    let mut writer = encoder.write_header().map_err(IoError::Png)?;
+    let mut stream = writer.stream_writer().map_err(IoError::Png)?;
+    let stride = image.width as usize * 3;
+    let mut row = Vec::with_capacity(stride);
+    for y in 0..image.height as usize {
+        row.clear();
+        for pixel in &image.pixels[y * image.width as usize..(y + 1) * image.width as usize] {
+            for channel in pixel {
+                let encoded = linear_to_srgb(*channel);
+                row.push((encoded * 255.0).round().clamp(0.0, 255.0) as u8);
+            }
+        }
+        stream.write_all(&row)?;
+        progress(0.2 + 0.79 * (y as f32 + 1.0) / image.height as f32);
+    }
+    stream.finish().map_err(IoError::Png)?;
+    writer.finish().map_err(IoError::Png)?;
+    progress(1.0);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
@@ -383,5 +456,44 @@ mod tests {
     fn encoding_flag_round_trips_mid_grey() {
         let linear = srgb_to_linear(0.5);
         assert!((linear_to_srgb(linear) - 0.5).abs() < 1e-9);
+    }
+    #[test]
+    fn a_png_written_with_progress_reads_back_and_reaches_the_end() {
+        let image = Image {
+            width: 3,
+            height: 2,
+            pixels: vec![
+                [0.0, 0.1, 0.2],
+                [0.3, 0.4, 0.5],
+                [0.6, 0.7, 0.8],
+                [0.2, 0.3, 0.4],
+                [0.5, 0.6, 0.7],
+                [0.8, 0.9, 1.0],
+            ],
+        };
+        let path = std::env::temp_dir().join(format!(
+            "kallo-save-progress-{}-{}.png",
+            std::process::id(),
+            line!()
+        ));
+        let mut steps = Vec::new();
+        save_with_progress(&path, &image, &mut |fraction| steps.push(fraction))
+            .expect("the png is written");
+        assert!(!steps.is_empty(), "a written file reports its rows");
+        assert!(
+            steps.windows(2).all(|pair| pair[0] <= pair[1]),
+            "the rows are reported in order: {steps:?}"
+        );
+        assert_eq!(steps.last().copied(), Some(1.0));
+
+        let loaded = load(&path, InputEncoding::Srgb).expect("the png reads back");
+        assert_eq!((loaded.width, loaded.height), (image.width, image.height));
+        for (expected, actual) in to_rgb8(&image).iter().zip(to_rgb8(&loaded)) {
+            assert!(
+                expected.abs_diff(actual) <= 1,
+                "a row survived the encoder: {expected} against {actual}"
+            );
+        }
+        let _ = std::fs::remove_file(path);
     }
 }

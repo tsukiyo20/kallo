@@ -456,10 +456,14 @@ fn wire__crate__api__print__make_print_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_job = <crate::api::print::PrintJob>::sse_decode(&mut deserializer);
+            let api_progress = <StreamSink<
+                crate::api::print::PrintStep,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::print::make_print(api_job)?;
+                    let output_ok = crate::api::print::make_print(api_job, api_progress)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -606,6 +610,16 @@ impl SseDecode
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <usize>::sse_decode(deserializer);
         return decode_rust_opaque_moi(inner);
+    }
+}
+
+impl SseDecode
+    for StreamSink<crate::api::print::PrintStep, flutter_rust_bridge::for_generated::SseCodec>
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
     }
 }
 
@@ -1011,18 +1025,16 @@ impl SseDecode for crate::api::print::PrintJob {
     }
 }
 
-impl SseDecode for crate::api::print::PrintReport {
+impl SseDecode for crate::api::print::PrintStep {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_width = <u32>::sse_decode(deserializer);
-        let mut var_height = <u32>::sse_decode(deserializer);
-        let mut var_backend = <String>::sse_decode(deserializer);
-        let mut var_exposureEv = <f64>::sse_decode(deserializer);
-        return crate::api::print::PrintReport {
-            width: var_width,
-            height: var_height,
+        let mut var_fraction = <f64>::sse_decode(deserializer);
+        let mut var_stage = <String>::sse_decode(deserializer);
+        let mut var_backend = <Option<String>>::sse_decode(deserializer);
+        return crate::api::print::PrintStep {
+            fraction: var_fraction,
+            stage: var_stage,
             backend: var_backend,
-            exposure_ev: var_exposureEv,
         };
     }
 }
@@ -1494,25 +1506,21 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::print::PrintJob>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::print::PrintReport {
+impl flutter_rust_bridge::IntoDart for crate::api::print::PrintStep {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.width.into_into_dart().into_dart(),
-            self.height.into_into_dart().into_dart(),
+            self.fraction.into_into_dart().into_dart(),
+            self.stage.into_into_dart().into_dart(),
             self.backend.into_into_dart().into_dart(),
-            self.exposure_ev.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::print::PrintReport
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::print::PrintStep {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::print::PrintStep>
+    for crate::api::print::PrintStep
 {
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::print::PrintReport>
-    for crate::api::print::PrintReport
-{
-    fn into_into_dart(self) -> crate::api::print::PrintReport {
+    fn into_into_dart(self) -> crate::api::print::PrintStep {
         self
     }
 }
@@ -1597,6 +1605,15 @@ impl SseEncode
         let (ptr, size) = self.sse_encode_raw();
         <usize>::sse_encode(ptr, serializer);
         <i32>::sse_encode(size, serializer);
+    }
+}
+
+impl SseEncode
+    for StreamSink<crate::api::print::PrintStep, flutter_rust_bridge::for_generated::SseCodec>
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
     }
 }
 
@@ -1866,13 +1883,12 @@ impl SseEncode for crate::api::print::PrintJob {
     }
 }
 
-impl SseEncode for crate::api::print::PrintReport {
+impl SseEncode for crate::api::print::PrintStep {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <u32>::sse_encode(self.width, serializer);
-        <u32>::sse_encode(self.height, serializer);
-        <String>::sse_encode(self.backend, serializer);
-        <f64>::sse_encode(self.exposure_ev, serializer);
+        <f64>::sse_encode(self.fraction, serializer);
+        <String>::sse_encode(self.stage, serializer);
+        <Option<String>>::sse_encode(self.backend, serializer);
     }
 }
 

@@ -81,6 +81,7 @@ class _CardModel extends ProcessModel {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    void Function(double)? onProgress,
   }) async {
     output.writeAsBytesSync(bytes, flush: true);
   }

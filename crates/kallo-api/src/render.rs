@@ -196,6 +196,34 @@ pub fn render_image(
     selection: &Selection,
     options: &RenderOptions,
 ) -> Result<RenderOutcome, Error> {
+    render_image_inner(image, film, selection, options, None)
+}
+
+/// [`render_image`], reporting how much of the render is done.
+///
+/// The fractions are the model's own stages: the meter, the preparation, then
+/// the pixel model — which reports its exposure, blur, halation, development and
+/// couplers, or the device's passes and bands — and finally the scan. A caller
+/// that owns the decode and the file around the render maps this fraction into
+/// its own scale; nothing here guesses at the time a stage takes.
+pub fn render_image_with_progress(
+    image: &mut Image,
+    film: Option<&'static kallo_core::FilmStock>,
+    selection: &Selection,
+    options: &RenderOptions,
+    progress: &mut dyn FnMut(f32),
+) -> Result<RenderOutcome, Error> {
+    render_image_inner(image, film, selection, options, Some(progress))
+}
+
+fn render_image_inner(
+    image: &mut Image,
+    film: Option<&'static kallo_core::FilmStock>,
+    selection: &Selection,
+    options: &RenderOptions,
+    mut progress: Option<&mut dyn FnMut(f32)>,
+) -> Result<RenderOutcome, Error> {
+    report_stage(&mut progress, 0.0);
     let film = film.unwrap_or(selection.film);
     let (width, height) = (image.width, image.height);
     let (width, height) = (width as usize, height as usize);
@@ -209,6 +237,7 @@ pub fn render_image(
             (metered.ev, Some(metered))
         }
     };
+    report_stage(&mut progress, 0.03);
 
     // The flag is asked for before anything is prepared: the fourth integral is
     // part of the model, not a pass over a finished density.
@@ -232,6 +261,7 @@ pub fn render_image(
         None => prepared,
     };
     let params = selection.render_params(exposure_ev, options.print_ev, interimage, film);
+    report_stage(&mut progress, 0.06);
 
     let pixel_um = options.frame_mm * 1000.0 / width.max(1) as f64;
     // The field takes its grain density from the stock: the measured one
@@ -260,15 +290,22 @@ pub fn render_image(
     };
 
     let mut warnings = Vec::new();
-    let backend = render_pixels(
-        &mut image.pixels,
-        &prepared,
-        width,
-        height,
-        &finishing.as_finishing(),
-        options.gpu,
-        &mut warnings,
-    )?;
+    let backend = {
+        let mut pixels_progress = |fraction: f32| {
+            report_stage(&mut progress, 0.06 + fraction * 0.92);
+        };
+        render_pixels(
+            &mut image.pixels,
+            &prepared,
+            width,
+            height,
+            &finishing.as_finishing(),
+            options.gpu,
+            Some(&mut pixels_progress),
+            &mut warnings,
+        )?
+    };
+    report_stage(&mut progress, 0.99);
 
     // The scan stage is a post-pass on the finished print, so it is the same
     // arithmetic whichever backend drew the pixels: the scanner is not part of
@@ -283,6 +320,7 @@ pub fn render_image(
     if let Some(scanner) = scanner.as_ref() {
         scanner.apply(&mut image.pixels, width, height, pixel_um);
     }
+    report_stage(&mut progress, 1.0);
 
     Ok(RenderOutcome {
         width: width as u32,
@@ -304,6 +342,7 @@ pub fn render_image(
 /// and a correct image, not an error and not a silently different one. The
 /// device's own failure is a property of the driver, not of the photograph.
 #[cfg(feature = "gpu")]
+#[allow(clippy::too_many_arguments)]
 fn render_pixels(
     pixels: &mut [[f64; 3]],
     prepared: &kallo_core::PreparedRender,
@@ -311,23 +350,28 @@ fn render_pixels(
     height: usize,
     finishing: &Finishing,
     on_gpu: bool,
+    mut progress: Option<&mut dyn FnMut(f32)>,
     warnings: &mut Vec<String>,
 ) -> Result<Backend, Error> {
     if !on_gpu {
-        render_pixels_finished(pixels, prepared, width, height, finishing);
-        return Ok(Backend::Cpu);
+        return render_on_cpu(pixels, prepared, width, height, finishing, progress);
     }
 
     let gpu = match kallo_gpu::Gpu::new() {
         Ok(gpu) => gpu,
         Err(error) => {
             warnings.push(format!("{error}; rendering on the cpu"));
-            render_pixels_finished(pixels, prepared, width, height, finishing);
-            return Ok(Backend::Cpu);
+            return render_on_cpu(pixels, prepared, width, height, finishing, progress);
         }
     };
 
-    match gpu.render_finished(pixels, prepared, width, height, finishing) {
+    let rendered = match progress.as_deref_mut() {
+        Some(callback) => {
+            gpu.render_finished_with_progress(pixels, prepared, width, height, finishing, callback)
+        }
+        None => gpu.render_finished(pixels, prepared, width, height, finishing),
+    };
+    match rendered {
         Ok(rendered) => {
             pixels.copy_from_slice(&rendered);
             Ok(Backend::Gpu(gpu.describe()))
@@ -339,16 +383,39 @@ fn render_pixels(
         // finishing, so a reject is a warning rather than a failed render.
         Err(error) => {
             warnings.push(format!("{error}; rendering on the cpu"));
-            render_pixels_finished(pixels, prepared, width, height, finishing);
-            Ok(Backend::Cpu)
+            render_on_cpu(pixels, prepared, width, height, finishing, progress)
         }
     }
+}
+
+/// The CPU model, with or without a watcher.
+///
+/// A caller that falls back after the device rejected the frame still gets the
+/// same picture, and still gets progress: the fraction restarts at the CPU
+/// render's first stage, and the caller is expected to keep its own bar
+/// monotonic rather than to treat the two renders as one scale.
+fn render_on_cpu(
+    pixels: &mut [[f64; 3]],
+    prepared: &kallo_core::PreparedRender,
+    width: usize,
+    height: usize,
+    finishing: &Finishing,
+    progress: Option<&mut dyn FnMut(f32)>,
+) -> Result<Backend, Error> {
+    match progress {
+        Some(callback) => kallo_core::render_pixels_finished_with_progress(
+            pixels, prepared, width, height, finishing, callback,
+        ),
+        None => render_pixels_finished(pixels, prepared, width, height, finishing),
+    }
+    Ok(Backend::Cpu)
 }
 
 /// Without the feature there is no device to ask for, so the render is the CPU's
 /// and the report says so. A build that cannot honour the default must not fail
 /// because of it.
 #[cfg(not(feature = "gpu"))]
+#[allow(clippy::too_many_arguments)]
 fn render_pixels(
     pixels: &mut [[f64; 3]],
     prepared: &kallo_core::PreparedRender,
@@ -356,13 +423,20 @@ fn render_pixels(
     height: usize,
     finishing: &Finishing,
     on_gpu: bool,
+    progress: Option<&mut dyn FnMut(f32)>,
     warnings: &mut Vec<String>,
 ) -> Result<Backend, Error> {
     if on_gpu {
         warnings.push("this build has no GPU backend; rendering on the cpu".to_owned());
     }
-    render_pixels_finished(pixels, prepared, width, height, finishing);
-    Ok(Backend::Cpu)
+    render_on_cpu(pixels, prepared, width, height, finishing, progress)
+}
+
+/// Report a fraction of the render, if anyone is watching.
+fn report_stage(progress: &mut Option<&mut dyn FnMut(f32)>, fraction: f32) {
+    if let Some(callback) = progress.as_deref_mut() {
+        callback(fraction);
+    }
 }
 
 /// Create the output's directory, so `-o out/foo.png` works on a fresh clone.

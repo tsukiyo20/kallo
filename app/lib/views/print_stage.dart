@@ -65,7 +65,15 @@ class PrintStage extends StatefulWidget {
 
   /// The chemistry the film is, which the edge's process mark names.
   final FilmProcess? filmProcess;
-  final Future<void> Function(PrintRequest request) onPrint;
+
+  /// Make the print. The model reports its stages through `onProgress`; a
+  /// caller that has none to report leaves it null and the stage keeps its own
+  /// clock.
+  final Future<void> Function(
+    PrintRequest request, {
+    void Function(double)? onProgress,
+  })
+  onPrint;
   final VoidCallback onGoDevelop;
   final VoidCallback onGoGallery;
 
@@ -95,6 +103,9 @@ class _PrintStageState extends State<PrintStage> {
   /// The print action's progress, 0..1, while it runs; null when idle.
   double? _progress;
   Timer? _progressTimer;
+
+  /// Whether the model has reported a step of this print.
+  bool _progressReported = false;
 
   bool _printed = false;
   String? _error;
@@ -381,6 +392,7 @@ class _PrintStageState extends State<PrintStage> {
           format: options.format,
           border: _border,
         ),
+        onProgress: _modelProgress,
       );
       if (mounted) {
         _toastTimer?.cancel();
@@ -407,18 +419,43 @@ class _PrintStageState extends State<PrintStage> {
     }
   }
 
-  /// Fill the button while the print is made: timed against the last print,
-  /// which is the only estimate the stage can honestly have. A print at the
-  /// photograph's own size is seconds of work, so the bar moves slowly and
-  /// then is the button's own orange.
+  /// Fill the button while the print is made.
+  ///
+  /// The linked model reports the decode, the render's stages, the file's rows
+  /// and the edge, and those are what the bar follows. The subprocess has
+  /// nothing to say, so after a moment the stage falls back to the last
+  /// print's clock.
   void _beginProgress(String key, Duration fallback) {
+    _progressReported = false;
+    _progressTimer?.cancel();
+    setState(() => _progress = 0);
+    _progressTimer = Timer(const Duration(milliseconds: 250), () {
+      _startEstimate(key, fallback);
+    });
+  }
+
+  /// One stage of the model's print, 0..1.
+  void _modelProgress(double value) {
+    if (!mounted) {
+      return;
+    }
+    _progressReported = true;
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    final double next = value.clamp(0.0, 1.0);
+    setState(() => _progress = math.max(_progress ?? 0, next));
+  }
+
+  void _startEstimate(String key, Duration fallback) {
+    if (_progressReported || !mounted) {
+      return;
+    }
     final double seconds = math.max(
       0.05,
       WorkClock.estimate(key, fallback).inMicroseconds / 1e6,
     );
     final DateTime started = DateTime.now();
     _progressTimer?.cancel();
-    setState(() => _progress = 0);
     _progressTimer = Timer.periodic(const Duration(milliseconds: 33), (
       Timer timer,
     ) {
@@ -1395,6 +1432,7 @@ class _PrintStageState extends State<PrintStage> {
                     ),
                   ),
                 KalloButton(
+                  key: const Key('print-action'),
                   label: _busy ? s.printing : s.printAction,
                   onTap: printable && !_busy ? () => _choosePrint() : null,
                   filled: true,

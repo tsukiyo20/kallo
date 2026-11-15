@@ -15,6 +15,7 @@ categories = ["multimedia::images", "multimedia::encoding"]
 [dependencies]
 kallo-core = { path = "../kallo-core", version = "0.1.0" }
 image.workspace = true
+png.workspace = true
 
 [lints]
 workspace = true
