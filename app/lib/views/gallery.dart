@@ -20,21 +20,21 @@ import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/print_image.dart';
 import '../widgets/shadow_box.dart';
 import '../widgets/wall.dart';
+import 'print_viewer.dart';
 import 'wall_places.dart';
 
-/// The gallery: the last place. One wall, every print, one lamp.
+/// The gallery: the last place. One wall, every print.
 ///
 /// A print is not a picture, it is a sheet of paper reflecting whatever light
 /// falls on it. So the room is built the way that physics is built: every
-/// surface is a reflectance, the lamp is a single number, and the number is
-/// multiplied into each of them.
+/// surface is a reflectance, the room's light is a single number, and the number
+/// is multiplied into each of them.
 ///
 /// The wall is the window's: a gallery is white in daylight and dark after
-/// hours. The lamp is the gallery's: turn it off and the wall goes black, the
-/// labels go with it — and the prints do not go out, they stay at a tenth. What
-/// does not move is the window around them. Turning a lamp off is not the same
-/// event as the system changing its theme, and a person who turned the light
-/// off to look at a print still has to be able to find the way back.
+/// hours. Its light is the room's — there is no switch in the chrome — but the
+/// number stays a number, because that is how a wall is drawn: the paper and the
+/// labels are reflections, and a print you can find in a room that has gone dark
+/// is a print at a tenth.
 ///
 /// The work on this wall is paper. A print is cropped to the frame's image
 /// area — the enlarger's carrier masks the rebate — so what comes out of the
@@ -81,8 +81,10 @@ class Gallery extends StatefulWidget {
   final ValueChanged<Map<String, Offset>>? onHang;
   final VoidCallback? onRehang;
 
-  /// The lamp on the wall, from off to all of it. It is the room's, and it
-  /// takes the wall and the work with it — not the window around them.
+  /// The light on the wall, from off to all of it. It is the room's — the
+  /// chrome does not switch it — and it is multiplied into the wall, the labels
+  /// and the paper. It exists because the wall is drawn as a surface, not
+  /// because there is a switch anywhere.
   final double light;
 
   /// Whether the loupe is out. It is a tool on the wall, not a cursor: off,
@@ -483,7 +485,16 @@ class _GalleryState extends State<Gallery> with SingleTickerProviderStateMixin {
   }
 
   /// Walk up to one print, and leave the wall's tools behind.
+  ///
+  /// A phone does not have the room for the paper's own close view: the wall
+  /// is the index, and a tap opens the picture on a page of its own. The
+  /// desktop keeps the print whole, because there the paper has the room to
+  /// be paper.
   void _walkUp(Print print) {
+    if (KalloLayout.isCompact(context)) {
+      unawaited(openPrintViewer(context, print));
+      return;
+    }
     setState(() => _near = print);
     widget.onNear?.call(true);
   }
@@ -981,7 +992,9 @@ class _Loupe extends StatefulWidget {
   /// The room's light: the wall and its label are under it.
   final double light;
 
-  /// The light on the print, which holds a little after the wall has gone out.
+  /// The light on the print: the paper is the one surface that keeps a little
+  /// more of the room's light than the wall does, which is why it stays paper
+  /// in a room that has gone dark.
   final double printed;
 
   final VoidCallback onClose;

@@ -1,5 +1,9 @@
-# Launch Screen Assets
+# The launch screen's mark
 
-You can customize the launch screen with your own desired assets by replacing the image files in this directory.
+`LaunchImage.png`, `LaunchImage@2x.png` and `LaunchImage@3x.png` are written by
+`app/icon/generate.py` from the icon master: the icon as iOS masks it, rounded
+with a transparent margin. `LaunchScreen.storyboard` centres it on
+`LaunchBackground`, the app's ground colour in each appearance, so the launch
+screen and the app's first frame are the same colour.
 
-You can also do it by opening your Flutter project's Xcode project with `open ios/Runner.xcworkspace`, selecting `Runner/Assets.xcassets` in the Project Navigator and dropping in the desired images.
+Do not edit these images by hand; run the generator.

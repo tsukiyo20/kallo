@@ -187,6 +187,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a tap on the phone wall opens the print, not the wall', (
+    WidgetTester tester,
+  ) async {
+    _phone(tester);
+    final List<Print> prints = <Print>[
+      _print(card, 1),
+      _print(card, 2),
+      _print(card, 3),
+    ];
+    await tester.pumpWidget(
+      _app(card: card, chamber: Chamber.gallery, prints: prints),
+    );
+    await tester.pumpAndSettle();
+
+    // The wall has its chrome: the room's name, the count, the two places.
+    expect(find.text('3 prints'), findsOneWidget);
+    expect(find.byKey(const Key('mobile-tab-gallery')), findsOneWidget);
+
+    // One tap, and the print is the page. There is no fullscreen wall in
+    // between, and the wall is not rebuilt to make room.
+    await tester.tap(find.byType(PrintSheet).first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('print-viewer-image')), findsOneWidget);
+    expect(find.byKey(const Key('print-viewer-close')), findsOneWidget);
+
+    // The picture takes the width of the screen and keeps its shape: the
+    // margin that is left goes above and below, never beside.
+    final Size picture = tester.getSize(
+      find.byKey(const Key('print-viewer-image')),
+    );
+    expect(picture.width, moreOrLessEquals(390));
+    expect(picture.height, moreOrLessEquals(390 * 800 / 1200));
+
+    // Back puts the wall back exactly as it was: the chrome is the shell's,
+    // not the picture's.
+    await tester.tap(find.byKey(const Key('print-viewer-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('print-viewer-image')), findsNothing);
+    expect(find.byKey(const Key('mobile-tab-gallery')), findsOneWidget);
+    expect(find.text('3 prints'), findsOneWidget);
+    expect(find.byType(PrintSheet), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the system back leaves the print, then the wall', (
+    WidgetTester tester,
+  ) async {
+    _phone(tester);
+    final List<Print> prints = <Print>[_print(card, 1), _print(card, 2)];
+    await tester.pumpWidget(
+      _app(card: card, chamber: Chamber.gallery, prints: prints),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PrintSheet).first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('print-viewer-image')), findsOneWidget);
+
+    // One back closes the picture and nothing else. A second one is the
+    // shell's own walk: the gallery goes to the darkroom, not out of the app.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('print-viewer-image')), findsNothing);
+    expect(find.byKey(const Key('mobile-tab-gallery')), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone-materials-row')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a material change asks before it clears the strip', (
     WidgetTester tester,
   ) async {
@@ -268,6 +339,14 @@ void main() {
     expect(find.text('BALANCE'), findsOneWidget);
     expect(find.text('HEAT GLASS'), findsOneWidget);
     expect(find.byKey(const Key('phone-print')), findsOneWidget);
+
+    // The exposure sheet says which way the dial goes: it is the enlarger's
+    // timer, so more light is a darker print.
+    await tester.tap(find.text('EXPOSURE'));
+    await tester.pumpAndSettle();
+    expect(find.text('More light is a darker print'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
 
     // The border is a printing choice on the phone too: one row in the deck
     // that opens the edges as pictures, with no words on them.

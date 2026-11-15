@@ -354,8 +354,8 @@ deck 192  ╭──────────────────────�
 
 ```text
 status 47
-nav 98    Gallery                    ⤓   ☀
-          4 prints · one lamp
+nav 98    Gallery                    ⤓
+          4 prints
 content   ┌─────────┐  ┌─────────┐
           │ sheet 01│  │ sheet 02│   paper on a wall that runs past
           │  paper  │  │  paper  │   the window: drag to walk, pinch
@@ -366,14 +366,14 @@ content   ┌─────────┐  ┌─────────┐
 tab
 ```
 
-- A large title + subtitle; two icons at the top right — the import action, then the light as **one sun icon**. The Loupe switch is removed on the phone.
+- A large title + subtitle; one icon at the top right — the import action. There is no lamp switch and no Loupe switch on the phone.
 - The wall is the desktop's wall: it is longer than the window, it opens on its beginning, a drag walks it and a pinch steps back. Each hung print is a `PrintSheet`: the picture on the paper, a margin of 3% of the sheet's width on the sides and a deeper one at the bottom — a fine print leaves more paper underneath — with a hairline in a light appearance and the paper's object shadow. The black rebate, the sprocket holes and the edge text are not on this wall: a print is cropped to the frame, and keeping the film's edge is a printing choice made where the print goes to a folder.
 - The wall's paper has one size (`WallPlaces.sheet`): the same 300-point landscape sheet as the desktop, so a hanging is the same hanging on both. A portrait print is the same paper turned, not a bigger sheet.
 - The label is the print's — stock, development and paper, the development set loud (`wallLabel` in `app/lib/widgets/wall.dart`). At this width a label under a sheet would be four points tall, so the phone wall hangs the sheets bare and the close view carries the label.
 - The wall hangs its work in its own grid until a sheet is dragged: the first drag freezes the whole hanging, and then new work is hung in a fresh line beneath it. A quiet `Rehang` pill at the bottom left puts the wall back in its grid, and a `Home` pill appears once the wall has been walked.
 - Empty wall: a wire + the gallery glyph, `An empty wall`, `Prints you make will hang here.`, `Make a Print`.
-- Tap one → full-screen close view: the sheet fits, the picture magnifies inside the paper's margin with pinch and double-tap (1:1 ceiling) and stays flat — the glass bows the picture on the desktop's hover, this view never bends it; the label, the file's pixels and the scale are at the bottom, and back returns to the wall. There is no mouse-hover glass on a touch screen, and no export: the file was written when the print was made. No tab bar.
-- Lamp: one switch changes the wall's `light` and the paper's brightness; with the lamp off the wall goes black and the label goes with it, while the paper stays at a tenth and the window and the back control remain. Motion 240 ms.
+- Tap one → the print whole, on a page of its own. The wall is the index: the route sits over it, so the wall's header, tab bar and hanging are never rebuilt, and the back finds them exactly where they were. The picture is fitted the way a photo viewer fits one — the whole width of the screen, and the margin that is left goes above and below, never beside — on black, with no paper, no shadow and no label under it. One row at the top, inside the safe area and clear of the Android navigation bar, is the way back (`KalloGlyph.back`), what the print is (stock · development · paper, one line, ellipsised) and the readout (the file's pixels and the scale). Pinch and double tap walk up to 1:1, one image pixel per device pixel, panned no further than the picture's edge allows; the system's back closes the page first and the wall second. There is no mouse-hover glass on a touch screen, and no export: the file was written when the print was made.
+- No lamp switch: the wall is lit by its room and follows the appearance, and nothing in the chrome puts it out. The paper's shadow and margin are the desktop's; the phone hangs the sheets bare.
 - Import is the wall's own act: the header's tray icon brings pictures into the library and onto the wall, and the wall glides to what arrived. It is not in Settings any more.
 - Sorting is still newest first; if the list is empty when the gallery opens, show the empty state, not an empty wall.
 
@@ -549,7 +549,7 @@ app/lib/
 | **2. The bench** | the test print as the subject, the materials row and sheet, the wipe, the empty state, destructive confirmations | paper, materials and CTA fit in one screen; no 24 chips; material changes confirm first |
 | **3. Develop** | test print as the subject, deck, time ruler, strip, temperature/Details sheets | paper, time, prints and CTA fit in one screen; dragging is smooth; curves are off the main screen |
 | **4. Print** | 2×2 controls, four sheets, print options, success toast | all four values change and the image updates live; Print needs no panel scrolling |
-| **5. Gallery** | the wall, empty state, lamp, pinch close view, no hover loupe | papers on a walkable wall; the close view zooms and returns |
+| **5. Gallery** | the wall, empty state, a print opened whole, no hover loupe | papers on a walkable wall; a tapped print fills the screen and returns |
 | **6. Settings / landscape / accessibility** | grouped settings, landscape workbench, Dynamic Type, VoiceOver, haptics | no overflow at 1.3×; landscape does not crash; tab/sheet back is correct |
 
 ### 9.3 Tests
@@ -588,9 +588,9 @@ app/lib/
 - [ ] The main Develop screen holds only paper, time ruler, strip and CTA; curves are in the Details sheet.
 - [ ] The four Print values are visible at a glance; tapping any opens a sheet and the picture stays visible; Print opens the options sheet.
 - [ ] The wall walks and pinches on the phone; the empty state has a CTA.
-- [ ] The phone has no Loupe switch; the viewer supports pinch, double-tap 1:1, and swipe down to close.
+- [ ] The phone has no Loupe switch; the viewer supports pinch and double-tap 1:1, and back leaves the picture before the wall.
 - [ ] Settings is a whole-page grouped list, not a horizontal tab rail + drawer.
-- [ ] 1.3× type does not overflow; VoiceOver can read steps/materials/time/CC/lamp.
+- [ ] 1.3× type does not overflow; VoiceOver can read steps/materials/time/CC and a print.
 - [ ] The desktop goldens pass; CI is green.
 
 ---

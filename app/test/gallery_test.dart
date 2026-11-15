@@ -200,6 +200,10 @@ void main() {
     expect(loupe, findsOneWidget);
     expect(tester.widget<KalloSwitch>(loupe).on, isFalse);
 
+    // The lamp switch is gone: the wall is lit, and the chrome says nothing
+    // about a light that cannot be changed.
+    expect(find.byKey(const Key('light')), findsNothing);
+
     // The wall hangs one print as one sheet of paper: the picture, the paper's
     // margin and the label. There is no film frame anywhere on it.
     expect(find.byType(PrintSheet), findsOneWidget);
