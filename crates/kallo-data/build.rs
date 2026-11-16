@@ -3,9 +3,8 @@
 //!
 //! The files are copies of the repository's `data/` directory, made by
 //! `just sync-data`. This script deliberately does not look at that directory:
-//! a crate downloaded from crates.io has no repository around it, and the
-//! copies must be enough. The test in `src/lib.rs` compares the copies with the
-//! originals when the repository is present.
+//! the copy in the crate must be enough on its own, and the test in `src/lib.rs`
+//! compares it with the originals when the repository is present.
 
 use std::env;
 use std::fmt::Write as _;

@@ -198,6 +198,12 @@ the CPU; a frame the device refuses is finished on the CPU either way.
 | `kallo-cli` | The `kalo` binary, plus a library so the commands are testable. |
 | `kallo-gpu` | The wgpu backend, feature-gated into the CLI. |
 
+None of these crates is published to crates.io any more: 0.1.0 was the last
+release there, under the old MIT/Apache-2.0 grant, and those copies stay under
+it. From 0.2 the crates live in this repository only; the `kalo` binary is in
+the release tarballs, and `cargo install --git` from this repository builds it
+too.
+
 ## Licence
 
 The code is free software under the **GNU General Public License, version 3 or
@@ -221,8 +227,8 @@ it, but keep it open; the full text is in
 
 The boundary is a file read. `kallo-core`'s build script reads the `.kalofilm`
 and `.kalopaper` files at build time and generates the stock tables from them,
-so the program text holds no measurements. The files reach a crates.io build
-through [`crates/kallo-data`](crates/kallo-data/), which carries a copy of
+so the program text holds no measurements. The files reach the build through
+[`crates/kallo-data`](crates/kallo-data/), which carries a copy of
 [`data/`](data/README.md); `just sync-data` refreshes the copy.
 
 ## Contributing

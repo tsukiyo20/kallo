@@ -4,7 +4,7 @@ Two build units, one tree.
 
 | | |
 |---|---|
-| `crates/` | the model, in Rust. A `cargo` workspace, published to crates.io. |
+| `crates/` | the model, in Rust. A `cargo` workspace that ships in this repository; the crates are not published to crates.io (0.1.0 was the last registry release). |
 | `app/` | the interface, in Flutter; `app/rust/` is the binding crate that links the model into it. Its `pubspec.yaml` lives in `app/`. |
 
 ## The one law

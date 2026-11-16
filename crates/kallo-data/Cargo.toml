@@ -14,6 +14,7 @@ homepage.workspace = true
 # Its own README: the repository README describes the renderer, and this crate
 # is the measurements it reads.
 readme = "README.md"
+publish.workspace = true
 keywords = ["film", "photography", "measurement", "data"]
 categories = ["multimedia::images", "science"]
 

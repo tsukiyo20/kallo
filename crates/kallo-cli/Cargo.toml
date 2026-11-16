@@ -9,6 +9,7 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
+publish.workspace = true
 keywords = ["cli", "film", "photography", "command-line", "render"]
 categories = ["command-line-interface", "multimedia::images"]
 
@@ -45,8 +46,8 @@ serde_json.workspace = true
 
 [dev-dependencies]
 # The film-file tests compare a `.kalofilm` file with the stock compiled from
-# it. The files are shipped by `kallo-data`, so the same tests run in a checkout
-# and in a crate downloaded from crates.io.
+# it. The files are shipped by `kallo-data`, so the same tests read the same
+# bytes the build reads, whether this is a checkout or a packaged crate.
 kallo-data = { path = "../kallo-data", version = "0.2.1" }
 
 [lints]

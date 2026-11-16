@@ -8,9 +8,10 @@
 //!
 //! This runs at build time rather than at load time on purpose: the tables are
 //! still `const` arrays, so nothing about the renderer's performance or its API
-//! changes. The files come from the `kallo-data` crate, which carries a copy of
-//! the repository's `data/` directory so that a build from crates.io needs no
-//! checkout.
+//! changes. The files come from the `kallo-data` crate, which carries its own
+//! copy of the repository's `data/` directory, so the build reads the
+//! measurements through a crate of their own and not from a path beside the
+//! source.
 //!
 //! The header parser is deliberately strict and small: the header is written by
 //! `pack_film.py`, the same generator that wrote these files, so it contains
