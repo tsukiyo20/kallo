@@ -148,8 +148,8 @@ final class UpdateFailed extends UpdateCheck {
 /// A version, semver-shaped, as a release tag carries one.
 ///
 /// The app's versions are two numbers and sometimes a preview: the comparison
-/// only needs to be right about `0.2.0` being newer than `0.1.0`, and about
-/// `0.2.0-preview.3` being older than `0.2.0`.
+/// only needs to be right about `0.3.0` being newer than `0.2.0`, and about
+/// `0.3.0-preview.3` being older than `0.3.0`.
 class UpdateVersion {
   const UpdateVersion(
     this.major,

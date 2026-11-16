@@ -15,7 +15,7 @@ import 'package:kallo/views/drawer.dart';
 
 /// One release as GitHub's API writes it, with the fields the updater reads.
 Map<String, Object?> _release({
-  String tag = 'v0.2.0',
+  String tag = 'v0.3.0',
   bool draft = false,
   bool prerelease = false,
   String? published = '2026-01-02T00:00:00Z',
@@ -62,8 +62,8 @@ UpdateService _service(
 
 UpdateRelease _releaseModel({String? assetName = kUpdateAssetArm}) =>
     UpdateRelease(
-      tag: 'v0.2.0',
-      version: '0.2.0',
+      tag: 'v0.3.0',
+      version: '0.3.0',
       notes: '',
       page: Uri.parse(kReleases),
       asset: assetName == null
@@ -168,10 +168,10 @@ void main() {
       expect(requests.single.host, 'api.github.com');
       expect(check, isA<UpdateAvailable>());
       final UpdateRelease release = (check as UpdateAvailable).release;
-      expect(release.version, '0.2.0');
-      expect(release.label, 'v0.2.0');
+      expect(release.version, '0.3.0');
+      expect(release.label, 'v0.3.0');
       expect(release.notes, 'the notes');
-      expect(release.page.toString(), '$kReleases/tag/v0.2.0');
+      expect(release.page.toString(), '$kReleases/tag/v0.3.0');
       expect(release.publishedAt, DateTime.utc(2026, 1, 2));
       // The arm build is the exact fit even when a universal one is present.
       expect(release.asset?.name, kUpdateAssetArm);
@@ -180,6 +180,7 @@ void main() {
 
     test('the installed version and anything older are up to date', () async {
       for (final String tag in <String>[
+        'v0.2.0',
         'v0.1.0',
         'v0.0.9',
         'v0.1.0-preview.2',
@@ -575,8 +576,8 @@ void main() {
           },
         );
         final UpdateRelease release = UpdateRelease(
-          tag: 'v0.2.0',
-          version: '0.2.0',
+          tag: 'v0.3.0',
+          version: '0.3.0',
           notes: '',
           page: Uri.parse(kReleases),
           asset: UpdateAsset(
@@ -658,8 +659,8 @@ void main() {
       launchInstaller: (String script) async => launches.add(script),
     );
     final UpdateRelease release = UpdateRelease(
-      tag: 'v0.2.0',
-      version: '0.2.0',
+      tag: 'v0.3.0',
+      version: '0.3.0',
       notes: '',
       page: Uri.parse(kReleases),
       asset: UpdateAsset(
@@ -780,7 +781,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('about-update')));
       await tester.pumpAndSettle();
-      expect(find.text('Update to v0.2.0'), findsOneWidget);
+      expect(find.text('Update to v0.3.0'), findsOneWidget);
 
       service.gate = Completer<void>();
       await tester.tap(find.byKey(const Key('about-update')));
