@@ -29,7 +29,6 @@
     <Icon Id="KalloIcon" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="KalloIcon" />
     <Property Id="ARPHELPLINK" Value="https://github.com/tsukiyo20/kallo" />
-    <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
