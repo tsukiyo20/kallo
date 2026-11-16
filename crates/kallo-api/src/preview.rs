@@ -25,7 +25,7 @@ use kallo_core::Metering;
 use kallo_io::{Image, InputEncoding, resize_to_width, to_rgba8};
 
 use crate::error::Error;
-use crate::input::read_input;
+use crate::input::read_input_at_width;
 use crate::render::{Exposure, RenderOptions, render_image};
 use crate::selection::{Selection, StockChoice, resolve};
 
@@ -189,13 +189,39 @@ impl PreviewSession {
         let choice = request.choice();
         resolve(&choice)?;
 
-        let source = read_input(&request.input, request.encoding)?;
-        let image = resize_to_width(&source, request.width);
-        let metered_ev = Metering::of(&image.pixels).ev;
+        // The bench is the width it is looked at: decode at that size rather
+        // than reading the whole photograph and shrinking it in f64.
+        let image = read_input_at_width(&request.input, request.encoding, request.width)?;
+        Ok(Self::from_choice(request, choice, &image))
+    }
 
-        Ok(Self {
+    /// A session on a photograph the caller has already decoded.
+    ///
+    /// The box and the temperature are resolved here exactly as
+    /// [`PreviewSession::open`] does, and the photograph is resized to the width
+    /// the bench asked for. A caller that keeps one decode of a photograph for a
+    /// window and a bench — the app does — hands it over instead of reading the
+    /// file twice.
+    pub fn from_image(request: PreviewRequest, photograph: &Image) -> Result<Self, Error> {
+        if request.width == 0 {
+            return Err(Error::InvalidNumber {
+                flag: "--size",
+                value: 0.0,
+                expected: "a positive width in pixels",
+            });
+        }
+        let choice = request.choice();
+        resolve(&choice)?;
+        let image = resize_to_width(photograph, request.width);
+        Ok(Self::from_choice(request, choice, &image))
+    }
+
+    /// The session itself, once the photograph is the bench's copy.
+    fn from_choice(request: PreviewRequest, choice: StockChoice, image: &Image) -> Self {
+        let metered_ev = Metering::of(&image.pixels).ev;
+        Self {
             choice,
-            image,
+            image: image.clone(),
             metered_ev,
             frame_mm: request.frame_mm,
             grain: request.grain,
@@ -203,7 +229,7 @@ impl PreviewSession {
             couplers: request.couplers,
             gpu: request.gpu,
             cache: Mutex::new(Cache::default()),
-        })
+        }
     }
 
     /// The frame this session would print at one setting.
@@ -396,6 +422,29 @@ mod tests {
             (image.width * image.height * 4) as usize,
             "four channels per pixel"
         );
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// A session on a photograph the app already holds is the same session.
+    ///
+    /// The window decodes the photograph once; the bench is a session on that
+    /// decode, not a second read of the file. The two must make the same print
+    /// or the optimisation would be a second model.
+    #[test]
+    fn a_session_from_a_decoded_photograph_is_the_file_session() {
+        let (path, _) = photograph();
+        // The file's pixels, not the ones before the encoder: a session opened
+        // by name reads the file, so the shared image has to be that read.
+        let image = kallo_io::load(&path, kallo_io::InputEncoding::Srgb).expect("the file");
+        let from_file = PreviewSession::open(request(&path)).expect("the session");
+        let from_image = PreviewSession::from_image(request(&path), &image).expect("the session");
+        let file_frame = from_file
+            .frame(6.0, 0.0, None, "", None)
+            .expect("the frame");
+        let image_frame = from_image
+            .frame(6.0, 0.0, None, "", None)
+            .expect("the frame");
+        assert_eq!(image_frame, file_frame);
         let _ = std::fs::remove_file(path);
     }
 

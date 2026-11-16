@@ -106,23 +106,78 @@ impl std::error::Error for RawError {
 /// keeps the sensor orientation and reports it for exactly this reason; the
 /// turn is a permutation of whole pixels, so nothing is resampled a second time.
 pub fn load(path: impl AsRef<Path>) -> Result<Image, RawError> {
-    let raw = FlashRaw::open_path(path).map_err(RawError::Decode)?;
-    let frame = raw
-        .decode(DecodeOptions {
-            output: OutputFormat::LinearRgbF32,
-            // `Auto` is adaptive interpolation on a Bayer mosaic. The cost over
-            // bilinear is a few tens of milliseconds on a 33 MP frame, and it
-            // is the difference between colour detail and zippers.
-            demosaic: Demosaic::Auto,
-            ..Default::default()
-        })
-        .map_err(RawError::Decode)?;
+    let frame = decode(path)?;
+    let (samples, width, height, orientation) = frame_pixels(&frame)?;
+    Ok(image_from(samples, width, height, orientation))
+}
 
+/// Read a camera raw at no more than [width], in one pass.
+///
+/// [`load`] builds the whole decoded frame as f64 before [`kallo_io::resize_to_width`]
+/// takes the window's copy: a 33-megapixel raw is 786 MB of f64, and the bench
+/// wants 760 pixels of it. This averages the decoder's f32 samples straight
+/// into the small copy, with the same rectangles and sums the resize would
+/// make, so the pixels are the ones [`load`] then [`kallo_io::resize_to_width`]
+/// would have produced. The orientation is applied while sampling: the turn is
+/// a permutation of whole pixels, and it commutes with an area average.
+pub fn load_at_width(path: impl AsRef<Path>, width: u32) -> Result<Image, RawError> {
+    let frame = decode(path)?;
+    let (samples, source_width, source_height, orientation) = frame_pixels(&frame)?;
+    let upright_width = if orientation.swaps_axes() {
+        source_height
+    } else {
+        source_width
+    };
+    // The same answer as `kallo_io::resize_to_width`: a width the frame already
+    // has, or a larger one, is not a resize.
+    if width == 0 || width >= upright_width {
+        return Ok(image_from(
+            samples,
+            source_width,
+            source_height,
+            orientation,
+        ));
+    }
+    Ok(downsample(
+        samples,
+        source_width,
+        source_height,
+        orientation,
+        width,
+    ))
+}
+
+/// Decode the file's sensor data into linear-light f32 samples.
+fn decode(path: impl AsRef<Path>) -> Result<flashraw::RawFrame, RawError> {
+    let raw = FlashRaw::open_path(path).map_err(RawError::Decode)?;
+    raw.decode(DecodeOptions {
+        output: OutputFormat::LinearRgbF32,
+        // `Auto` is adaptive interpolation on a Bayer mosaic. The cost over
+        // bilinear is a few tens of milliseconds on a 33 MP frame, and it
+        // is the difference between colour detail and zippers.
+        demosaic: Demosaic::Auto,
+        ..Default::default()
+    })
+    .map_err(RawError::Decode)
+}
+
+/// The decoded samples, checked, with the orientation still to apply.
+fn frame_pixels(frame: &flashraw::RawFrame) -> Result<(&[f32], u32, u32, Orientation), RawError> {
     let (width, height) = (frame.width, frame.height);
     let samples = frame.as_f32().ok_or(RawError::Buffer)?;
     if width == 0 || height == 0 || samples.len() != width as usize * height as usize * 3 {
         return Err(RawError::Buffer);
     }
+    Ok((
+        samples,
+        width,
+        height,
+        Orientation::from_exif(frame.orientation),
+    ))
+}
+
+/// The whole decoded frame, as linear-light f64, upright.
+fn image_from(samples: &[f32], width: u32, height: u32, orientation: Orientation) -> Image {
     let pixels = samples
         .chunks_exact(3)
         .map(|pixel| {
@@ -139,8 +194,84 @@ pub fn load(path: impl AsRef<Path>) -> Result<Image, RawError> {
         height,
         pixels,
     };
-    turn(&mut image, Orientation::from_exif(frame.orientation));
-    Ok(image)
+    turn(&mut image, orientation);
+    image
+}
+
+/// The frame at [width], averaged while it is still the decoder's samples.
+///
+/// The arithmetic is [`kallo_io::resize_to_width`]'s, pixel for pixel: the same
+/// source rectangle per destination pixel, summed in the same row-major order
+/// of the upright frame, with the orientation mapped back to the sensor as each
+/// pixel is read.
+fn downsample(
+    samples: &[f32],
+    width: u32,
+    height: u32,
+    orientation: Orientation,
+    target_width: u32,
+) -> Image {
+    let (upright_width, upright_height) = if orientation.swaps_axes() {
+        (height, width)
+    } else {
+        (width, height)
+    };
+    let scale = f64::from(upright_width) / f64::from(target_width);
+    let target_height = ((f64::from(upright_height) / scale).round() as u32).max(1);
+    let stride = width as usize;
+    let mut pixels = Vec::with_capacity((target_width * target_height) as usize);
+
+    for y in 0..target_height {
+        let top = f64::from(y) * f64::from(upright_height) / f64::from(target_height);
+        let bottom = f64::from(y + 1) * f64::from(upright_height) / f64::from(target_height);
+        let y0 = (top.floor() as u32).min(upright_height - 1);
+        let y1 = (bottom.ceil() as u32).clamp(y0 + 1, upright_height);
+        for x in 0..target_width {
+            let left = f64::from(x) * f64::from(upright_width) / f64::from(target_width);
+            let right = f64::from(x + 1) * f64::from(upright_width) / f64::from(target_width);
+            let x0 = (left.floor() as u32).min(upright_width - 1);
+            let x1 = (right.ceil() as u32).clamp(x0 + 1, upright_width);
+
+            let mut sum = [0.0f64; 3];
+            let mut count = 0.0f64;
+            for source_y in y0..y1 {
+                for source_x in x0..x1 {
+                    let (sensor_x, sensor_y) =
+                        sensor_at(orientation, source_x, source_y, width, height);
+                    let at = (sensor_y as usize * stride + sensor_x as usize) * 3;
+                    sum[0] += f64::from(samples[at]).max(0.0);
+                    sum[1] += f64::from(samples[at + 1]).max(0.0);
+                    sum[2] += f64::from(samples[at + 2]).max(0.0);
+                    count += 1.0;
+                }
+            }
+            pixels.push([sum[0] / count, sum[1] / count, sum[2] / count]);
+        }
+    }
+
+    Image {
+        width: target_width,
+        height: target_height,
+        pixels,
+    }
+}
+
+/// The sensor pixel under an upright pixel.
+///
+/// This is [`turn`] read backwards: the orientation is a permutation, so the
+/// average can read the sensor directly instead of turning a second full-size
+/// frame first.
+fn sensor_at(orientation: Orientation, x: u32, y: u32, width: u32, height: u32) -> (u32, u32) {
+    match orientation {
+        Orientation::Normal => (x, y),
+        Orientation::HorizontalFlip => (width - 1 - x, y),
+        Orientation::Rotate180 => (width - 1 - x, height - 1 - y),
+        Orientation::VerticalFlip => (x, height - 1 - y),
+        Orientation::Transpose => (y, x),
+        Orientation::Rotate90 => (y, height - 1 - x),
+        Orientation::Transverse => (width - 1 - y, height - 1 - x),
+        Orientation::Rotate270 => (width - 1 - y, x),
+    }
 }
 
 /// How the camera was held, from the file's own Exif.
@@ -173,6 +304,14 @@ impl Orientation {
             flashraw::Orientation::Transverse => Self::Transverse,
             flashraw::Orientation::Rotate270 => Self::Rotate270,
         }
+    }
+
+    /// Whether the turn puts the sensor's rows where the upright columns go.
+    fn swaps_axes(self) -> bool {
+        matches!(
+            self,
+            Self::Transpose | Self::Rotate90 | Self::Transverse | Self::Rotate270
+        )
     }
 }
 
@@ -364,5 +503,95 @@ mod tests {
             image.width,
             image.height
         );
+    }
+
+    /// The sensor samples for a small synthetic frame, with values both sides
+    /// of zero so the clamp is exercised.
+    fn sensor(width: u32, height: u32) -> Vec<f32> {
+        let mut samples = Vec::with_capacity((width * height * 3) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                for channel in 0..3u32 {
+                    let index = y * width * 3 + x * 3 + channel;
+                    samples.push((index % 19) as f32 / 8.0 - 0.5);
+                }
+            }
+        }
+        samples
+    }
+
+    /// A raw read at a width must be the raw read and then resized.
+    ///
+    /// Every orientation, because the average is taken on the upright frame
+    /// while the samples are read from the sensor's own layout.
+    #[test]
+    fn reading_at_a_width_is_reading_then_resizing() {
+        let (width, height) = (7u32, 5u32);
+        let samples = sensor(width, height);
+        let orientations = [
+            Orientation::Normal,
+            Orientation::HorizontalFlip,
+            Orientation::Rotate180,
+            Orientation::VerticalFlip,
+            Orientation::Transpose,
+            Orientation::Rotate90,
+            Orientation::Transverse,
+            Orientation::Rotate270,
+        ];
+        for orientation in orientations {
+            let full = image_from(&samples, width, height, orientation);
+            let upright_width = if orientation.swaps_axes() {
+                height
+            } else {
+                width
+            };
+            // Asking for a width the frame already has is a copy, not a
+            // resize; the one-pass path leaves that to `image_from`.
+            let expected = kallo_io::resize_to_width(&full, upright_width + 3);
+            assert_eq!((full.width, full.height), (expected.width, expected.height));
+            for target in 1..upright_width {
+                let expected = kallo_io::resize_to_width(&full, target);
+                let actual = downsample(&samples, width, height, orientation, target);
+                assert_eq!(
+                    (actual.width, actual.height),
+                    (expected.width, expected.height),
+                    "{orientation:?} at {target}"
+                );
+                for (index, (expected, actual)) in
+                    expected.pixels.iter().zip(&actual.pixels).enumerate()
+                {
+                    assert_eq!(
+                        actual, expected,
+                        "{orientation:?} at {target}: pixel {index}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The same check against a real camera file when one is pointed at.
+    ///
+    /// Set `KALLO_RAW_FIXTURE` to run it; the fixture is large and not
+    /// redistributable, so it does not live in the repository.
+    #[test]
+    fn a_raw_read_at_a_width_is_the_raw_then_resized() {
+        let Ok(path) = std::env::var("KALLO_RAW_FIXTURE") else {
+            return;
+        };
+        let full = load(&path).expect("decode");
+        for width in [760u32, 1600, 2048] {
+            let expected = kallo_io::resize_to_width(&full, width);
+            let actual = load_at_width(&path, width).expect("decode at a width");
+            assert_eq!(
+                (actual.width, actual.height),
+                (expected.width, expected.height),
+                "at {width}"
+            );
+            for (index, (expected, actual)) in
+                expected.pixels.iter().zip(&actual.pixels).enumerate()
+            {
+                assert_eq!(actual, expected, "at {width}: pixel {index}");
+            }
+        }
     }
 }

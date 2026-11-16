@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use kallo_io::{Image, InputEncoding, load};
+use kallo_io::{Image, InputEncoding, load, load_at_width};
 
 use crate::error::Error;
 
@@ -32,6 +32,40 @@ pub fn read_input(path: &Path, encoding: InputEncoding) -> Result<Image, Error> 
         });
     }
     load(path, encoding).map_err(|source| Error::Read {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Read the input at no more than [width], in one pass.
+///
+/// The bench and the gallery want a window-sized copy, not a camera-sized one,
+/// and a 33-megapixel file is 786 MB as the f64 [`Image`] [`read_input`] makes.
+/// This is the same photograph at the width asked for: the decoder's own bytes,
+/// averaged down while they are still the decoder's, with the arithmetic
+/// [`kallo_io::resize_to_width`] would have used.
+pub fn read_input_at_width(
+    path: &Path,
+    encoding: InputEncoding,
+    width: u32,
+) -> Result<Image, Error> {
+    #[cfg(feature = "raw")]
+    if kallo_raw::handles(path) {
+        return kallo_raw::load_at_width(path, width).map_err(|source| Error::Raw {
+            path: path.to_path_buf(),
+            message: source.to_string(),
+        });
+    }
+    #[cfg(not(feature = "raw"))]
+    if looks_like_raw(path) {
+        return Err(Error::Raw {
+            path: path.to_path_buf(),
+            message: "this build has no raw decoder; rebuild with `--features raw`, or \
+                      convert the file and pass --input-encoding linear"
+                .to_string(),
+        });
+    }
+    load_at_width(path, encoding, width).map_err(|source| Error::Read {
         path: path.to_path_buf(),
         source,
     })

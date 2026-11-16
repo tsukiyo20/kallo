@@ -32,7 +32,7 @@ pub use chart::{
 pub use contact::{ContactOptions, ContactOutcome, contact, ladder};
 pub use device::{RenderDevice, render_device};
 pub use error::Error;
-pub use input::{handles_raw, read_input};
+pub use input::{handles_raw, read_input, read_input_at_width};
 pub use preview::{PreviewFrame, PreviewRequest, PreviewSession};
 pub use render::{
     Backend, Exposure, OwnedFinishing, RenderOptions, RenderOutcome, render, render_image,
