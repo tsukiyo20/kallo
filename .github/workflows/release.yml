@@ -209,6 +209,8 @@ jobs:
           if (-Not (Test-Path "$env:GITHUB_WORKSPACE\app\dist\kallo-desktop-windows-x86_64.msi")) {
             throw "the build has no msi"
           }
+          # Light writes debug symbols beside the MSI; they are not an installer.
+          Remove-Item "$env:GITHUB_WORKSPACE\app\dist\kallo-desktop-windows-x86_64.wixpdb" -ErrorAction SilentlyContinue
           Write-Output "msi $version"
 
       - uses: actions/upload-artifact@v4
