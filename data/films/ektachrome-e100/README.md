@@ -7,7 +7,7 @@ per-layer MTF and granularity all come from its own sheet.
   anchor solved as a density, the two-lobe residual and what a second transition
   would buy.
 - **The film:** `ektachrome-e100.kalofilm` (6,228 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 digitised points per layer.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png), drawn
   from `curves/` and the file's tables.

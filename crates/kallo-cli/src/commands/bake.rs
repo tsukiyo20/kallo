@@ -1,4 +1,4 @@
-//! `kalo bake` — distil the spectral exposure into a reusable table.
+//! `kallo bake` — distil the spectral exposure into a reusable table.
 
 use std::path::Path;
 

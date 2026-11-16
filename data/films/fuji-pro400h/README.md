@@ -9,7 +9,7 @@ report shows the three candidate shifts.
 - **The report:** [REPORT.md](REPORT.md) — method, fits, residuals, uncertainty,
   and the negative result about the fourth layer.
 - **The film:** `fuji-pro400h.kalofilm` (7,548 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 294 digitised points per layer, so the fit can be
   recomputed rather than believed.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png),

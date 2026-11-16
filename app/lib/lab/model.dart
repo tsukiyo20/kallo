@@ -43,7 +43,7 @@ abstract class PreviewSession {
 
 /// The model, as this app sees it.
 ///
-/// There are two ways to reach the same Rust code today: a `kalo` binary run as
+/// There are two ways to reach the same Rust code today: a `kallo` binary run as
 /// a subprocess, and the model linked into the app through `flutter_rust_bridge`
 /// as a dynamic library. They answer the same calls, so this is the interface
 /// both implement, and `find()` picks one.
@@ -223,7 +223,7 @@ abstract class Model {
 class ProcessModel implements Model {
   const ProcessModel(this.executable);
 
-  /// The `kalo` binary's path, or empty when this build cannot find one.
+  /// The `kallo` binary's path, or empty when this build cannot find one.
   final String executable;
 
   @override
@@ -491,7 +491,7 @@ class ProcessModel implements Model {
     for (int depth = 0; depth < 12 && directory != null; depth++) {
       final File candidate = File(
         '${directory.path}${Platform.pathSeparator}target'
-        '${Platform.pathSeparator}release${Platform.pathSeparator}kalo',
+        '${Platform.pathSeparator}release${Platform.pathSeparator}kallo',
       );
       if (candidate.existsSync()) {
         return ProcessModel(candidate.path);
@@ -509,7 +509,7 @@ class ModelMissing implements Exception {
   const ModelMissing();
 
   @override
-  String toString() => 'no kalo binary';
+  String toString() => 'no kallo binary';
 }
 
 /// The model ran and would not do it.

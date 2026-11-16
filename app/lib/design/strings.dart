@@ -251,8 +251,8 @@ class KalloStrings {
       zh ? '显影 $done / $total' : 'developing $done of $total';
 
   String get noModel => zh
-      ? '这台机器上找不到模型（kalo）。没有它，架上只能放着胶片，显不了影。'
-      : 'No model on this machine (kalo). Without it the shelf can hold film, but nothing can be developed.';
+      ? '这台机器上找不到模型（kallo）。没有它，架上只能放着胶片，显不了影。'
+      : 'No model on this machine (kallo). Without it the shelf can hold film, but nothing can be developed.';
 
   String get onTheTable => zh ? '在台面上' : 'on the table';
   String get openRoll => zh ? '打开' : 'Open';

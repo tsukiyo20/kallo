@@ -8,7 +8,7 @@ a negative value — the clearest thing the rising fit ever fixed.
   printed anchor, the D-min mask that is the densest in the family, and the two
   quantities the sheet cannot supply.
 - **The film:** `gold-200.kalofilm` (6,256 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points per layer.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png), drawn
   from `curves/` and the file's own tables.

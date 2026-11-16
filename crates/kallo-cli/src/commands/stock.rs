@@ -1,4 +1,4 @@
-//! `kalo stock check` — is this stock file what it says it is?
+//! `kallo stock check` — is this stock file what it says it is?
 
 use std::path::PathBuf;
 

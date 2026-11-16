@@ -1,4 +1,4 @@
-//! End-to-end tests against the built `kalo` binary.
+//! End-to-end tests against the built `kallo` binary.
 //!
 //! These exercise the contract a user actually has: exit codes, the lines the
 //! report prints, and the files that appear on disk.
@@ -6,12 +6,12 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-fn kalo() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_kalo"))
+fn kallo() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_kallo"))
 }
 
 fn run(args: &[&str]) -> Output {
-    kalo().args(args).output().expect("kalo should start")
+    kallo().args(args).output().expect("kallo should start")
 }
 
 fn stdout(output: &Output) -> String {
@@ -29,7 +29,7 @@ fn chart() -> PathBuf {
 
 /// A private directory per test, so the suite can run in parallel.
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kalo-it-{}-{name}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("kallo-it-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("scratch directory");
     dir
@@ -100,7 +100,7 @@ fn grain_is_deterministic_in_its_seed() {
     let dir = scratch("grain");
     let render = |name: &str, seed: &str| {
         let out = dir.join(name);
-        let output = kalo()
+        let output = kallo()
             .arg("render")
             .arg(chart())
             .arg("-o")
@@ -108,7 +108,7 @@ fn grain_is_deterministic_in_its_seed() {
             .args(["--dev", "9", "--grain", "--frame-mm", "3.6"])
             .args(["--grain-seed", seed])
             .output()
-            .expect("kalo should start");
+            .expect("kallo should start");
         assert!(output.status.success(), "stderr: {}", stderr(&output));
         std::fs::read(&out).expect("the output file was written")
     };
@@ -157,7 +157,7 @@ fn render_writes_an_image_and_creates_directories() {
     let dir = scratch("render");
     let out = dir.join("nested").join("out.png");
 
-    let output = kalo()
+    let output = kallo()
         .arg("render")
         .arg(chart())
         .arg("-o")
@@ -165,7 +165,7 @@ fn render_writes_an_image_and_creates_directories() {
         .arg("--dev")
         .arg("9")
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
 
     assert!(output.status.success(), "stderr: {}", stderr(&output));
     assert!(out.exists(), "the output file was not written");
@@ -184,14 +184,14 @@ fn auto_exposure_places_the_frames_mean_on_mid_grey() {
     let input = flat_frame(&dir, "dark.png", 0.045);
     let render = |stops: &str, name: &str| {
         let out = dir.join(name);
-        let output = kalo()
+        let output = kallo()
             .arg("render")
             .arg(&input)
             .arg("-o")
             .arg(&out)
             .args(["--ev", stops])
             .output()
-            .expect("kalo should start");
+            .expect("kallo should start");
         assert!(output.status.success(), "stderr: {}", stderr(&output));
         (stdout(&output), out)
     };
@@ -243,14 +243,14 @@ fn a_black_frame_is_not_lifted_by_a_meter_that_cannot_read_it() {
     let input = flat_frame(&dir, "black.png", 0.0);
     let out = dir.join("out.png");
 
-    let output = kalo()
+    let output = kallo()
         .arg("render")
         .arg(&input)
         .arg("-o")
         .arg(&out)
         .args(["--ev", "auto"])
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
 
     assert!(output.status.success(), "stderr: {}", stderr(&output));
     // No light is no exposure to recover: the offset is zero, not infinite.
@@ -281,18 +281,18 @@ fn bake_writes_a_table_and_render_uses_it() {
     let dir = scratch("bake");
     let table = dir.join("model.klut");
 
-    let baked = kalo()
+    let baked = kallo()
         .arg("bake")
         .arg("-o")
         .arg(&table)
         .args(["--size", "5"])
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(baked.status.success(), "stderr: {}", stderr(&baked));
     assert!(table.exists(), "the table was not written");
 
     let out = dir.join("out.png");
-    let rendered = kalo()
+    let rendered = kallo()
         .arg("render")
         .arg(chart())
         .arg("-o")
@@ -300,7 +300,7 @@ fn bake_writes_a_table_and_render_uses_it() {
         .arg("--lut")
         .arg(&table)
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(rendered.status.success(), "stderr: {}", stderr(&rendered));
     assert!(out.exists());
     assert!(
@@ -327,7 +327,7 @@ fn a_truncated_table_is_rejected() {
     let table = dir.join("broken.klut");
     std::fs::write(&table, b"KLUT").expect("write");
 
-    let output = kalo()
+    let output = kallo()
         .arg("render")
         .arg(chart())
         .arg("-o")
@@ -335,7 +335,7 @@ fn a_truncated_table_is_rejected() {
         .arg("--lut")
         .arg(&table)
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
 
     assert!(!output.status.success());
     assert!(
@@ -376,13 +376,13 @@ fn non_positive_development_time_is_rejected() {
 #[test]
 fn a_build_without_the_gpu_renders_on_the_cpu() {
     let dir = scratch("gpu-off");
-    let output = kalo()
+    let output = kallo()
         .arg("render")
         .arg(chart())
         .arg("-o")
         .arg(dir.join("out.png"))
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(output.status.success(), "stderr: {}", stderr(&output));
     let report = stdout(&output);
     let line = report
@@ -399,14 +399,14 @@ fn a_build_without_the_gpu_renders_on_the_cpu() {
 fn the_default_backend_is_the_gpu_or_says_why_it_is_not() {
     let dir = scratch("gpu-on");
     let out = dir.join("out.png");
-    let output = kalo()
+    let output = kallo()
         .arg("render")
         .arg(chart())
         .arg("-o")
         .arg(&out)
         .args(["--dev", "9"])
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(output.status.success(), "stderr: {}", stderr(&output));
     assert!(out.exists(), "no image was written");
     let report = stdout(&output);
@@ -467,7 +467,7 @@ fn the_gpu_renders_the_effects_to_the_same_pixels_as_the_cpu() {
     )
     .expect("the test frame");
 
-    let cpu = kalo()
+    let cpu = kallo()
         .arg("render")
         .arg(&input)
         .arg("-o")
@@ -475,17 +475,17 @@ fn the_gpu_renders_the_effects_to_the_same_pixels_as_the_cpu() {
         .arg("--no-gpu")
         .args(stages)
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(cpu.status.success(), "stderr: {}", stderr(&cpu));
 
-    let gpu = kalo()
+    let gpu = kallo()
         .arg("render")
         .arg(&input)
         .arg("-o")
         .arg(&on_gpu)
         .args(stages)
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(gpu.status.success(), "stderr: {}", stderr(&gpu));
 
     let report = stdout(&gpu);
@@ -538,14 +538,14 @@ fn the_gpu_renders_the_effects_to_the_same_pixels_as_the_cpu() {
 #[test]
 fn the_cpu_can_be_forced() {
     let dir = scratch("cpu-forced");
-    let output = kalo()
+    let output = kallo()
         .arg("render")
         .arg(chart())
         .arg("-o")
         .arg(dir.join("out.png"))
         .args(["--spectral", "--no-gpu"])
         .output()
-        .expect("kalo should start");
+        .expect("kallo should start");
     assert!(output.status.success(), "stderr: {}", stderr(&output));
     let report = stdout(&output);
     let line = report

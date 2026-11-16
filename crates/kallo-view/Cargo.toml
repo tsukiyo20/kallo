@@ -14,7 +14,7 @@ keywords = ["film", "simulation", "interface", "rendering"]
 categories = ["graphics", "simulation"]
 
 [dependencies]
-kallo-core = { path = "../kallo-core", version = "0.3.0" }
+kallo-core = { path = "../kallo-core", version = "0.3.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

@@ -271,7 +271,7 @@ calibration of its own panel or at its order. The tables stand unchanged.
 ## 8. Availability and reproduction
 
 `ektachrome-e100.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it, and the compiled stock `ektachrome_e100`
+`kallo render --film-file` loads it, and the compiled stock `ektachrome_e100`
 renders byte-identically. The figures are regenerated from `curves/` and the
 file with
 

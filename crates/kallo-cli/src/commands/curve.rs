@@ -1,4 +1,4 @@
-//! `kalo curve` — say what a development does, without rendering anything.
+//! `kallo curve` — say what a development does, without rendering anything.
 
 use crate::cli::CurveArgs;
 use crate::commands::common::{Rendering, print_report, resolve};

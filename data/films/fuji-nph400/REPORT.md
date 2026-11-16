@@ -113,7 +113,7 @@ model placed mid grey on them.
 ## 6. Availability and reproduction
 
 `fuji-nph400.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it.
+`kallo render --film-file` loads it.
 
 ```bash
 python3 ../tools/kalofilm.py --check fuji-nph400.kalofilm

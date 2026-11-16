@@ -1,4 +1,4 @@
-//! `kalo` — the command line front end for Kallo.
+//! `kallo` — the command line front end for Kallo.
 //!
 //! The binary itself is a three-line wrapper. Everything lives in this crate so
 //! that a command can be exercised from a test without spawning a process:
@@ -7,7 +7,7 @@
 //! use clap::Parser;
 //! use kallo_cli::cli::Cli;
 //!
-//! let cli = Cli::parse_from(["kalo", "stocks"]);
+//! let cli = Cli::parse_from(["kallo", "stocks"]);
 //! kallo_cli::run(cli).unwrap();
 //! ```
 

@@ -1,4 +1,4 @@
-//! Camera raw decoding for `kalo`.
+//! Camera raw decoding for `kallo`.
 //!
 //! # The seam
 //!

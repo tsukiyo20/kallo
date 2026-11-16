@@ -163,7 +163,7 @@ class KalloApp extends StatefulWidget {
 
   /// Every stock the model carries. The tests pin it, so that a golden is a
   /// picture of the app rather than of the model binary on this machine; the app
-  /// asks `kalo stocks --json` once, at the start.
+  /// asks `kallo stocks --json` once, at the start.
   final Catalogue? catalogue;
 
   /// Prints to hang. The tests pass them; the app reads the export folder,

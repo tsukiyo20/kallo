@@ -18,8 +18,8 @@ name = "kallo_spectral"
 path = "src/lib.rs"
 
 [[bin]]
-name = "kalo-bench"
-path = "src/bin/kalo_bench.rs"
+name = "kallo-bench"
+path = "src/bin/kallo_bench.rs"
 
 [dependencies]
 

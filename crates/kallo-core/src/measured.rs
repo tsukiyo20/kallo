@@ -1,7 +1,7 @@
 //! The digitised spectra the model runs on.
 //!
 //! These are the measured curves, compiled in rather than loaded. The model does
-//! no file I/O at render time, and a `kalo` binary that needs a data directory
+//! no file I/O at render time, and a `kallo` binary that needs a data directory
 //! beside it is not something anyone would install.
 //!
 //! Every table is 380–730 nm at 5 nm, the grid [`crate::spectral`] uses. Their

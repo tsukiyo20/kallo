@@ -60,7 +60,7 @@ the numbers are what this project produced.
 ## Loading one
 
 ```bash
-kalo render frame.tif -o print.png --film-file data/films/fuji-pro400h/fuji-pro400h.kalofilm
+kallo render frame.tif -o print.png --film-file data/films/fuji-pro400h/fuji-pro400h.kalofilm
 ```
 
 A file and the stock of the same name compiled into the binary render

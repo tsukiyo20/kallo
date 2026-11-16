@@ -1,4 +1,4 @@
-//! `kalo stocks` — what is compiled in.
+//! `kallo stocks` — what is compiled in.
 
 use kallo_core::{FILM_STOCKS, PAPER_STOCKS};
 

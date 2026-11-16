@@ -6,7 +6,7 @@ film whose three curves fit tighter than any other Kodak sheet in the series.
 - **The report:** [REPORT.md](REPORT.md) — the sheet, the printed anchor, the
   measured mask and the two declared absences.
 - **The film:** `kodak-ultramax-400.kalofilm` (6,069 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points per layer.
 - **The figures:** [01-curves](figures/01-curves.png),
   [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png).

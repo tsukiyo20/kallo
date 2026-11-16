@@ -18,7 +18,7 @@ copy and this directory disagree.
 
 Both formats are specified in [`films/FORMAT.md`](films/FORMAT.md), which also
 documents the TOML source file a stock is authored in and the four things
-`kalo stock check` refuses. No image of a data sheet is reproduced here: the
+`kallo stock check` refuses. No image of a data sheet is reproduced here: the
 sheets stay with their publishers, and each file names the publication, the page
 and the SHA-256 of the document its numbers were read from.
 

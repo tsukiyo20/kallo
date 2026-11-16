@@ -6,7 +6,7 @@ its own MTF.
 - **The report:** [REPORT.md](REPORT.md) — the three development curves, the
   7.5-minute choice, the Gaussian fit and the two declared absences.
 - **The film:** `kodak-tmax-100.kalofilm` (5,624 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points, the same record in all three files.
 - **The figures:** [01-curves](figures/01-curves.png),
   [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png).

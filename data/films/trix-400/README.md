@@ -8,7 +8,7 @@ record instead of three.
   grain number inverted from rms 17, and what a monochrome film does to a format
   built for colour.
 - **The film:** `trix-400.kalofilm` (5,593 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points, the same curve in all three files,
   because a silver image has one record.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png).
