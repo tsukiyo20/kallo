@@ -866,7 +866,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kallo-core",
  "kallo-gpu",
@@ -879,7 +879,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kallo-data",
  "kallo-spectral",
@@ -888,11 +888,11 @@ dependencies = [
 
 [[package]]
 name = "kallo-data"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "kallo-gpu"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kallo-core",
  "pollster",
@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-io"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "image",
  "kallo-core",
@@ -910,7 +910,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-raw"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flashraw",
  "kallo-io",
@@ -918,11 +918,11 @@ dependencies = [
 
 [[package]]
 name = "kallo-spectral"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "kallo-view"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kallo-core",
  "serde",
@@ -1396,7 +1396,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "rust_lib_kallo"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flutter_rust_bridge",
  "image",
