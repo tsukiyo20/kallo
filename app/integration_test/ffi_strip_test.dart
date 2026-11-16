@@ -302,6 +302,57 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   }, timeout: const Timeout(Duration(minutes: 5)));
+  test('a finished print reports its work as it happens', () async {
+    final bool loaded = await loadLinkedModel();
+    expect(loaded, isTrue, reason: 'the dynamic library should load');
+    final Model model = Model.find();
+    final File photograph = File('../../file-test/DSCF0989.JPG');
+    expect(photograph.existsSync(), isTrue, reason: 'the test photograph');
+    final Directory exports = await Directory.systemTemp.createTemp(
+      'kallo-progress-',
+    );
+    addTearDown(() => exports.delete(recursive: true));
+
+    final TestStrip strip = TestStrip(
+      photo: photograph.path,
+      stockId: 'vision3_500t',
+      stockLabel: 'VISION3 500T',
+      paperId: 'portra_endura',
+      paperLabel: 'PORTRA ENDURA',
+      tempC: 20,
+    );
+    final List<double> steps = <double>[];
+    final File printed = await printTest(
+      model: model,
+      strip: strip,
+      minutes: 3,
+      exports: exports,
+      width: 800,
+      onProgress: steps.add,
+    );
+    expect(printed.existsSync(), isTrue);
+    expect(steps, isNotEmpty);
+    expect(
+      steps.length,
+      greaterThan(5),
+      reason: 'the model reports stages, not only a start and an end: $steps',
+    );
+    expect(steps.first, lessThan(0.05));
+    // The print leaves its last tenth to the caller: the edge and the shelf are
+    // still to come when printTest returns.
+    expect(steps.last, 0.9);
+    for (int i = 1; i < steps.length; i++) {
+      expect(
+        steps[i],
+        greaterThanOrEqualTo(steps[i - 1]),
+        reason: 'progress goes forward: $steps',
+      );
+    }
+    // ignore: avoid_print
+    print(
+      'print progress: ${steps.map((double value) => value.toStringAsFixed(2)).join(", ")}',
+    );
+  }, timeout: const Timeout(Duration(minutes: 5)));
 }
 
 /// The mean of the three channels, 0–255: the print's average light.

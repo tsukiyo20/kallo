@@ -37,6 +37,25 @@ pub fn read_input(path: &Path, encoding: InputEncoding) -> Result<Image, Error> 
     })
 }
 
+/// Whether `path` is a camera raw this build can read.
+///
+/// The decoder owns the answer, so this is the one extension list in the
+/// program that matters. An interface asks before it hands the bytes to a
+/// window's decoder — that decoder reads JPEG, PNG and not a sensor's mosaic,
+/// and "unsupported image format" is a poor answer to someone who passed a
+/// camera file.
+pub fn handles_raw(path: &Path) -> bool {
+    #[cfg(feature = "raw")]
+    {
+        kallo_raw::handles(path)
+    }
+    #[cfg(not(feature = "raw"))]
+    {
+        let _ = path;
+        false
+    }
+}
+
 /// A short list of raw extensions, and only for the error message: without the
 /// `raw` feature there is no decoder to ask, and "unsupported image format" is
 /// a poor answer to someone who passed a camera file.
@@ -50,4 +69,31 @@ fn looks_like_raw(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| RAW_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::handles_raw;
+    use std::path::Path;
+
+    /// The decoder's own list, asked by name. A camera writes the extension in
+    /// capitals as often as not, and a file that does not exist is still a
+    /// routing question, not a read.
+    #[cfg(feature = "raw")]
+    #[test]
+    fn a_camera_raw_is_named_by_the_decoder() {
+        assert!(handles_raw(Path::new("DSC03315.ARW")));
+        assert!(handles_raw(Path::new("scan.dng")));
+        assert!(handles_raw(Path::new("frame.cr3")));
+        assert!(!handles_raw(Path::new("print.png")));
+        assert!(!handles_raw(Path::new("photograph")));
+    }
+
+    /// Without the decoder there is nothing to hand a raw to, and the answer is
+    /// no rather than a build that pretends.
+    #[cfg(not(feature = "raw"))]
+    #[test]
+    fn without_the_decoder_no_file_is_a_raw() {
+        assert!(!handles_raw(Path::new("DSC03315.ARW")));
+    }
 }

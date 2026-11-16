@@ -19,6 +19,7 @@ import '../lab/render_mode.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
+import '../lab/work_clock.dart';
 import '../widgets/button.dart';
 import '../widgets/curves.dart';
 import '../widgets/inspector.dart';
@@ -76,7 +77,14 @@ class DevelopStage extends StatefulWidget {
   final ValueChanged<double> onTemperature;
 
   /// Develop one print at a time and add it to the strip.
-  final Future<void> Function(double minutes) onDevelop;
+  ///
+  /// The model reports the print's stages through `onProgress`; a caller that
+  /// has none to report leaves it null and the bench keeps its own clock.
+  final Future<void> Function(
+    double minutes, {
+    void Function(double)? onProgress,
+  })
+  onDevelop;
 
   /// Take one print off the strip.
   final Future<void> Function(double minutes) onRemove;
@@ -115,6 +123,13 @@ class _DevelopStageState extends State<DevelopStage> {
   PaperCurve? _paper;
 
   bool _busy = false;
+
+  /// The develop action's progress, 0..1, while it runs; null when idle.
+  double? _progress;
+  Timer? _progressTimer;
+
+  /// Whether the model has reported a step of this develop.
+  bool _progressReported = false;
   String? _error;
 
   /// Whether the shelf is lying on the bench, and which half of it is open.
@@ -226,9 +241,11 @@ class _DevelopStageState extends State<DevelopStage> {
     }
     unawaited(_loadFilmCurves());
   }
+
   @override
   void dispose() {
     _timer?.cancel();
+    _progressTimer?.cancel();
     _generation++;
     if (_ownsPreview) {
       _preview?.dispose();
@@ -381,7 +398,9 @@ class _DevelopStageState extends State<DevelopStage> {
     if (next == widget.strip.tempC) {
       return;
     }
-    if (!await _mayReplace(KalloStrings.of(context).changeTemperatureQuestion) ||
+    if (!await _mayReplace(
+          KalloStrings.of(context).changeTemperatureQuestion,
+        ) ||
         !mounted) {
       return;
     }
@@ -438,26 +457,27 @@ class _DevelopStageState extends State<DevelopStage> {
     final KalloStrings s = KalloStrings.of(context);
     final Stock? film = widget.catalogue.film(widget.strip.stockId);
     final Stock? paper = widget.catalogue.paper(widget.strip.paperId ?? '');
-    final _MaterialsAction? action =
-        await showKalloMobileSheet<_MaterialsAction>(
-          context,
-          builder: (BuildContext sheetContext) => _PhoneMaterialsSheet(
-            film: film?.productName ?? stockDisplayName(widget.strip.stockLabel),
-            filmNote: film == null
-                ? ''
-                : '${film.maker} · ${s.processName(film.process ?? FilmProcess.negative)}',
-            paper: paper?.productName ??
-                stockDisplayName(widget.strip.paperLabel ?? ''),
-            paperNote: paper == null
-                ? ''
-                : '${paper.maker} · '
-                      '${(paper.emulsion ?? PaperEmulsion.colour) == PaperEmulsion.silver ? s.silverPaper : s.colourPaper}',
-            photo: widget.strip.name ?? s.noPhotograph,
-            onFilm: () => Navigator.of(sheetContext).pop(_MaterialsAction.film),
-            onPaper: () => Navigator.of(sheetContext).pop(_MaterialsAction.paper),
-            onPhoto: () => Navigator.of(sheetContext).pop(_MaterialsAction.photo),
-          ),
-        );
+    final _MaterialsAction?
+    action = await showKalloMobileSheet<_MaterialsAction>(
+      context,
+      builder: (BuildContext sheetContext) => _PhoneMaterialsSheet(
+        film: film?.productName ?? stockDisplayName(widget.strip.stockLabel),
+        filmNote: film == null
+            ? ''
+            : '${film.maker} · ${s.processName(film.process ?? FilmProcess.negative)}',
+        paper:
+            paper?.productName ??
+            stockDisplayName(widget.strip.paperLabel ?? ''),
+        paperNote: paper == null
+            ? ''
+            : '${paper.maker} · '
+                  '${(paper.emulsion ?? PaperEmulsion.colour) == PaperEmulsion.silver ? s.silverPaper : s.colourPaper}',
+        photo: widget.strip.name ?? s.noPhotograph,
+        onFilm: () => Navigator.of(sheetContext).pop(_MaterialsAction.film),
+        onPaper: () => Navigator.of(sheetContext).pop(_MaterialsAction.paper),
+        onPhoto: () => Navigator.of(sheetContext).pop(_MaterialsAction.photo),
+      ),
+    );
     if (action == null || !mounted) {
       return;
     }
@@ -681,16 +701,85 @@ class _DevelopStageState extends State<DevelopStage> {
       _busy = true;
       _error = null;
     });
+    final DateTime started = DateTime.now();
+    _beginProgress('develop', const Duration(seconds: 2));
     try {
-      await widget.onDevelop(_minutes);
+      await widget.onDevelop(_minutes, onProgress: _modelProgress);
     } on Object catch (error) {
       if (mounted) {
         setState(() => _error = error.toString());
       }
     } finally {
+      WorkClock.record('develop', DateTime.now().difference(started));
+      await _endProgress();
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+  }
+
+  /// Fill the button while the model develops.
+  ///
+  /// The linked model reports its own stages, and those are what the bar
+  /// follows. The subprocess has nothing to say, so after a moment the bench
+  /// falls back to the last develop's clock — the only estimate it can
+  /// honestly make.
+  void _beginProgress(String key, Duration fallback) {
+    _progressReported = false;
+    _progressTimer?.cancel();
+    setState(() => _progress = 0);
+    _progressTimer = Timer(const Duration(milliseconds: 250), () {
+      _startEstimate(key, fallback);
+    });
+  }
+
+  /// One stage of the model's develop, 0..1.
+  void _modelProgress(double value) {
+    if (!mounted) {
+      return;
+    }
+    _progressReported = true;
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    final double next = value.clamp(0.0, 1.0);
+    setState(() => _progress = math.max(_progress ?? 0, next));
+  }
+
+  void _startEstimate(String key, Duration fallback) {
+    if (_progressReported || !mounted) {
+      return;
+    }
+    final double seconds = math.max(
+      0.05,
+      WorkClock.estimate(key, fallback).inMicroseconds / 1e6,
+    );
+    final DateTime started = DateTime.now();
+    _progressTimer?.cancel();
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 33), (
+      Timer timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final double elapsed =
+          DateTime.now().difference(started).inMicroseconds / 1e6;
+      final double filled = 1 - math.exp(-2.4 * elapsed / seconds);
+      setState(() => _progress = math.min(0.97, filled));
+    });
+  }
+
+  /// The work is done: the bar reaches the button's own orange, then the
+  /// button is a button again.
+  Future<void> _endProgress() async {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    if (mounted) {
+      setState(() => _progress = 1);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    if (mounted) {
+      setState(() => _progress = null);
     }
   }
 
@@ -875,8 +964,7 @@ class _DevelopStageState extends State<DevelopStage> {
                               showKalloImageViewer(
                                 context,
                                 image: image,
-                                semanticLabel:
-                                    widget.strip.name ?? s.testPrint,
+                                semanticLabel: widget.strip.name ?? s.testPrint,
                                 caption:
                                     '${s.testPrint} · ${darkroomClock(_minutes)}',
                               );
@@ -962,30 +1050,30 @@ class _DevelopStageState extends State<DevelopStage> {
                   height: KalloMobileSpace.touch,
                   child: Row(
                     children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        '${stockDisplayName(widget.strip.stockLabel)}  ·  '
-                        '${stockDisplayName(widget.strip.paperLabel ?? '')}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: KalloMobileType.footnote.copyWith(
-                          color: colors.inkMuted,
+                      Expanded(
+                        child: Text(
+                          '${stockDisplayName(widget.strip.stockLabel)}  ·  '
+                          '${stockDisplayName(widget.strip.paperLabel ?? '')}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: KalloMobileType.footnote.copyWith(
+                            color: colors.inkMuted,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    KalloGlyphView(
-                      KalloGlyph.chevronRight,
-                      size: 9,
-                      color: colors.inkMuted,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      s.testPrint,
-                      style: KalloMobileType.footnote.copyWith(
-                        color: colors.inkFaint,
+                      const SizedBox(width: 6),
+                      KalloGlyphView(
+                        KalloGlyph.chevronRight,
+                        size: 9,
+                        color: colors.inkMuted,
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Text(
+                        s.testPrint,
+                        style: KalloMobileType.footnote.copyWith(
+                          color: colors.inkFaint,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1399,7 +1487,10 @@ class _DevelopStageState extends State<DevelopStage> {
         // The step capsule floats over the bench; the work starts below it.
         padding: EdgeInsets.only(top: widget.topInset),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(32, 18, 32, 18),
+          // The bench is the picture's room: the gutters are the room's edge,
+          // not a column the print sits inside. A landscape print reaches the
+          // panels; the strip below keeps its own width.
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -1506,11 +1597,7 @@ class _DevelopStageState extends State<DevelopStage> {
             ),
           ),
           if (canCompare) ...<Widget>[
-            _Quiet(
-              label: s.compare,
-              onTap: _toggleCompare,
-              accent: _compareOn,
-            ),
+            _Quiet(label: s.compare, onTap: _toggleCompare, accent: _compareOn),
             const SizedBox(width: KalloSpace.step5),
           ],
           _Quiet(
@@ -1591,7 +1678,10 @@ class _DevelopStageState extends State<DevelopStage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(darkroomClock(_minutes), style: KalloType.plate.copyWith(color: colors.ink)),
+              Text(
+                darkroomClock(_minutes),
+                style: KalloType.plate.copyWith(color: colors.ink),
+              ),
               Text(
                 '${widget.strip.tempC.toStringAsFixed(1)} °C',
                 style: KalloType.small.copyWith(color: colors.inkFaint),
@@ -1615,10 +1705,8 @@ class _DevelopStageState extends State<DevelopStage> {
   /// The wipe's two sides, named in the paper's bottom margin. The picture
   /// itself is not written on: the margin is where a print is held.
   Widget _compareFooter(KalloStrings s, {required bool compact}) {
-    final TextStyle style = (compact
-            ? KalloMobileType.caption
-            : KalloType.caption)
-        .copyWith(
+    final TextStyle style =
+        (compact ? KalloMobileType.caption : KalloType.caption).copyWith(
           fontSize: 8.5,
           letterSpacing: 1.2,
           fontWeight: FontWeight.w500,
@@ -1894,6 +1982,7 @@ class _DevelopStageState extends State<DevelopStage> {
                 ),
                 const SizedBox(height: KalloSpace.step2),
                 KalloButton(
+                  key: const Key('develop-action'),
                   label: _busy
                       ? s.developing
                       : '${exact == null ? s.developStep : s.redevelop}  '
@@ -1901,6 +1990,7 @@ class _DevelopStageState extends State<DevelopStage> {
                   onTap: _busy ? null : _develop,
                   filled: true,
                   height: 36,
+                  progress: _progress,
                 ),
                 if (exact != null) ...<Widget>[
                   const SizedBox(height: 6),

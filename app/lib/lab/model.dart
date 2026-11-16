@@ -84,6 +84,13 @@ abstract class Model {
 
     /// A heat-absorbing glass in the light path, by name: `kg3`.
     String? heatGlass,
+
+    /// How much of the print is done, 0..1, as the model reports it.
+    ///
+    /// A model that cannot say — the subprocess — leaves this null, and the
+    /// bench falls back to timing the last develop. The linked model reports
+    /// the decode, the render's stages and the file's rows as they land.
+    void Function(double)? onProgress,
   });
 
   /// Open a bench session on this photograph.
@@ -236,6 +243,7 @@ class ProcessModel implements Model {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    void Function(double)? onProgress,
   }) async {
     if (!available) {
       throw const ModelMissing();

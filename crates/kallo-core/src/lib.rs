@@ -70,7 +70,7 @@ pub use model::{ExposureModel, PrintModel, ScanModel, SpectralModel};
 pub use mtf::EmulsionBlur;
 pub use pipeline::{
     Finishing, PreparedRender, RenderParams, ScalarModel, render_pixels, render_pixels_finished,
-    render_pixels_with_grain,
+    render_pixels_finished_with_progress, render_pixels_with_grain,
 };
 pub use print::{Masking, PrintContext};
 pub use scan::ScanContext;

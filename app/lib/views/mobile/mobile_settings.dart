@@ -65,12 +65,13 @@ class _KalloMobileSettingsState extends State<KalloMobileSettings> {
     }
   }
 
-  Future<void> _openRepository() async {
+  Future<void> _openRepository() => _open(KalloInfo.repository);
+
+  Future<void> _openReleases() => _open(KalloInfo.releases);
+
+  Future<void> _open(String address) async {
     try {
-      await launchUrl(
-        Uri.parse(KalloInfo.repository),
-        mode: LaunchMode.externalApplication,
-      );
+      await launchUrl(Uri.parse(address), mode: LaunchMode.externalApplication);
     } on Object {
       // The system is the one that knows whether a browser exists.
     }
@@ -425,6 +426,15 @@ class _KalloMobileSettingsState extends State<KalloMobileSettings> {
                           title: s.openRepository,
                           chevron: true,
                           onTap: _openRepository,
+                        ),
+                        const KalloMobileDivider(),
+                        KalloMobileRow(
+                          key: const Key('mobile-changelog'),
+                          title: s.changelog,
+                          // The page's own title: what GitHub calls it.
+                          subtitle: s.releasesPage,
+                          chevron: true,
+                          onTap: _openReleases,
                         ),
                       ],
                     ),

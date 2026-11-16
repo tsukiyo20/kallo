@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -8,6 +7,7 @@ import 'export_codec.dart';
 import 'export_format.dart';
 import 'image_file.dart';
 import 'model.dart';
+import 'short_hash.dart';
 import 'stock.dart';
 import 'strip.dart';
 import 'strip_store.dart';
@@ -18,9 +18,6 @@ import 'strip_store.dart';
 /// sampling: a print rendered here is a print at this size, not a larger one
 /// scaled down. A final print is rendered again from the photograph.
 const int stripWidth = 1200;
-
-/// The largest a final print is asked for.
-const int printWidth = 6000;
 
 /// Develop one print onto the strip.
 ///
@@ -34,6 +31,7 @@ Future<TestStrip> developTestPrint({
   required double minutes,
   Directory? folder,
   int width = stripWidth,
+  void Function(double)? onProgress,
 }) async {
   final String? photo = strip.photo;
   if (photo == null) {
@@ -60,6 +58,9 @@ Future<TestStrip> developTestPrint({
     output: output,
     spectral: strip.spectral,
     balanceFrom: strip.balanceFrom,
+    onProgress: onProgress == null
+        ? null
+        : (double value) => onProgress(value * 0.95),
   );
 
   FilmChart? chart;
@@ -85,6 +86,7 @@ Future<TestStrip> developTestPrint({
     ),
   );
   await StripStore.save(next, folder: target);
+  onProgress?.call(1.0);
   return next;
 }
 
@@ -175,6 +177,16 @@ Future<File> printTest({
   String? heatGlass,
   int? width,
   ExportFormat format = ExportFormat.png,
+
+  /// The edge this print carries, as its own name. A print of the same
+  /// development with another edge is another sheet, and its file must not
+  /// replace the first one.
+  String border = 'none',
+
+  /// How much of the print is done, 0..1: the model's stages, then the file's
+  /// own re-encoding. The darkroom's edge and the gallery's shelf are still to
+  /// come, so a caller with those to do keeps the last tenth for them.
+  void Function(double)? onProgress,
 }) async {
   final String? photo = strip.photo;
   if (photo == null) {
@@ -185,13 +197,29 @@ Future<File> printTest({
     throw FileSystemException('the photograph is gone', photo);
   }
   await exports.create(recursive: true);
-  final int own = await _width(photograph);
-  final int? requested = width != null && width > 0 ? width : null;
-  final int asked = requested == null
-      ? (own > 0 ? own : printWidth)
-      : (own > 0 ? math.min(own, requested) : requested);
-  final String stem =
-      'print-${minutes.toStringAsFixed(1).replaceAll('.', '-')}min';
+  // Zero means the photograph's own size. The model's resize only ever shrinks,
+  // so an asked-for width is a ceiling and not an upscale — and a camera raw,
+  // whose pixels this window cannot read to measure, needs no measuring at all.
+  final int asked = width != null && width > 0 ? width : 0;
+  // The photograph's name and a fingerprint of everything that makes this
+  // print this print. Two edges of one negative are two sheets in the folder,
+  // and the same print asked for twice still replaces itself.
+  final String stem = printFileName(
+    photograph: photograph.path,
+    recipe: <Object?>[
+      photograph.path,
+      strip.stockId,
+      strip.paperId,
+      strip.tempC,
+      strip.spectral,
+      minutes,
+      printEv,
+      filters,
+      heatGlass,
+      border,
+      asked,
+    ].join('|'),
+  );
   final File output = File('${exports.path}${Platform.pathSeparator}$stem.png');
   await model.develop(
     photograph: photograph,
@@ -205,9 +233,13 @@ Future<File> printTest({
     printEv: printEv,
     filters: filters,
     heatGlass: heatGlass,
+    onProgress: onProgress == null
+        ? null
+        : (double value) => onProgress(value * 0.85),
   );
   if (format == ExportFormat.png) {
     await _dropOtherFormats(exports, stem, format);
+    onProgress?.call(0.9);
     return output;
   }
   final Uint8List png = await output.readAsBytes();
@@ -218,6 +250,7 @@ Future<File> printTest({
   await finalFile.writeAsBytes(encoded, flush: true);
   await output.delete();
   await _dropOtherFormats(exports, stem, format);
+  onProgress?.call(0.9);
   return finalFile;
 }
 
@@ -243,18 +276,4 @@ Future<void> _dropOtherFormats(
       }
     }
   }
-}
-
-/// A file's width, read from its header rather than by decoding it.
-Future<int> _width(File file) async {
-  final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(
-    await file.readAsBytes(),
-  );
-  final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(
-    buffer,
-  );
-  final int width = descriptor.width;
-  descriptor.dispose();
-  buffer.dispose();
-  return width;
 }

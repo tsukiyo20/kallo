@@ -7,6 +7,17 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `make_raw_thumbnail`
+
+/// Whether a file is a camera raw the model reads.
+///
+/// The extension list lives in the decoder, and this is the same answer through
+/// the bridge. A window should ask before it hands the bytes to its own
+/// decoder: reading a 500 MB mosaic only to be told "unsupported image format"
+/// is a worse answer than never reading it.
+Future<bool> isCameraRaw({required String path}) =>
+    RustLib.instance.api.crateApiThumbnailIsCameraRaw(path: path);
+
 /// Write a thumbnail of [input] to [output], no wider than [width].
 ///
 /// The shape is kept. A source narrower than [width] is not enlarged: the

@@ -13,7 +13,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 ///
 /// This is the same pipeline as a roll's frames; it exists separately because a
 /// print is rendered from the photograph again, at a size the bench never uses.
-Future<PrintReport> makePrint({required PrintJob job}) =>
+/// The steps are reported as they land, so the interface draws the print's
+/// progress rather than its own guess at how long a print takes.
+Stream<PrintStep> makePrint({required PrintJob job}) =>
     RustLib.instance.api.crateApiPrintMakePrint(job: job);
 
 /// What a print asks for.
@@ -154,38 +156,32 @@ class PrintJob {
           output == other.output;
 }
 
-/// What a print produced.
-class PrintReport {
-  /// Width in pixels.
-  final int width;
+/// One step of a print on its way to the disk.
+///
+/// The fraction is the model's, not a clock's: the decode, the resize, the
+/// render's own stages and the file's rows each report themselves. A bar built
+/// from these moves when the work moves and stops when it stops.
+class PrintStep {
+  /// How much of the print is done, 0..1.
+  final double fraction;
 
-  /// Height in pixels.
-  final int height;
+  /// `reading`, `resizing`, `rendering`, `writing` or `done`.
+  final String stage;
 
-  /// `cpu` or `gpu — …`.
-  final String backend;
+  /// The backend that rendered it, on the `done` step.
+  final String? backend;
 
-  /// The exposure the print was made at.
-  final double exposureEv;
-
-  const PrintReport({
-    required this.width,
-    required this.height,
-    required this.backend,
-    required this.exposureEv,
-  });
+  const PrintStep({required this.fraction, required this.stage, this.backend});
 
   @override
-  int get hashCode =>
-      width.hashCode ^ height.hashCode ^ backend.hashCode ^ exposureEv.hashCode;
+  int get hashCode => fraction.hashCode ^ stage.hashCode ^ backend.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is PrintReport &&
+      other is PrintStep &&
           runtimeType == other.runtimeType &&
-          width == other.width &&
-          height == other.height &&
-          backend == other.backend &&
-          exposureEv == other.exposureEv;
+          fraction == other.fraction &&
+          stage == other.stage &&
+          backend == other.backend;
 }

@@ -89,10 +89,18 @@ class Studio extends StatefulWidget {
   final ValueChanged<Stock> onFilm;
   final ValueChanged<Stock?> onPaper;
   final ValueChanged<double> onTemperature;
-  final Future<void> Function(double minutes) onDevelop;
+  final Future<void> Function(
+    double minutes, {
+    void Function(double)? onProgress,
+  })
+  onDevelop;
   final Future<void> Function(double minutes) onRemove;
   final VoidCallback onClearStrip;
-  final Future<void> Function(PrintRequest request) onPrint;
+  final Future<void> Function(
+    PrintRequest request, {
+    void Function(double)? onProgress,
+  })
+  onPrint;
   final VoidCallback? onEnterExports;
 
   final ExportSetting export;
@@ -118,6 +126,7 @@ class Studio extends StatefulWidget {
   final RenderMode renderMode;
   final ValueChanged<RenderMode> onRenderMode;
 
+  /// Which releases the update check follows, and the way to remember it.
   final bool initiallyOpen;
   final Chamber initialChamber;
   final DarkroomStep initialStep;

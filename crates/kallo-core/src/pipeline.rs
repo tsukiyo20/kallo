@@ -739,8 +739,39 @@ impl PreparedRender {
         height: usize,
         finishing: &Finishing,
     ) -> Negative {
+        self.develop_inner(pixels, width, height, finishing, None)
+    }
+
+    /// [`develop`](Self::develop), reporting how much of the stage is done.
+    ///
+    /// The fraction is the work of this development, not of a whole print: the
+    /// caller maps it into whatever place the development has in its own
+    /// render. The reports are stage boundaries — exposure, the film's blur,
+    /// halation, development, the inhibitor, the couplers — because those are
+    /// the points at which the model actually knows how much is behind it.
+    #[must_use]
+    pub fn develop_with_progress(
+        &self,
+        pixels: &[[f64; 3]],
+        width: usize,
+        height: usize,
+        finishing: &Finishing,
+        progress: &mut dyn FnMut(f32),
+    ) -> Negative {
+        self.develop_inner(pixels, width, height, finishing, Some(progress))
+    }
+
+    fn develop_inner(
+        &self,
+        pixels: &[[f64; 3]],
+        width: usize,
+        height: usize,
+        finishing: &Finishing,
+        mut progress: Option<&mut dyn FnMut(f32)>,
+    ) -> Negative {
         let width = width.max(1);
         let height = height.max(1);
+        report(&mut progress, 0.0);
 
         // Without a spatial effect there is nothing to keep a frame for, and
         // grain is the only thing left that wants pixel coordinates.
@@ -772,6 +803,7 @@ impl PreparedRender {
                     }
                 })
                 .collect();
+            report(&mut progress, 1.0);
             return Negative {
                 width,
                 height,
@@ -797,15 +829,18 @@ impl PreparedRender {
                 *pixel = self.log_exposure(*pixel);
             }),
         }
+        report(&mut progress, 0.15);
         // The emulsion's own blur comes first: it is the lens's image being
         // softened by the film, and the halo is light that entered the film and
         // came back, so it is distributed by the same blur afterwards.
         if let Some(emulsion) = finishing.emulsion {
             emulsion.apply(&mut log_e, width, height);
         }
+        report(&mut progress, 0.3);
         if let Some(halation) = finishing.halation {
             halation.apply(&mut log_e, width, height);
         }
+        report(&mut progress, 0.45);
 
         // Then the emulsion: grain on the exposure, the curve on the result.
         let mut density: Vec<[f64; 3]> = log_e.clone();
@@ -823,6 +858,7 @@ impl PreparedRender {
                 None => mean,
             };
         });
+        report(&mut progress, 0.75);
 
         // The cyan-sensitive layer's inhibitor, before the couplers: its release
         // is the light the layer absorbed, not the density it developed, so it
@@ -831,11 +867,13 @@ impl PreparedRender {
             let light: Vec<f64> = plane.iter().map(|value| 10f64.powf(*value)).collect();
             stage.apply(&mut density, &light, width, height);
         }
+        report(&mut progress, 0.85);
 
         // Then the chemistry: the inhibitors act on what has already developed.
         if let Some(couplers) = finishing.couplers {
             couplers.apply(&mut density, width, height);
         }
+        report(&mut progress, 1.0);
 
         Negative {
             width,
@@ -852,6 +890,17 @@ impl PreparedRender {
             .iter()
             .map(|density| self.positive(*density))
             .collect()
+    }
+}
+
+/// Report a fraction of a stage, for a caller that is watching.
+///
+/// The fraction is not clamped here: the caller's mapping decides what its
+/// scale is, and a stage that hands out 0 and 1 is telling the truth about a
+/// part of the work rather than about the whole.
+fn report(progress: &mut Option<&mut dyn FnMut(f32)>, fraction: f32) {
+    if let Some(callback) = progress.as_deref_mut() {
+        callback(fraction);
     }
 }
 
@@ -872,6 +921,30 @@ pub fn render_pixels_finished(
     for (pixel, density) in pixels.iter_mut().zip(&negative.densities) {
         *pixel = prepared.positive(*density);
     }
+}
+
+/// [`render_pixels_finished`], reporting how much of the render is done.
+///
+/// The reports are the model's own stages: the exposure, the film's blur, the
+/// halation, the development, the inhibitor and the couplers make up nine
+/// tenths of the work, and the print is the last tenth. A caller that weights
+/// the render inside a larger job — a scan, a decode, a file write — maps this
+/// fraction into its own scale.
+pub fn render_pixels_finished_with_progress(
+    pixels: &mut [[f64; 3]],
+    prepared: &PreparedRender,
+    width: usize,
+    height: usize,
+    finishing: &Finishing,
+    progress: &mut dyn FnMut(f32),
+) {
+    let mut develop = |stage: f32| progress(stage * 0.9);
+    let negative = prepared.develop_with_progress(pixels, width, height, finishing, &mut develop);
+    progress(0.95);
+    for (pixel, density) in pixels.iter_mut().zip(&negative.densities) {
+        *pixel = prepared.positive(*density);
+    }
+    progress(1.0);
 }
 
 /// Render a whole image in place.
@@ -1983,6 +2056,27 @@ mod enlarger_tests {
         assert!(
             (0.005..0.08).contains(&step),
             "5 CC moved the green exposure by {step}"
+        );
+    }
+    /// A develop that someone is watching reports its stages and lands on 1.
+    #[test]
+    fn progress_walks_the_stages_to_the_end() {
+        let prepared = RenderParams::default().prepare();
+        let mut pixels = vec![[0.18, 0.18, 0.18]; 8];
+        let mut steps = Vec::new();
+        render_pixels_finished_with_progress(
+            &mut pixels,
+            &prepared,
+            4,
+            2,
+            &Finishing::default(),
+            &mut |fraction| steps.push(fraction),
+        );
+        assert_eq!(steps.first().copied(), Some(0.0));
+        assert_eq!(steps.last().copied(), Some(1.0));
+        assert!(
+            steps.windows(2).all(|pair| pair[0] <= pair[1]),
+            "a render does not go backwards: {steps:?}"
         );
     }
 }

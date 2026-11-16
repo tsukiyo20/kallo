@@ -462,6 +462,15 @@ void main() {
     );
     expect(find.textContaining('issues and pull requests'), findsOneWidget);
     expect(find.text('Open the project on GitHub'), findsOneWidget);
+    // The changelog is the one more row the phone's About has: the app is not
+    // installed from a release on a phone, so there is no update row to match.
+    for (int i = 0; i < 6 && find.text('Changelog').evaluate().isEmpty; i++) {
+      await tester.drag(page, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Changelog'), findsOneWidget);
+    expect(find.text('GitHub Releases'), findsOneWidget);
+    expect(find.text('Updates'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

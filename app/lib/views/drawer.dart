@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +11,7 @@ import '../design/tokens.dart';
 import '../lab/exports.dart';
 import '../lab/render_device.dart';
 import '../lab/render_mode.dart';
+import '../lab/updates.dart';
 import '../widgets/button.dart';
 import '../widgets/segments.dart';
 
@@ -30,6 +32,7 @@ class SettingsDrawer extends StatefulWidget {
     required this.onRenderMode,
     required this.export,
     required this.onClose,
+    this.updates,
   });
 
   /// What the user pinned, or null to follow the device.
@@ -48,6 +51,11 @@ class SettingsDrawer extends StatefulWidget {
   final ExportSetting export;
 
   final VoidCallback onClose;
+
+  /// The update row's state, when the app owns it. A test injects one; the
+  /// drawer makes its own otherwise, and never asks it for anything until a
+  /// person does.
+  final UpdateController? updates;
 
   @override
   State<SettingsDrawer> createState() => _SettingsDrawerState();
@@ -70,10 +78,25 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   /// What the machine says it has. Null until the model answers.
   RenderDevice? _device;
 
+  /// The update row's state, and whether this page is the one that disposes it.
+  late final UpdateController _updates;
+  late final bool _ownsUpdates;
+
   @override
   void initState() {
     super.initState();
+    final UpdateController? injected = widget.updates;
+    _updates = injected ?? UpdateController();
+    _ownsUpdates = injected == null;
     unawaited(_probeDevice());
+  }
+
+  @override
+  void dispose() {
+    if (_ownsUpdates) {
+      _updates.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _probeDevice() async {
@@ -275,11 +298,17 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   void _openRepository() {
-    unawaited(_launchRepository());
+    unawaited(_open(KalloInfo.repository));
   }
 
-  Future<void> _launchRepository() async {
-    final Uri uri = Uri.parse(KalloInfo.repository);
+  void _openReleases() {
+    unawaited(_open(KalloInfo.releases));
+  }
+
+  /// Opens one address in the system's browser. A failure is the browser's
+  /// business, not a dialog's: the page simply does not open.
+  Future<void> _open(String address) async {
+    final Uri uri = Uri.parse(address);
     try {
       final bool opened = await launchUrl(
         uri,
@@ -339,13 +368,133 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           ),
         ),
         const SizedBox(height: KalloSpace.step5),
-        _RepositoryLink(
+        _AboutLink(
+          key: const Key('about-repository'),
           onTap: _openRepository,
           label: s.openRepository,
+          title: 'GitHub',
+          subtitle: 'github.com/tsukiyo20/kallo',
+          icon: 'assets/github-mark.png',
           colors: colors,
         ),
+        const SizedBox(height: KalloSpace.step3),
+        _AboutLink(
+          key: const Key('about-changelog'),
+          onTap: _openReleases,
+          label: s.changelog,
+          title: s.changelog,
+          // The page's own title, the one GitHub prints at the top of it.
+          subtitle: s.releasesPage,
+          colors: colors,
+          height: 56,
+        ),
+        const SizedBox(height: KalloSpace.step5),
+        _updateBlock(s, colors),
       ],
     );
+  }
+
+  /// The update row.
+  ///
+  /// The update is a thing a person asks for, so the row starts as a check and
+  /// nothing here runs until it is tapped. There is one answer — GitHub's
+  /// latest release — not a channel to choose between.
+  Widget _updateBlock(KalloStrings s, KalloColors colors) {
+    final UpdateController updates = _updates;
+    return ListenableBuilder(
+      listenable: updates,
+      builder: (BuildContext context, Widget? child) {
+        final ({String label, VoidCallback? onTap, bool action}) action =
+            _updateAction(s, updates);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _UpdateRow(
+              key: const Key('about-update'),
+              label: s.updates,
+              action: action.label,
+              onTap: action.onTap,
+              actionable: action.action,
+              width: _fieldWidth(context),
+              colors: colors,
+            ),
+            if (updates.problem == UpdateProblem.location) ...<Widget>[
+              const SizedBox(height: KalloSpace.step2),
+              SizedBox(
+                width: _fieldWidth(context),
+                child: Text(
+                  Platform.isWindows
+                      ? s.updateNeedsWritable
+                      : s.updateNeedsApplications,
+                  style: KalloType.small.copyWith(color: colors.inkMuted),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// What the update row says, and what tapping it does, for the state it is
+  /// in. A row that is busy is not a button; a row that failed is a retry.
+  /// `action` marks the states that are something to do, not a report: those
+  /// are the only ones the accent colours, because the accent is an action.
+  ({String label, VoidCallback? onTap, bool action}) _updateAction(
+    KalloStrings s,
+    UpdateController updates,
+  ) {
+    switch (updates.stage) {
+      case UpdateStage.idle:
+        return (
+          label: s.checkForUpdates,
+          onTap: () => unawaited(updates.check()),
+          action: true,
+        );
+      case UpdateStage.checking:
+        return (label: s.checkingForUpdates, onTap: null, action: false);
+      case UpdateStage.upToDate:
+        // Checking again is how a window that has been open for a while finds
+        // the release published while it was open.
+        return (
+          label: s.upToDate,
+          onTap: () => unawaited(updates.check()),
+          action: false,
+        );
+      case UpdateStage.available:
+        if (!updates.canInstall) {
+          return (label: s.openReleases, onTap: _openReleases, action: true);
+        }
+        return (
+          label: s.updateTo(updates.release!.label),
+          onTap: () => unawaited(updates.install()),
+          action: true,
+        );
+      case UpdateStage.downloading:
+        return (
+          label: s.downloading((updates.progress * 100).round()),
+          onTap: null,
+          action: false,
+        );
+      case UpdateStage.restarting:
+        return (label: s.restarting, onTap: null, action: false);
+      case UpdateStage.failed:
+        if (updates.release != null) {
+          if (updates.canInstall) {
+            return (
+              label: s.updateFailedRetry,
+              onTap: () => unawaited(updates.install()),
+              action: true,
+            );
+          }
+          return (label: s.openReleases, onTap: _openReleases, action: true);
+        }
+        return (
+          label: s.checkFailedRetry,
+          onTap: () => unawaited(updates.check()),
+          action: true,
+        );
+    }
   }
 
   Widget _colour(KalloStrings s, KalloColors colors) {
@@ -644,29 +793,49 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 }
 
-/// The one link out of the app: GitHub's mark, the repository, and an arrow
-/// that says the click leaves the window.
-class _RepositoryLink extends StatefulWidget {
-  const _RepositoryLink({
+/// A link out of the app: a title, the address it goes to, and an arrow that
+/// says the click leaves the window.
+///
+/// The repository and the changelog are the same page at two addresses, so
+/// they are one row rather than two that look almost alike. The mark is
+/// optional because the changelog is a page of text, not a place with an icon.
+class _AboutLink extends StatefulWidget {
+  const _AboutLink({
+    super.key,
     required this.onTap,
     required this.label,
+    required this.title,
+    required this.subtitle,
     required this.colors,
+    this.icon,
+    this.height = 62,
   });
 
   final VoidCallback onTap;
+
+  /// What a screen reader says the click does.
   final String label;
+
+  final String title;
+  final String subtitle;
   final KalloColors colors;
 
+  /// The mark to draw before the title, when there is one.
+  final String? icon;
+
+  final double height;
+
   @override
-  State<_RepositoryLink> createState() => _RepositoryLinkState();
+  State<_AboutLink> createState() => _AboutLinkState();
 }
 
-class _RepositoryLinkState extends State<_RepositoryLink> {
+class _AboutLinkState extends State<_AboutLink> {
   bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
     final KalloColors colors = widget.colors;
+    final String? icon = widget.icon;
     final Color ink = _hover ? colors.ink : colors.inkMuted;
     return Semantics(
       button: true,
@@ -681,7 +850,7 @@ class _RepositoryLinkState extends State<_RepositoryLink> {
           child: AnimatedContainer(
             duration: KalloMotion.instant,
             width: (MediaQuery.sizeOf(context).width - 56).clamp(240.0, 460.0),
-            height: 62,
+            height: widget.height,
             padding: const EdgeInsets.symmetric(
               horizontal: KalloSpace.step4,
               vertical: KalloSpace.step2,
@@ -692,23 +861,25 @@ class _RepositoryLinkState extends State<_RepositoryLink> {
             ),
             child: Row(
               children: <Widget>[
-                Image.asset(
-                  'assets/github-mark.png',
-                  width: 20,
-                  height: 20,
-                  color: ink,
-                  colorBlendMode: BlendMode.srcIn,
-                  filterQuality: FilterQuality.high,
-                  excludeFromSemantics: true,
-                ),
-                const SizedBox(width: KalloSpace.step3),
+                if (icon != null) ...<Widget>[
+                  Image.asset(
+                    icon,
+                    width: 20,
+                    height: 20,
+                    color: ink,
+                    colorBlendMode: BlendMode.srcIn,
+                    filterQuality: FilterQuality.high,
+                    excludeFromSemantics: true,
+                  ),
+                  const SizedBox(width: KalloSpace.step3),
+                ],
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'GitHub',
+                        widget.title,
                         style: KalloType.body.copyWith(
                           fontWeight: FontWeight.w500,
                           color: colors.ink,
@@ -716,7 +887,7 @@ class _RepositoryLinkState extends State<_RepositoryLink> {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        'github.com/tsukiyo20/kallo',
+                        widget.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: KalloType.data.copyWith(
@@ -731,6 +902,95 @@ class _RepositoryLinkState extends State<_RepositoryLink> {
                 CustomPaint(
                   size: const Size(12, 12),
                   painter: _OutboundMark(ink),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The update itself: a label on the left, what the row is doing on the
+/// right, and a fill that is the same as the links under it.
+///
+/// The action is text rather than a button because it is the row's whole
+/// state, not one more control on a page of controls.
+class _UpdateRow extends StatefulWidget {
+  const _UpdateRow({
+    super.key,
+    required this.label,
+    required this.action,
+    required this.onTap,
+    required this.actionable,
+    required this.width,
+    required this.colors,
+  });
+
+  final String label;
+  final String action;
+  final VoidCallback? onTap;
+
+  /// Whether the action text is something to do rather than a state to read.
+  final bool actionable;
+
+  final double width;
+  final KalloColors colors;
+
+  @override
+  State<_UpdateRow> createState() => _UpdateRowState();
+}
+
+class _UpdateRowState extends State<_UpdateRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = widget.colors;
+    final bool tappable = widget.onTap != null;
+    final Color action = widget.actionable ? colors.accent : colors.inkFaint;
+    return Semantics(
+      button: tappable,
+      child: MouseRegion(
+        cursor: tappable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: KalloMotion.instant,
+            width: widget.width,
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: KalloSpace.step4),
+            decoration: BoxDecoration(
+              color: _hover && tappable ? colors.fillStrong : colors.fill,
+              borderRadius: BorderRadius.circular(KalloRadius.card),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: KalloType.body.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: colors.ink,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: KalloSpace.step3),
+                Flexible(
+                  child: Text(
+                    widget.action,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: KalloType.small.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: action,
+                    ),
+                  ),
                 ),
               ],
             ),
