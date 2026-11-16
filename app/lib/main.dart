@@ -1339,7 +1339,7 @@ class _KalloAppState extends State<KalloApp> {
         );
       },
       home: _strip == null
-          ? ColoredBox(color: KalloColors.light.ground)
+          ? const _Boot()
           : Studio(
               strip: _strip!,
               photograph: _photograph,
@@ -1380,4 +1380,18 @@ class _KalloAppState extends State<KalloApp> {
             ),
     );
   }
+}
+
+/// The frame between the launch screen and the room.
+///
+/// The app opens on a photograph, but the window's colours are decided before
+/// the library is read. This paints the ground and nothing else, in the
+/// appearance the app is about to be in, so the launch screen's colour is the
+/// colour of the first frame and the hand-off does not flash.
+class _Boot extends StatelessWidget {
+  const _Boot();
+
+  @override
+  Widget build(BuildContext context) =>
+      ColoredBox(color: KalloScope.colorsOf(context).ground);
 }

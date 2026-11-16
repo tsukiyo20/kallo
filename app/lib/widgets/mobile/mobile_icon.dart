@@ -20,7 +20,6 @@ enum KalloGlyph {
   chevronLeft,
   close,
   search,
-  sun,
   plus,
   minus,
   check,
@@ -217,16 +216,6 @@ class _GlyphPainter extends CustomPainter {
       case KalloGlyph.search:
         canvas.drawCircle(const Offset(10.5, 10.5), 6, paint);
         canvas.drawLine(const Offset(15, 15), const Offset(20, 20), paint);
-      case KalloGlyph.sun:
-        canvas.drawCircle(const Offset(12, 12), 3.4, paint);
-        for (int i = 0; i < 8; i++) {
-          final double angle = i * math.pi / 4;
-          canvas.drawLine(
-            Offset(12 + math.cos(angle) * 6, 12 + math.sin(angle) * 6),
-            Offset(12 + math.cos(angle) * 8.4, 12 + math.sin(angle) * 8.4),
-            paint,
-          );
-        }
       case KalloGlyph.plus:
         canvas.drawLine(const Offset(12, 5), const Offset(12, 19), paint);
         canvas.drawLine(const Offset(5, 12), const Offset(19, 12), paint);

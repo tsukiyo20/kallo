@@ -209,8 +209,8 @@ abstract final class KalloInk {
 /// Two sets, because a wall is lit by the room it stands in. The gallery is a
 /// room with a lamp, and a lamp is not a dark room: in a light appearance the
 /// wall is a wall in daylight, in a dark one it is the wall after dark. The
-/// lamp still goes out — but it takes the wall and the work with it, not the
-/// window around them.
+/// light is the room's and the chrome does not switch it; the paper is the one
+/// surface that keeps a little of it when the room dims.
 class KalloWall {
   const KalloWall({
     required this.top,

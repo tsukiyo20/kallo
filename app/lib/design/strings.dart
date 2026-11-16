@@ -129,6 +129,11 @@ class KalloStrings {
   String get paperCurve => zh ? '相纸' : 'PAPER';
   String get printCurve => zh ? '印相' : 'PRINT';
   String get printExposure => zh ? '印相曝光' : 'PRINT EXPOSURE';
+
+  /// What the print exposure dial is: the enlarger's timer, not a brightness.
+  /// One line, because the sign is the whole argument — more light is a
+  /// darker print, which is what a printer means by "one stop more".
+  String get exposureNote => zh ? '加是更多光，印相更黑' : 'More light is a darker print';
   String get filters => zh ? '滤色片' : 'FILTERS';
   String get heatGlass => zh ? '隔热玻璃' : 'HEAT GLASS';
   String get noGlass => zh ? '无' : 'none';
@@ -368,9 +373,6 @@ class KalloStrings {
       : 'This roll came without density data, so there are no curves to draw.';
 
   // -- the gallery ----------------------------------------------------------
-
-  /// The switch on the wall. Not the appearance's light: the room's.
-  String get roomLight => zh ? '灯' : 'Light';
 
   /// Back to the wall, from a print looked at closely.
   String get back => zh ? '返回墙上' : 'Back to the wall';

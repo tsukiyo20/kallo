@@ -714,6 +714,14 @@ class _PrintStageState extends State<PrintStage> {
                         color: KalloScope.colorsOf(context).ink,
                       ),
                     ),
+                    const SizedBox(height: KalloMobileSpace.step2),
+                    Text(
+                      s.exposureNote,
+                      textAlign: TextAlign.center,
+                      style: KalloMobileType.caption.copyWith(
+                        color: KalloScope.colorsOf(context).inkMuted,
+                      ),
+                    ),
                     const SizedBox(height: KalloMobileSpace.step4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1188,6 +1196,11 @@ class _PrintStageState extends State<PrintStage> {
                             );
                             _changed();
                           },
+                  ),
+                  const SizedBox(height: KalloSpace.step2),
+                  Text(
+                    s.exposureNote,
+                    style: KalloType.caption.copyWith(color: colors.inkFaint),
                   ),
                   const SizedBox(height: KalloSpace.step4),
                   Text(

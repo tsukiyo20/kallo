@@ -26,6 +26,8 @@ MASTER = SOURCE / "kallo-icon-1024.png"
 
 MACOS = ROOT / "macos/Runner/Assets.xcassets/AppIcon.appiconset"
 IOS = ROOT / "ios/Runner/Assets.xcassets/AppIcon.appiconset"
+IOS_LAUNCH = ROOT / "ios/Runner/Assets.xcassets/LaunchImage.imageset"
+IOS_LAUNCH_BACKGROUND = ROOT / "ios/Runner/Assets.xcassets/LaunchBackground.colorset"
 ANDROID = ROOT / "android/app/src/main/res"
 WINDOWS = ROOT / "windows/runner/resources/app_icon.ico"
 UI = ROOT / "assets/kallo-icon.png"
@@ -39,6 +41,21 @@ MAC_SIZES = {
     512: "app_icon_512.png",
     1024: "app_icon_1024.png",
 }
+
+# The launch screen's mark, in pixels: the same tile at each scale. It is the
+# icon as iOS would mask it, on a transparent canvas, so it can be centred on
+# the app's own ground in either appearance.
+IOS_LAUNCH_SIZES = {
+    "LaunchImage.png": 96,
+    "LaunchImage@2x.png": 192,
+    "LaunchImage@3x.png": 288,
+}
+
+# The app's ground colours, as `KalloColors.light.ground` and `.dark.ground`
+# write them: the launch screen is the first frame's colour, so the hand-off
+# from the storyboard to the app is a colour that does not move.
+LAUNCH_BACKGROUND_LIGHT = (0.949, 0.949, 0.969, 1.0)
+LAUNCH_BACKGROUND_DARK = (0.0, 0.0, 0.0, 1.0)
 
 # Android's legacy mipmaps, in pixels.
 ANDROID_LEGACY = {
@@ -119,6 +136,62 @@ def ios(master: Image.Image) -> None:
         )
 
 
+def launch_screen(master: Image.Image) -> None:
+    """The iOS launch screen: the mark, and the colour it sits on.
+
+    iOS has no automatic icon splash the way Android 12 does, so the launch
+    storyboard is the one that shows the app opening. The mark is the icon as
+    the launcher masks it — rounded, with a transparent margin — and the
+    background is the app's ground in that appearance, so the launch screen and
+    the first frame of the app are the same colour.
+    """
+    for name, size in IOS_LAUNCH_SIZES.items():
+        art = master.resize((size, size), Image.LANCZOS)
+        mask = Image.new("L", (size, size), 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (0, 0, size - 1, size - 1),
+            radius=round(size * 0.225),
+            fill=255,
+        )
+        tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        tile.alpha_composite(art)
+        tile.putalpha(mask)
+        save_png(tile, IOS_LAUNCH / name)
+
+    def colour(rgba: tuple[float, float, float, float]) -> dict[str, object]:
+        red, green, blue, alpha = rgba
+        return {
+            "color-space": "srgb",
+            "components": {
+                "alpha": f"{alpha:.3f}",
+                "blue": f"{blue:.3f}",
+                "green": f"{green:.3f}",
+                "red": f"{red:.3f}",
+            },
+        }
+
+    IOS_LAUNCH_BACKGROUND.mkdir(parents=True, exist_ok=True)
+    (IOS_LAUNCH_BACKGROUND / "Contents.json").write_text(
+        json.dumps(
+            {
+                "colors": [
+                    {"idiom": "universal", "color": colour(LAUNCH_BACKGROUND_LIGHT)},
+                    {
+                        "appearances": [
+                            {"appearance": "luminosity", "value": "dark"}
+                        ],
+                        "idiom": "universal",
+                        "color": colour(LAUNCH_BACKGROUND_DARK),
+                    },
+                ],
+                "info": {"author": "xcode", "version": 1},
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
 def android(master: Image.Image) -> None:
     full = master.convert("RGB")
     for folder, size in ANDROID_LEGACY.items():
@@ -159,6 +232,7 @@ def main() -> None:
     ui(master)
     macos(master)
     ios(master)
+    launch_screen(master)
     android(master)
     windows(master)
     print("icons written from", MASTER)

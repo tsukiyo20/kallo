@@ -774,7 +774,10 @@ void main() {
     expect(find.byType(PrintSheet), findsOneWidget);
     expect(find.byType(PrintImage), findsOneWidget);
     expect(find.text('放大镜'), findsOneWidget);
-    expect(find.text('灯'), findsOneWidget);
+    // The lamp switch is gone: the wall is lit, and nothing in the chrome
+    // offers to put it out.
+    expect(find.text('灯'), findsNothing);
+    expect(find.byKey(const Key('light')), findsNothing);
   });
 
   testWidgets('a thousand prints do not build a thousand sheets', (

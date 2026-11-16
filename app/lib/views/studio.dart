@@ -144,9 +144,6 @@ class _StudioState extends State<Studio> {
   bool _sidebar = true;
   bool _inspector = true;
 
-  /// The gallery's lamp. The room remembers it; the window does not go dark.
-  bool _lit = true;
-
   /// The gallery's loupe. It starts put away: the wall is for looking at, and
   /// glass is a tool a person takes up on purpose.
   bool _loupe = false;
@@ -179,8 +176,6 @@ class _StudioState extends State<Studio> {
 
   void _closeDrawer() => setState(() => _open = false);
 
-  void _toggleLight() => setState(() => _lit = !_lit);
-
   void _toggleLoupe() => setState(() => _loupe = !_loupe);
 
   @override
@@ -198,8 +193,6 @@ class _StudioState extends State<Studio> {
             _room(Chamber.darkroom),
         const SingleActivator(LogicalKeyboardKey.keyG): () =>
             _room(Chamber.gallery),
-        if (_chamber == Chamber.gallery)
-          const SingleActivator(LogicalKeyboardKey.keyL): _toggleLight,
       },
       child: Focus(
         autofocus: true,
@@ -427,12 +420,16 @@ class _StudioState extends State<Studio> {
 
   /// The phone: two places, two steps, and sheets. Nothing from the desktop's
   /// two-pane furniture survives here except the stages' state.
+  ///
+  /// The rooms are always whole: a print is opened *over* the wall, as a page
+  /// of its own, so neither the header nor the tab bar is ever taken away to
+  /// make room for one. A shell that changes shape to show a picture is a
+  /// shell that has to put itself back together afterwards.
   Widget _compactShell() {
     final KalloColors colors = KalloScope.colorsOf(context);
     final KalloStrings s = KalloStrings.of(context);
     final double top = MediaQuery.paddingOf(context).top;
     final bool dark = colors.brightness == Brightness.dark;
-    final bool viewerOpen = _chamber == Chamber.gallery && _galleryNear;
     final Widget header = _chamber == Chamber.darkroom
         ? KalloMobileDarkroomBar(
             current: _step,
@@ -443,42 +440,26 @@ class _StudioState extends State<Studio> {
             title: s.galleryRoom,
             subtitle: s.printCount(widget.prints.length),
             onSettings: () => setState(() => _open = true),
-            trailing: _chamber == Chamber.gallery
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      if (widget.onImport != null)
-                        KalloIconButton(
-                          key: const Key('mobile-import-pictures'),
-                          glyph: KalloGlyph.importPictures,
-                          semanticLabel: s.importImages,
-                          onTap: widget.onImport,
-                          glyphSize: 20,
-                          foreground: colors.ink,
-                        ),
-                      KalloIconButton(
-                        key: const Key('mobile-light'),
-                        glyph: KalloGlyph.sun,
-                        semanticLabel: s.roomLight,
-                        onTap: _toggleLight,
-                        glyphSize: 20,
-                        foreground: _lit ? colors.accent : colors.inkMuted,
-                      ),
-                    ],
+            trailing: _chamber == Chamber.gallery && widget.onImport != null
+                ? KalloIconButton(
+                    key: const Key('mobile-import-pictures'),
+                    glyph: KalloGlyph.importPictures,
+                    semanticLabel: s.importImages,
+                    onTap: widget.onImport,
+                    glyphSize: 20,
+                    foreground: colors.ink,
                   )
                 : null,
           );
     final Widget shell = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (!viewerOpen) ...<Widget>[
-          Padding(
-            padding: EdgeInsets.only(top: top),
-            child: header,
-          ),
-        ],
+        Padding(
+          padding: EdgeInsets.only(top: top),
+          child: header,
+        ),
         Expanded(child: ClipRect(child: _body())),
-        if (!viewerOpen) KalloMobileTabBar(current: _chamber, onChamber: _room),
+        KalloMobileTabBar(current: _chamber, onChamber: _room),
       ],
     );
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -540,27 +521,21 @@ class _StudioState extends State<Studio> {
 
   Widget _body() {
     if (_chamber == Chamber.gallery) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(end: _lit ? 1 : 0),
-        duration: _lit ? KalloMotion.settle : KalloMotion.slow,
-        curve: _lit ? KalloMotion.enter : KalloMotion.settleCurve,
-        builder: (BuildContext context, double light, Widget? child) => Gallery(
-          // A wall reads newest first: the print just made is the one worth
-          // seeing.
-          prints: widget.prints.reversed.toList(growable: false),
-          hanging: widget.hanging,
-          onHang: widget.onHang,
-          onRehang: widget.onRehang,
-          light: light,
-          loupe: _compact ? false : _loupe,
-          onNear: (bool near) {
-            if (_galleryNear != near) {
-              setState(() => _galleryNear = near);
-            }
-          },
-          topInset: _compact ? 0 : _topBarHeight,
-          onOpenDarkroom: _compact ? () => _room(Chamber.darkroom) : null,
-        ),
+      return Gallery(
+        // A wall reads newest first: the print just made is the one worth
+        // seeing.
+        prints: widget.prints.reversed.toList(growable: false),
+        hanging: widget.hanging,
+        onHang: widget.onHang,
+        onRehang: widget.onRehang,
+        loupe: _compact ? false : _loupe,
+        onNear: (bool near) {
+          if (_galleryNear != near) {
+            setState(() => _galleryNear = near);
+          }
+        },
+        topInset: _compact ? 0 : _topBarHeight,
+        onOpenDarkroom: _compact ? () => _room(Chamber.darkroom) : null,
       );
     }
     return _darkroom();
@@ -615,15 +590,7 @@ class _StudioState extends State<Studio> {
                     on: _loupe,
                     onTap: _toggleLoupe,
                   ),
-                  const SizedBox(width: KalloSpace.step2),
                 ],
-                KalloSwitch(
-                  key: const Key('light'),
-                  label: s.roomLight,
-                  control: colors.inkMuted,
-                  on: _lit,
-                  onTap: _toggleLight,
-                ),
               ],
             )
           : null,
