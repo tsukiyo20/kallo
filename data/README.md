@@ -10,7 +10,7 @@ measured stock, each in the file format its own sheet produced.
 
 The program holds none of these numbers. `kallo-core`'s build script reads the
 `.kalofilm` and `.kalopaper` files at build time and generates the stock tables
-from them, so the program text is MIT or Apache-2.0 and this directory is
+from them, so the program text is GPL-3.0-or-later and this directory is
 CC BY-SA 4.0, with the boundary at a file read rather than at a comment.
 `crates/kallo-data` carries a copy of these files for builds from crates.io;
 `just sync-data` refreshes it, and its tests fail when the copy and this

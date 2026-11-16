@@ -60,7 +60,7 @@ rewrites them deliberately — never as a way to turn a red test green.
 
 ```
 feat(enlarger): the criterion the stage can actually meet
-chore(licence): the code goes dual MIT/Apache-2.0
+chore(licence): the code goes GPL-3.0-or-later
 ```
 
 One idea per commit. The subject says what changed; the body says why.

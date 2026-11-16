@@ -13,7 +13,7 @@
 //! digitisation is a work of its own: every curve in them was read from a
 //! manufacturer's data sheet and shares the terms that keep it open. The
 //! boundary is a file read: nothing measured is compiled into program text, and
-//! the renderer stays MIT OR Apache-2.0. The full text is in `LICENSE`, and what
+//! the renderer stays GPL-3.0-or-later. The full text is in `LICENSE`, and what
 //! is not redistributed, with the trademarks, is in `NOTICE.md`.
 //!
 //! # Where the files come from

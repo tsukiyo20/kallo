@@ -8,6 +8,7 @@ description = "The model as a library the app can call"
 version = "0.2.1"
 edition = "2021"
 publish = false
+license = "GPL-3.0-or-later"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

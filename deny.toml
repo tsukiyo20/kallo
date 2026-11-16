@@ -1,7 +1,9 @@
 # cargo-deny policy.
 #
-# The project ships binaries, so the licence policy is stricter than a library's:
-# no copyleft in the dependency graph, no unknown registries, no git sources.
+# The project ships binaries and its own code is GPL-3.0-or-later, but the
+# dependency graph stays permissive: our licence is the only copyleft in it, and
+# a dependency that changed that is a decision for this file, not a surprise. No
+# unknown registries, no git sources.
 
 [graph]
 all-features = false
@@ -41,9 +43,47 @@ confidence-threshold = 0.9
 # dependencies, not an inventory of today's.
 unused-allowed-license = "allow"
 
-# The one copyleft entry in the graph, and it is ours: `kallo-core`'s build
-# script reads the measured files from `kallo-data`, which is data under
-# CC BY-SA 4.0 on purpose. No program text in the graph may be copyleft.
+# The project itself is copyleft: every workspace crate but the data crate is
+# GPL-3.0-or-later (the App Store permission in APPSTORE-EXCEPTION.md is an
+# additional permission, not a different licence). They are named one by one so
+# that the allow list above still means "what a dependency may be", and adding a
+# copyleft dependency stays a deliberate edit here.
+[[licenses.exceptions]]
+name = "kallo-api"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-cli"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-core"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-gpu"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-io"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-raw"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-spectral"
+allow = ["GPL-3.0-or-later"]
+
+[[licenses.exceptions]]
+name = "kallo-view"
+allow = ["GPL-3.0-or-later"]
+
+# The other copyleft entry in the graph, and it is ours too: `kallo-core`'s
+# build script reads the measured files from `kallo-data`, which is data under
+# CC BY-SA 4.0 on purpose. No program text in the graph may be copyleft unless
+# it is ours.
 [[licenses.exceptions]]
 name = "kallo-data"
 allow = ["CC-BY-SA-4.0"]

@@ -200,10 +200,24 @@ the CPU; a frame the device refuses is finished on the CPU either way.
 
 ## Licence
 
-Code is **MIT OR Apache-2.0**, at your option. The **measurement data is
-CC BY-SA 4.0** — share it, adapt it, sell it, but keep it open; the full text is
-in [`data/films/LICENSE`](data/films/LICENSE), and what is not redistributed is
-in [`data/films/NOTICE.md`](data/films/NOTICE.md).
+The code is free software under the **GNU General Public License, version 3 or
+later** (GPL-3.0-or-later); the full text is in [`LICENSE`](LICENSE). You can
+run it, study it, change it and share it, provided the copies and the changes
+you convey stay under the same licence.
+
+An **additional permission under section 7 of the GPLv3** lets the project
+convey the official builds through the Apple App Store, TestFlight, Google Play
+and comparable stores, whose terms would otherwise conflict with the GPL. The
+exact permission, and what it does not change, is in
+[`APPSTORE-EXCEPTION.md`](APPSTORE-EXCEPTION.md); outside the stores the GPL
+applies unchanged, and the source stays in this repository at the tag of every
+release. Releases up to v0.2.1 were published under MIT or Apache-2.0 — that
+grant cannot be taken back, and those copies stay under it.
+
+The **measurement data is CC BY-SA 4.0**, not GPL — share it, adapt it, sell
+it, but keep it open; the full text is in
+[`data/films/LICENSE`](data/films/LICENSE), and what is not redistributed is in
+[`data/films/NOTICE.md`](data/films/NOTICE.md).
 
 The boundary is a file read. `kallo-core`'s build script reads the `.kalofilm`
 and `.kalopaper` files at build time and generates the stock tables from them,
@@ -216,6 +230,11 @@ through [`crates/kallo-data`](crates/kallo-data/), which carries a copy of
 Early days — open an issue before a large pull request. Useful contributions
 right now: curve digitisation, test images with known exposure, and critiques of
 the development model.
+
+Contributions are accepted under GPL-3.0-or-later **including the App Store
+additional permission** — by opening a pull request you agree to those terms, so
+that the official builds can keep using your work. See
+[`APPSTORE-EXCEPTION.md`](APPSTORE-EXCEPTION.md).
 
 `just check` runs formatting, clippy and the tests, which are the three jobs CI
 runs; [`justfile`](justfile) lists every recipe as the plain `cargo` command
