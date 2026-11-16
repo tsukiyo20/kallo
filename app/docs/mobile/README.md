@@ -411,7 +411,7 @@ content   APPEARANCE
           └──────────────────────────┘
           ABOUT
           ┌──────────────────────────┐
-          │ ▣ Kallo 0.2.1           › │
+          │ ▣ Kallo 0.3.0           › │
           │ Open source · free        │
           │ issues and PRs welcome    │
           └──────────────────────────┘

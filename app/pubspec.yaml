@@ -3,7 +3,7 @@ description: >-
   Kallo: a design language, a handful of primitives, and the places a roll of
   film passes through. Not a widget library — this is the app's vocabulary.
 publish_to: none
-version: 0.2.1
+version: 0.3.0
 
 environment:
   # Flutter 3.47 is the first version that puts Impeller on macOS, Windows and
