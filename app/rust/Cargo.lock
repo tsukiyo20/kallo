@@ -1402,6 +1402,7 @@ dependencies = [
  "image",
  "kallo-api",
  "kallo-io",
+ "libc",
  "sysinfo",
 ]
 

@@ -2,7 +2,7 @@
 
 use crate::frb_generated::StreamSink;
 use kallo_api::{render_image_with_progress, resolve, Exposure, RenderOptions, StockChoice};
-use kallo_io::{resize_to_width, save_with_progress};
+use kallo_io::save_with_progress;
 
 /// What a print asks for.
 #[derive(Debug, Clone)]
@@ -113,15 +113,17 @@ pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), 
     let selection = resolve(&choice).map_err(|error| error.to_string())?;
 
     report("reading", 0.0);
-    let mut image = kallo_api::read_input(
-        std::path::Path::new(&job.input),
-        kallo_io::InputEncoding::Srgb,
-    )
+    // A print is rendered at the size it is exported at; reading the photograph
+    // at that width is the same average a decode and a resize made, without
+    // the full-resolution f64 frame in between.
+    let input = std::path::Path::new(&job.input);
+    let mut image = if job.width > 0 {
+        kallo_api::read_input_at_width(input, kallo_io::InputEncoding::Srgb, job.width)
+    } else {
+        kallo_api::read_input(input, kallo_io::InputEncoding::Srgb)
+    }
     .map_err(|error| error.to_string())?;
     report("reading", 0.1);
-    if job.width > 0 {
-        image = resize_to_width(&image, job.width);
-    }
     report("resizing", 0.14);
 
     let options = RenderOptions {

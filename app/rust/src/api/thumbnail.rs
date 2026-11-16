@@ -16,7 +16,7 @@
 use std::path::Path;
 
 use image::{DynamicImage, GenericImageView as _, ImageDecoder as _, ImageFormat, ImageReader};
-use kallo_io::{InputEncoding, resize_to_width, save};
+use kallo_io::{resize_to_width, save, InputEncoding};
 
 /// Whether a file is a camera raw the model reads.
 ///
@@ -86,12 +86,17 @@ pub fn make_thumbnail(input: String, output: String, width: u32) -> Result<(), S
 /// has a look baked in, and developing that look a second time is how a film
 /// simulation stops being one.
 ///
-/// The decode itself is camera-sized, because that is what a decoder does; only
-/// the resized frame is encoded, so the PNG written here never holds the whole
-/// photograph.
+/// The decode is the app's: the window's photograph and the bench's session are
+/// one read (see `photograph.rs` in this folder), so this asks for the window's copy and
+/// lets the bench take its own width from it. The decoder still works at camera
+/// size — that is what a decoder does — but only the resized frame is encoded,
+/// so the PNG written here never holds the whole photograph.
 fn make_raw_thumbnail(input: &str, output: &str, width: u32) -> Result<(), String> {
-    let photograph = kallo_api::read_input(Path::new(input), InputEncoding::Srgb)
-        .map_err(|error| error.to_string())?;
-    let thumbnail = resize_to_width(&photograph, width);
-    save(output, &thumbnail).map_err(|error| error.to_string())
+    let photograph = super::photograph::read(Path::new(input), InputEncoding::Srgb, width)?;
+    if photograph.width > width {
+        let thumbnail = resize_to_width(&photograph, width);
+        save(output, &thumbnail).map_err(|error| error.to_string())
+    } else {
+        save(output, &photograph).map_err(|error| error.to_string())
+    }
 }

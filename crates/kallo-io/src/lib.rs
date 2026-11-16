@@ -18,8 +18,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use image::ImageDecoder as _;
-use image::RgbImage;
+use image::{GenericImageView as _, ImageDecoder as _, RgbImage};
 use kallo_core::{linear_to_srgb, srgb_to_linear};
 
 /// How the values stored in the input file should be interpreted.
@@ -118,6 +117,37 @@ fn load_reader<R>(reader: image::ImageReader<R>, encoding: InputEncoding) -> Res
 where
     R: std::io::BufRead + std::io::Seek,
 {
+    let dynamic = decode_reader(reader)?;
+    let rgb = dynamic.to_rgb32f();
+    let (width, height) = rgb.dimensions();
+
+    let mut pixels = Vec::with_capacity((width as usize) * (height as usize));
+    for pixel in rgb.pixels() {
+        let [r, g, b] = pixel.0;
+        let mut out = [f64::from(r), f64::from(g), f64::from(b)];
+        if encoding == InputEncoding::Srgb {
+            for channel in &mut out {
+                *channel = srgb_to_linear(*channel);
+            }
+        }
+        pixels.push(out);
+    }
+
+    Ok(Image {
+        width,
+        height,
+        pixels,
+    })
+}
+
+/// The decoder's own frame, upright.
+///
+/// The limits and the orientation are the same for every read, whether the
+/// caller wants the whole frame or a window's copy of it.
+fn decode_reader<R>(reader: image::ImageReader<R>) -> Result<image::DynamicImage, IoError>
+where
+    R: std::io::BufRead + std::io::Seek,
+{
     let mut reader = reader
         .with_guessed_format()
         .map_err(image::ImageError::IoError)?;
@@ -142,26 +172,264 @@ where
     decoder.set_limits(limits)?;
     let mut dynamic = image::DynamicImage::from_decoder(decoder)?;
     dynamic.apply_orientation(orientation);
-    let rgb = dynamic.to_rgb32f();
-    let (width, height) = rgb.dimensions();
+    Ok(dynamic)
+}
 
-    let mut pixels = Vec::with_capacity((width as usize) * (height as usize));
-    for pixel in rgb.pixels() {
-        let [r, g, b] = pixel.0;
-        let mut out = [f64::from(r), f64::from(g), f64::from(b)];
-        if encoding == InputEncoding::Srgb {
-            for channel in &mut out {
-                *channel = srgb_to_linear(*channel);
-            }
-        }
-        pixels.push(out);
+/// Read an image from disk at no more than `width`, in one pass.
+///
+/// This is [`load`] followed by [`resize_to_width`], without the full-size f64
+/// frame in between: the decoder's pixels are sampled per destination pixel and
+/// only the small copy is ever built. A 33-megapixel camera file is 786 MB as
+/// an f64 `Image`; the same file at the width of a window is two or three
+/// megabytes, and the average is the one [`resize_to_width`] makes.
+pub fn load_at_width(
+    path: impl AsRef<Path>,
+    encoding: InputEncoding,
+    width: u32,
+) -> Result<Image, IoError> {
+    let reader = image::ImageReader::open(path).map_err(image::ImageError::IoError)?;
+    load_reader_at_width(reader, encoding, width)
+}
+
+/// [`load_at_width`] over any reader.
+fn load_reader_at_width<R>(
+    reader: image::ImageReader<R>,
+    encoding: InputEncoding,
+    width: u32,
+) -> Result<Image, IoError>
+where
+    R: std::io::BufRead + std::io::Seek,
+{
+    let dynamic = decode_reader(reader)?;
+    let (source_width, source_height) = dynamic.dimensions();
+    // The same answer as `resize_to_width`: asking for the width the file has,
+    // or a larger one, is not a resize.
+    if width == 0 || source_width == 0 || source_height == 0 || width >= source_width {
+        return Ok(full_image(&dynamic, encoding));
     }
+    Ok(resized(&dynamic, encoding, width))
+}
 
-    Ok(Image {
+/// The whole frame, as linear-light f64.
+fn full_image(dynamic: &image::DynamicImage, encoding: InputEncoding) -> Image {
+    let (width, height) = dynamic.dimensions();
+    let source = Source::of(dynamic);
+    let mut pixels = Vec::with_capacity((width as usize) * (height as usize));
+    for y in 0..height {
+        for x in 0..width {
+            pixels.push(to_linear(source.at(x, y), encoding));
+        }
+    }
+    Image {
         width,
         height,
         pixels,
-    })
+    }
+}
+
+/// The frame at `width`, averaged while it is still the decoder's pixels.
+///
+/// The arithmetic is [`resize_to_width`]'s, pixel for pixel: the same source
+/// rectangle per destination pixel, summed in the same row-major order, so a
+/// caller cannot tell which path made the copy.
+fn resized(dynamic: &image::DynamicImage, encoding: InputEncoding, width: u32) -> Image {
+    let (source_width, source_height) = dynamic.dimensions();
+    let source = Source::of(dynamic);
+    let scale = f64::from(source_width) / f64::from(width);
+    let height = ((f64::from(source_height) / scale).round() as u32).max(1);
+    let mut pixels = Vec::with_capacity((width as usize) * (height as usize));
+
+    for y in 0..height {
+        let top = f64::from(y) * f64::from(source_height) / f64::from(height);
+        let bottom = f64::from(y + 1) * f64::from(source_height) / f64::from(height);
+        let y0 = (top.floor() as u32).min(source_height - 1);
+        let y1 = (bottom.ceil() as u32).clamp(y0 + 1, source_height);
+        for x in 0..width {
+            let left = f64::from(x) * f64::from(source_width) / f64::from(width);
+            let right = f64::from(x + 1) * f64::from(source_width) / f64::from(width);
+            let x0 = (left.floor() as u32).min(source_width - 1);
+            let x1 = (right.ceil() as u32).clamp(x0 + 1, source_width);
+
+            let mut sum = [0.0f64; 3];
+            let mut count = 0.0f64;
+            for source_y in y0..y1 {
+                for source_x in x0..x1 {
+                    let pixel = to_linear(source.at(source_x, source_y), encoding);
+                    sum[0] += pixel[0];
+                    sum[1] += pixel[1];
+                    sum[2] += pixel[2];
+                    count += 1.0;
+                }
+            }
+            pixels.push([sum[0] / count, sum[1] / count, sum[2] / count]);
+        }
+    }
+
+    Image {
+        width,
+        height,
+        pixels,
+    }
+}
+
+/// A decoded frame, sampled one pixel at a time.
+///
+/// The decoder keeps the file's own channels — 8-bit RGB, 16-bit RGBA, float —
+/// and [`load`] converts the whole thing to f32 before it converts again to
+/// f64. This reads the channels where they are, in the conversion
+/// `DynamicImage::to_rgb32f` would make.
+struct Source<'a> {
+    pixels: Pixels<'a>,
+    width: usize,
+}
+
+enum Pixels<'a> {
+    Rgb8(&'a [u8]),
+    Rgba8(&'a [u8]),
+    Luma8(&'a [u8]),
+    LumaA8(&'a [u8]),
+    Rgb16(&'a [u16]),
+    Rgba16(&'a [u16]),
+    Luma16(&'a [u16]),
+    LumaA16(&'a [u16]),
+    Rgb32F(&'a [f32]),
+    Rgba32F(&'a [f32]),
+}
+
+impl<'a> Source<'a> {
+    fn of(dynamic: &'a image::DynamicImage) -> Self {
+        use image::DynamicImage as Decoded;
+        let pixels = match dynamic {
+            Decoded::ImageLuma8(image) => Pixels::Luma8(image.as_raw()),
+            Decoded::ImageLumaA8(image) => Pixels::LumaA8(image.as_raw()),
+            Decoded::ImageRgb8(image) => Pixels::Rgb8(image.as_raw()),
+            Decoded::ImageRgba8(image) => Pixels::Rgba8(image.as_raw()),
+            Decoded::ImageLuma16(image) => Pixels::Luma16(image.as_raw()),
+            Decoded::ImageLumaA16(image) => Pixels::LumaA16(image.as_raw()),
+            Decoded::ImageRgb16(image) => Pixels::Rgb16(image.as_raw()),
+            Decoded::ImageRgba16(image) => Pixels::Rgba16(image.as_raw()),
+            Decoded::ImageRgb32F(image) => Pixels::Rgb32F(image.as_raw()),
+            Decoded::ImageRgba32F(image) => Pixels::Rgba32F(image.as_raw()),
+            // `DynamicImage` is non-exhaustive; the decoder in this crate
+            // produces only the layouts above.
+            _ => unreachable!("a decoded image has one of the known layouts"),
+        };
+        Self {
+            pixels,
+            width: dynamic.width() as usize,
+        }
+    }
+
+    /// One upright pixel, as the three f32 channels the model reads.
+    #[inline]
+    fn at(&self, x: u32, y: u32) -> [f32; 3] {
+        let at = y as usize * self.width + x as usize;
+        match &self.pixels {
+            Pixels::Rgb8(channels) => {
+                let at = at * 3;
+                [
+                    sample8(channels[at]),
+                    sample8(channels[at + 1]),
+                    sample8(channels[at + 2]),
+                ]
+            }
+            Pixels::Rgba8(channels) => {
+                let at = at * 4;
+                [
+                    sample8(channels[at]),
+                    sample8(channels[at + 1]),
+                    sample8(channels[at + 2]),
+                ]
+            }
+            Pixels::Luma8(channels) => {
+                let grey = luma8(channels[at]);
+                [grey; 3]
+            }
+            Pixels::LumaA8(channels) => {
+                let grey = luma8(channels[at * 2]);
+                [grey; 3]
+            }
+            Pixels::Rgb16(channels) => {
+                let at = at * 3;
+                [
+                    sample16(channels[at]),
+                    sample16(channels[at + 1]),
+                    sample16(channels[at + 2]),
+                ]
+            }
+            Pixels::Rgba16(channels) => {
+                let at = at * 4;
+                [
+                    sample16(channels[at]),
+                    sample16(channels[at + 1]),
+                    sample16(channels[at + 2]),
+                ]
+            }
+            Pixels::Luma16(channels) => {
+                let grey = luma16(channels[at]);
+                [grey; 3]
+            }
+            Pixels::LumaA16(channels) => {
+                let grey = luma16(channels[at * 2]);
+                [grey; 3]
+            }
+            Pixels::Rgb32F(channels) => {
+                let at = at * 3;
+                [channels[at], channels[at + 1], channels[at + 2]]
+            }
+            Pixels::Rgba32F(channels) => {
+                let at = at * 4;
+                [channels[at], channels[at + 1], channels[at + 2]]
+            }
+        }
+    }
+}
+
+/// An 8-bit sample as the image crate converts it to f32.
+#[inline]
+fn sample8(value: u8) -> f32 {
+    (value as f32 / u8::MAX as f32).clamp(0.0, 1.0)
+}
+
+/// A 16-bit sample as the image crate converts it to f32.
+#[inline]
+fn sample16(value: u16) -> f32 {
+    (value as f32 / u16::MAX as f32).clamp(0.0, 1.0)
+}
+
+/// A grey sample as the image crate converts it to f32.
+///
+/// Grey is expanded to RGB through the decoder's colour-space fallback, and
+/// that path multiplies by a reciprocal rather than dividing: the last bit of
+/// a luma pixel differs from the last bit of the same value in an RGB file,
+/// and this read must match the decoder's own answer, not a tidier one.
+#[inline]
+fn luma8(value: u8) -> f32 {
+    const RECIPROCAL: f32 = 1.0 / u8::MAX as f32;
+    value as f32 * RECIPROCAL
+}
+
+/// A 16-bit grey sample, as the same fallback converts it.
+#[inline]
+fn luma16(value: u16) -> f32 {
+    const RECIPROCAL: f32 = 1.0 / u16::MAX as f32;
+    value as f32 * RECIPROCAL
+}
+
+/// One source pixel in linear light, as [`load`] would have stored it.
+#[inline]
+fn to_linear(pixel: [f32; 3], encoding: InputEncoding) -> [f64; 3] {
+    let mut out = [
+        f64::from(pixel[0]),
+        f64::from(pixel[1]),
+        f64::from(pixel[2]),
+    ];
+    if encoding == InputEncoding::Srgb {
+        for channel in &mut out {
+            *channel = srgb_to_linear(*channel);
+        }
+    }
+    out
 }
 
 /// Resample an image to a width, keeping its shape.
@@ -495,5 +763,117 @@ mod tests {
             );
         }
         let _ = std::fs::remove_file(path);
+    }
+
+    /// A file read at a width must be the file read and then resized.
+    ///
+    /// The one-pass read is an optimisation, not a second sampler: a window
+    /// that drew a different average would be looking at another photograph.
+    /// The fixtures cover the channel layouts a camera actually writes.
+    #[test]
+    fn reading_at_a_width_is_reading_then_resizing() {
+        let folder = std::env::temp_dir().join(format!(
+            "kallo-read-at-width-{}-{}",
+            std::process::id(),
+            line!()
+        ));
+        std::fs::create_dir_all(&folder).expect("a scratch folder");
+
+        let rgb8 = image::RgbImage::from_fn(6, 5, |x, y| {
+            image::Rgb([
+                (x * 41 + y * 7) as u8,
+                (x * 13 + y * 29 + 50) as u8,
+                (x * 3 + y * 37 + 100) as u8,
+            ])
+        });
+        let rgba8 = image::RgbaImage::from_fn(6, 5, |x, y| {
+            image::Rgba([
+                (x * 53 + y * 3) as u8,
+                (x * 11 + y * 19 + 40) as u8,
+                (x * 7 + y * 47 + 90) as u8,
+                (x * 17 + y * 23) as u8,
+            ])
+        });
+        let luma8 =
+            image::GrayImage::from_fn(6, 5, |x, y| image::Luma([(x * 31 + y * 43 + 7) as u8]));
+        let rgb16 = image::ImageBuffer::<image::Rgb<u16>, Vec<u16>>::from_fn(6, 5, |x, y| {
+            image::Rgb([
+                (x * 1009 + y * 71) as u16,
+                (x * 337 + y * 2019 + 4000) as u16,
+                (x * 7 + y * 655) as u16,
+            ])
+        });
+        let rgba16 = image::ImageBuffer::<image::Rgba<u16>, Vec<u16>>::from_fn(6, 5, |x, y| {
+            image::Rgba([
+                (x * 2003 + y * 61) as u16,
+                (x * 409 + y * 3079 + 900) as u16,
+                (x * 19 + y * 857) as u16,
+                (x * 211 + y * 3) as u16,
+            ])
+        });
+        let fixtures: [(&str, image::DynamicImage); 5] = [
+            ("rgb8.png", image::DynamicImage::ImageRgb8(rgb8)),
+            ("rgba8.png", image::DynamicImage::ImageRgba8(rgba8)),
+            ("luma8.png", image::DynamicImage::ImageLuma8(luma8)),
+            ("rgb16.png", image::DynamicImage::ImageRgb16(rgb16)),
+            ("rgba16.png", image::DynamicImage::ImageRgba16(rgba16)),
+        ];
+
+        for (name, fixture) in fixtures {
+            let path = folder.join(name);
+            fixture.save(&path).expect("the fixture is written");
+            for encoding in [InputEncoding::Srgb, InputEncoding::Linear] {
+                let full = load(&path, encoding).expect("the fixture reads");
+                for width in [1, 2, 3, 5, 6, 13] {
+                    let expected = resize_to_width(&full, width);
+                    let actual = load_at_width(&path, encoding, width)
+                        .expect("the fixture reads at a width");
+                    assert_eq!(
+                        (actual.width, actual.height),
+                        (expected.width, expected.height),
+                        "{name} at {width}, {encoding:?}"
+                    );
+                    assert_eq!(
+                        actual.pixels.len(),
+                        expected.pixels.len(),
+                        "{name} at {width}, {encoding:?}"
+                    );
+                    for (index, (expected, actual)) in
+                        expected.pixels.iter().zip(&actual.pixels).enumerate()
+                    {
+                        assert_eq!(
+                            actual, expected,
+                            "{name} at {width}, {encoding:?}: pixel {index}"
+                        );
+                    }
+                }
+            }
+        }
+
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    /// The orientation is applied before the average, as it is on a full read.
+    #[test]
+    fn reading_a_turned_photograph_at_a_width_is_the_way_up() {
+        let jpeg = oriented_jpeg(6);
+        let upright = read(&jpeg);
+        for width in [1, 2, 3, 4, 8, 11] {
+            let reader = image::ImageReader::new(Cursor::new(jpeg.as_slice()))
+                .with_guessed_format()
+                .expect("guess the format");
+            let small = load_reader_at_width(reader, InputEncoding::Srgb, width)
+                .expect("decode at a width");
+            let expected = resize_to_width(&upright, width);
+            assert_eq!(
+                (small.width, small.height),
+                (expected.width, expected.height),
+                "at {width}"
+            );
+            for (index, (expected, actual)) in expected.pixels.iter().zip(&small.pixels).enumerate()
+            {
+                assert_eq!(actual, expected, "at {width}: pixel {index}");
+            }
+        }
     }
 }
