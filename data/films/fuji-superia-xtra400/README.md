@@ -7,7 +7,7 @@ paths.
 - **The report:** [REPORT.md](REPORT.md) — the bitmap panels, the anchor the
   sheet does not print, and why all three shoulders sit outside the frame.
 - **The film:** `fuji-superia-xtra400.kalofilm` (6,147 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points per layer.
 - **The figures:** [01-curves](figures/01-curves.png),
   [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png).

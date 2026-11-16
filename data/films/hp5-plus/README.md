@@ -8,7 +8,7 @@ anywhere in it.
   raster, anchoring a film whose axis is relative, and what a data format does
   when four of its five fields are absent.
 - **The film:** `hp5-plus.kalofilm` (5,616 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 164 points, the same curve in all three files.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png).
 

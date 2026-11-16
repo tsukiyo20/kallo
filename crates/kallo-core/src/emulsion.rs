@@ -291,7 +291,7 @@ mod tests {
     /// film's — which seven of them did until this test existed — is worse than
     /// one that said nothing at all, because a reader believes it.
     ///
-    /// The claims are read the way `kalo stocks --json` reads them: the word
+    /// The claims are read the way `kallo stocks --json` reads them: the word
     /// before the first colon.
     #[test]
     fn the_claims_match_the_tables() {

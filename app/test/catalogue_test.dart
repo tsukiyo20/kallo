@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/lab/model.dart';
 import 'package:kallo/lab/stock.dart';
 
-/// A catalogue in the shape `kalo stocks --json` writes, cut down to the keys
+/// A catalogue in the shape `kallo stocks --json` writes, cut down to the keys
 /// the app reads. Two films and a paper is enough to prove the document is
 /// parsed the way the app reads it; the document itself is the model's, and the
 /// integration test asks a real binary for one.

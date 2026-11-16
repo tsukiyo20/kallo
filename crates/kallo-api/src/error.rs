@@ -102,7 +102,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnknownStock { kind, id } => {
-                write!(f, "unknown {kind} stock '{id}' (try `kalo stocks`)")
+                write!(f, "unknown {kind} stock '{id}' (try `kallo stocks`)")
             }
             Self::InvalidNumber {
                 flag,

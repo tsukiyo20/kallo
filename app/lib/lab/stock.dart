@@ -195,7 +195,7 @@ class Provenance {
 /// A stock: an id the model knows, the name on the box, and the record behind
 /// both.
 ///
-/// The id is the model's — `vision3_500t` is how `kalo` spells it — and the
+/// The id is the model's — `vision3_500t` is how `kallo` spells it — and the
 /// label is the manufacturer's, which is why it never translates. `short` is
 /// the film's own name in two words, which is what a wall label under a print
 /// has room for.
@@ -297,7 +297,7 @@ class Stock {
 /// What the model carries: every film and paper it can render, with each one's
 /// provenance.
 ///
-/// It comes off the model as one document (`kalo stocks --json`) rather than
+/// It comes off the model as one document (`kallo stocks --json`) rather than
 /// being written down here, because a shelf that showed a film the model did
 /// not have would be an interface lying about its own model.
 class Catalogue {

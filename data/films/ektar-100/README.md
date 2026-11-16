@@ -10,7 +10,7 @@ sample a cubic instead of its endpoints.
   rising fit, the Bézier correction that moved the green curve by 0.10 of a
   density, and the mask read from the sheet's D-min.
 - **The film:** `ektar-100.kalofilm` (6,339 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points per layer.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png), drawn
   from `curves/` and the file's own tables.

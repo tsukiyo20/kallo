@@ -214,7 +214,7 @@ than another's would refuse most of the black-and-white catalogue.
 ## 7. Availability and reproduction
 
 `hp5-plus.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it. The figures are regenerated from `curves/`
+`kallo render --film-file` loads it. The figures are regenerated from `curves/`
 and the file with
 
 ```bash

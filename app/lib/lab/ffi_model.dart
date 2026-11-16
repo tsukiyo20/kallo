@@ -18,7 +18,7 @@ import 'render_mode.dart';
 /// Load the model into this process.
 ///
 /// Returns whether it loaded. A failure is not fatal: the app falls back to the
-/// `kalo` binary, which is what it used before the library existed, and says so
+/// `kallo` binary, which is what it used before the library existed, and says so
 /// in the console. That is also what happens under `flutter test`, where the
 /// code asset is not bundled.
 bool _loaded = false;

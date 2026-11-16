@@ -112,7 +112,7 @@ figure and worth a pixel of density, not a model change.
 ## 6. Availability and reproduction
 
 `fuji-c200.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it.
+`kallo render --film-file` loads it.
 
 ```bash
 python3 ../tools/kalofilm.py --check fuji-c200.kalofilm

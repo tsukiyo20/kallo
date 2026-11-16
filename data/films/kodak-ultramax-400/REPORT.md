@@ -100,7 +100,7 @@ scale is not the model's; the file records that rather than filling the field.
 ## 6. Availability and reproduction
 
 `kodak-ultramax400.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it.
+`kallo render --film-file` loads it.
 
 ```bash
 python3 ../tools/kalofilm.py --check kodak-ultramax400.kalofilm

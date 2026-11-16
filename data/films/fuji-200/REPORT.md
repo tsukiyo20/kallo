@@ -101,7 +101,7 @@ publish four.
 ## 6. Availability and reproduction
 
 `fuji-200.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it.
+`kallo render --film-file` loads it.
 
 ```bash
 python3 ../tools/kalofilm.py --check fuji-200.kalofilm

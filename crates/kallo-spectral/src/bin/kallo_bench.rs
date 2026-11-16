@@ -1,11 +1,11 @@
-//! `kalo-bench` — compare RGB → spectrum reconstructions on the same data.
+//! `kallo-bench` — compare RGB → spectrum reconstructions on the same data.
 //!
 //! Deliberately dependency-free: this is a tool that has to run anywhere,
 //! including on a machine where nothing else has been installed. A handful of
 //! flags does not justify pulling in a CLI framework.
 //!
 //! ```text
-//! kalo-bench --data PATH [--model all|polynomial|dictionary|sparse|hybrid]
+//! kallo-bench --data PATH [--model all|polynomial|dictionary|sparse|hybrid]
 //!            [--camera cie1931|generic] [--dictionary PATH] [--dictionary-limit N]
 //!            [--l1 VALUE] [--hybrid-threshold VALUE] [--verbose]
 //! ```
@@ -82,7 +82,7 @@ fn main() -> ExitCode {
         Err(message) => {
             eprintln!("error: {message}");
             eprintln!(
-                "usage: kalo-bench [--data PATH] \
+                "usage: kallo-bench [--data PATH] \
                  [--model all|polynomial|dictionary|sparse|hybrid] \
                  [--camera cie1931|generic|PATH] [--dictionary PATH ...] [--dictionary-limit N]
 //!            [--l1 VALUE] [--hybrid-threshold VALUE] [--verbose]"
@@ -163,7 +163,7 @@ fn parse_args() -> Result<Options, String> {
             "--verbose" => verbose = true,
             "--help" | "-h" => {
                 println!(
-                    "usage: kalo-bench [--data PATH] [--model NAME] [--camera NAME] [--l1 VALUE] [--verbose]"
+                    "usage: kallo-bench [--data PATH] [--model NAME] [--camera NAME] [--l1 VALUE] [--verbose]"
                 );
                 std::process::exit(0);
             }

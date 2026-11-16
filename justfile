@@ -76,11 +76,11 @@ check: fmt-check lint test
 
 # Render an image. Example: just run render crates/kallo-cli/assets/testchart.png -o out/a.png --dev 9
 run *args:
-    cargo run --release --bin kalo -- {{args}}
+    cargo run --release --bin kallo -- {{args}}
 
 # Compare RGB → spectrum reconstructions.
 bench *args:
-    cargo run --release -p kallo-spectral --bin kalo-bench -- {{args}}
+    cargo run --release -p kallo-spectral --bin kallo-bench -- {{args}}
 
 # Audit licences, advisories and sources.
 deny:
@@ -101,7 +101,7 @@ deny:
 #          just print ../file-test/DSCF0989.JPG 12 20 ~/Desktop/prints
 print src dev="9" temp="20" dest="$HOME/Pictures/Kallo":
     mkdir -p "{{dest}}"
-    cargo run --release --quiet --bin kalo -- render {{src}} -o "{{dest}}/print-{{dev}}min.png" --film vision3_500t --paper fuji_crystal_archive_pearl --dev {{dev}} --temp {{temp}} --ev auto --grain --halation --couplers
+    cargo run --release --quiet --bin kallo -- render {{src}} -o "{{dest}}/print-{{dev}}min.png" --film vision3_500t --paper fuji_crystal_archive_pearl --dev {{dev}} --temp {{temp}} --ev auto --grain --halation --couplers
 
 # Write the strip the app draws, from the model.
 #

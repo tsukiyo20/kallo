@@ -3,7 +3,7 @@
 //! ADR 0012 in the private folder argues that a stock should be a file rather
 //! than a `&'static` struct in `emulsion.rs`, because the cost of the *n*th
 //! stock is otherwise an edit to the model. This module is the format and the
-//! gate: `kalo stock check` reads one, refuses one that claims to be measured
+//! gate: `kallo stock check` reads one, refuses one that claims to be measured
 //! without naming its document, and re-derives the curve from the digitised
 //! points to catch a transcription slip.
 //!

@@ -141,7 +141,7 @@ class Frame {
   /// numbers are the model's dye without the base, because the strip is a
   /// drawing rather than a reading.
   ///
-  /// Null for a frame the app developed through the subprocess: `kalo render`
+  /// Null for a frame the app developed through the subprocess: `kallo render`
   /// writes pixels, and the curves behind them are not a thing a command line
   /// prints. A chart with four rows missing is better than a chart with four
   /// rows invented.

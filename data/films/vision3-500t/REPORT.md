@@ -152,7 +152,7 @@ model's colour or tone pipeline.
 ## 7. Availability and reproduction
 
 `vision3-500t.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it. The figures are regenerated from `curves/`
+`kallo render --film-file` loads it. The figures are regenerated from `curves/`
 and the file with
 
 ```bash

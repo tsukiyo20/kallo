@@ -54,9 +54,9 @@ jobs:
         run: |
           set -euo pipefail
           name="kallo-${GITHUB_REF_NAME}-${TARGET}"
-          bin="kalo"
+          bin="kallo"
           if [ "${RUNNER_OS}" = "Windows" ]; then
-            bin="kalo.exe"
+            bin="kallo.exe"
           fi
           mkdir -p "dist/${name}"
           cp "target/${TARGET}/release/${bin}" "dist/${name}/"

@@ -4,7 +4,7 @@
 //! photograph is read once, metered, developed at a time and printed on a
 //! paper; a contact proof is the same photograph exposed once through a ladder
 //! of times; a roll is both, from one decode. All of it was written inside
-//! `kalo` first, where the only way to reach it was a command line. It lives
+//! `kallo` first, where the only way to reach it was a command line. It lives
 //! here now because the app reaches the same work through a function call, and
 //! two implementations of "develop a roll" would be one too many.
 //!

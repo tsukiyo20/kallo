@@ -1,4 +1,4 @@
-//! `kalo render` — apply the model to a whole image.
+//! `kallo render` — apply the model to a whole image.
 
 use kallo_api::{RenderOptions, render};
 use kallo_io::resize_to_width;

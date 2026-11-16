@@ -16,7 +16,7 @@ use crate::error::Error;
 /// no file format of its own.
 #[derive(Debug, Clone)]
 pub struct StockChoice {
-    /// Film stock id (see `kalo stocks`).
+    /// Film stock id (see `kallo stocks`).
     pub film: String,
     /// Paper stock id.
     pub paper: String,
@@ -34,7 +34,7 @@ pub struct StockChoice {
     pub lut_size: usize,
     /// Reflectance CSVs for the dictionary prior.
     pub dictionary: Vec<PathBuf>,
-    /// A table baked by `kalo bake`.
+    /// A table baked by `kallo bake`.
     pub lut: Option<PathBuf>,
     /// Load a table even if its recorded model differs from this build's.
     pub allow_model_mismatch: bool,
@@ -84,7 +84,7 @@ pub struct Selection {
     pub lut_size: usize,
     /// Reflectance CSVs for the dictionary prior.
     pub dictionary: Vec<PathBuf>,
-    /// A table baked by `kalo bake`.
+    /// A table baked by `kallo bake`.
     pub lut: Option<PathBuf>,
     /// Whether a model mismatch in the table is tolerated.
     pub allow_model_mismatch: bool,

@@ -12,7 +12,7 @@ use kallo_io::InputEncoding;
 /// grain, halation and DIR couplers.
 #[derive(Debug, Parser)]
 #[command(
-    name = "kalo",
+    name = "kallo",
     version,
     about = "Kallo — film simulation, with developing time as a dimension",
     propagate_version = true
@@ -23,7 +23,7 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// What `kalo` can do.
+/// What `kallo` can do.
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Render an image through a film stock and a paper.
@@ -48,14 +48,14 @@ pub enum Command {
     Bake(BakeArgs),
 }
 
-/// What `kalo stock` can do.
+/// What `kallo stock` can do.
 #[derive(Debug, Subcommand)]
 pub enum StockCommand {
     /// Check a stock file: provenance, curves and spectra.
     Check(StockCheckArgs),
 }
 
-/// `kalo stock check <FILE>`
+/// `kallo stock check <FILE>`
 #[derive(Debug, Args)]
 pub struct StockCheckArgs {
     /// The stock file to check.
@@ -65,7 +65,7 @@ pub struct StockCheckArgs {
 /// Options shared by every command that touches a film and a paper.
 #[derive(Debug, Args)]
 pub struct StockArgs {
-    /// Film stock id (see `kalo stocks`).
+    /// Film stock id (see `kallo stocks`).
     ///
     /// Every built-in stock is digitised from a manufacturer's data sheet; its
     /// file says field by field what was measured and what was borrowed. The
@@ -81,7 +81,7 @@ pub struct StockArgs {
     #[arg(long, value_name = "PATH", conflicts_with = "film")]
     pub film_file: Option<std::path::PathBuf>,
 
-    /// Paper stock id (see `kalo stocks`).
+    /// Paper stock id (see `kallo stocks`).
     #[arg(long, default_value = "portra_endura")]
     pub paper: String,
 
@@ -122,7 +122,7 @@ pub struct StockArgs {
     #[arg(long, value_name = "PATH")]
     pub dictionary: Vec<std::path::PathBuf>,
 
-    /// Use a table baked by `kalo bake` instead of computing the exposure.
+    /// Use a table baked by `kallo bake` instead of computing the exposure.
     #[arg(long, value_name = "PATH")]
     pub lut: Option<std::path::PathBuf>,
 
@@ -147,7 +147,7 @@ pub struct StockArgs {
     pub spectral_scan: bool,
 }
 
-/// `kalo render`
+/// `kallo render`
 #[derive(Debug, Args)]
 pub struct RenderArgs {
     /// Input image. 8/16-bit sRGB by default; pass --input-encoding linear for
@@ -312,7 +312,7 @@ pub struct RenderArgs {
     pub scan_optics_um: Option<f64>,
 }
 
-/// `kalo contact`
+/// `kallo contact`
 ///
 /// The proof, not the print: every development of one frame laid on a sheet,
 /// exposed once, with the film's rebate and edge markings around it. What the
@@ -331,11 +331,11 @@ pub struct ContactArgs {
     #[arg(long, value_name = "PATH")]
     pub record: Option<PathBuf>,
 
-    /// Film stock id (see `kalo stocks`).
+    /// Film stock id (see `kallo stocks`).
     #[arg(long, default_value = "vision3_500t")]
     pub film: String,
 
-    /// Paper stock id (see `kalo stocks`).
+    /// Paper stock id (see `kallo stocks`).
     #[arg(long, default_value = "portra_endura")]
     pub paper: String,
 
@@ -397,7 +397,7 @@ pub struct ContactArgs {
     pub no_edge_codes: bool,
 }
 
-/// `kalo bake`
+/// `kallo bake`
 #[derive(Debug, Args)]
 pub struct BakeArgs {
     /// Output table path, conventionally `.klut`.
@@ -427,7 +427,7 @@ pub struct BakeArgs {
     pub film: String,
 }
 
-/// `kalo curve`
+/// `kallo curve`
 #[derive(Debug, Args)]
 pub struct CurveArgs {
     /// Film, paper and development.

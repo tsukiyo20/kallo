@@ -8,7 +8,7 @@ sheet, and a silver image carries no dyes and no mask to borrow.
   shift it needs, a shoulder that is outside the frame, the granularity number
   turned into grains, and what a monochrome film does to a three-channel model.
 - **The film:** `tmax-400.kalofilm` (5,789 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 400 points, the same record in all three files.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png), drawn
   from `curves/` and the file's own tables.

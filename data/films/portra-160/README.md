@@ -9,7 +9,7 @@ predict.
   formula, the rising fit that lands the base on the ink's own floor, the D-min
   mask, and the anchor gap of 0.73 of a stop.
 - **The film:** `portra-160.kalofilm` (6,219 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points per layer.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png), drawn
   from `curves/` and the file's own tables.

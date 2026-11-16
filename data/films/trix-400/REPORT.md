@@ -93,7 +93,7 @@ same film at 6, 8, 10 and 12 minutes — and on the day this report was written 
 became the first manufacturer data the model's kinetics were checked against: the
 four rungs moved the fog, ceiling, speed and toe constants out of the prior
 column and into measurements. The model references the 6 minutes and 20 °C of the curve the
-file carries, so `kalo render --dev 6 --temp 20` is this sheet's ink and any other
+file carries, so `kallo render --dev 6 --temp 20` is this sheet's ink and any other
 setting is a deliberate move away from it.
 
 ### 3.2 The anchor, and the half stop
@@ -241,7 +241,7 @@ The speed point is half a stop late and is left out.
 ## 7. Availability and reproduction
 
 `trix-400.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it. The figures are regenerated from `curves/`
+`kallo render --film-file` loads it. The figures are regenerated from `curves/`
 and the file with
 
 ```bash

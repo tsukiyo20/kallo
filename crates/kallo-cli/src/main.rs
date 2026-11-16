@@ -1,4 +1,4 @@
-//! The `kalo` binary: parse, run, report, exit.
+//! The `kallo` binary: parse, run, report, exit.
 
 use std::process::ExitCode;
 

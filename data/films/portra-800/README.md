@@ -7,7 +7,7 @@ that draws the same film at three exposure indices.
   order and the tick marks that settle it, the anchor at EI 800, the EI 1600 and
   EI 3200 panels as a development ladder, and the mask read from the dye panel.
 - **The film:** `portra-800.kalofilm` (6,379 bytes) — load it with
-  `kalo render --film-file`.
+  `kallo render --film-file`.
 - **The points:** `curves/` — 128 points per layer, at EI 800.
 - **The figures:** [01-curves](figures/01-curves.png), [02-residuals](figures/02-residuals.png), [03-spectra](figures/03-spectra.png), drawn
   from `curves/` and the file's own tables.

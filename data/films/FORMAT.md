@@ -90,7 +90,7 @@ A `.kalofilm` is written by a packer from a TOML stock file and the CSVs it
 names; the packer and the digitisation scripts are not published, the points
 they produce are. The source file is how a stock is authored and checked — it
 carries the provenance the binary header repeats, plus the digitised points the
-fit is re-derived from — and `kalo stock check` reads it and nothing else.
+fit is re-derived from — and `kallo stock check` reads it and nothing else.
 
 | section | key | what |
 |---|---|---|

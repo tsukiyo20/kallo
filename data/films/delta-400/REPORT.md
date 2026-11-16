@@ -178,7 +178,7 @@ anchor, and it is reported above rather than used to adjust it.
 ## 7. Availability and reproduction
 
 `delta-400.kalofilm` carries the header, the tables and a SHA-256;
-`kalo render --film-file` loads it. The figures are regenerated from `curves/`
+`kallo render --film-file` loads it. The figures are regenerated from `curves/`
 and the file with
 
 ```bash

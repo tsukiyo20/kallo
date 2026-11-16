@@ -1,4 +1,4 @@
-//! `kalo contact` — the proof: one exposure, the whole ladder.
+//! `kallo contact` — the proof: one exposure, the whole ladder.
 
 use kallo_api::{ContactOptions, StockChoice, contact, ladder};
 use kallo_core::Metering;
