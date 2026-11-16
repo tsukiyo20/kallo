@@ -81,7 +81,7 @@ Prebuilt packages for every platform are in
 | Linux x86_64 | `.AppImage` or `.deb` | `.tar.gz` |
 | iOS 15+ | `kallo-ios-unsigned.ipa` | — |
 | Android 8+ | `kallo-android-universal.apk` | — |
-| CLI | `kallo-v0.3.1-<target>.tar.gz` | — |
+| CLI | `kallo-v0.3.2-<target>.tar.gz` | — |
 
 The desktop builds are unsigned: macOS is ad-hoc signed and not notarized
 (right-click → Open the first time), and Windows SmartScreen may ask about the
