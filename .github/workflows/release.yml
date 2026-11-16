@@ -68,12 +68,13 @@ jobs:
           name: kallo-cli-${{ matrix.target }}
           path: dist/*.tar.gz
 
-  # A tag publishes every platform: the CLI built above, the desktop apps, the
-  # Linux bundle, an unsigned iOS IPA and an Android APK. The desktop file
-  # names are the updater's contract: app/lib/lab/updates.dart looks for
-  # exactly these four names on the release, so renaming one here breaks
-  # self-update unless the updater changes with it. The Linux, iOS and Android
-  # files are for people, not for the updater.
+  # A tag publishes every platform: the CLI built above, the desktop apps (a
+  # portable archive and an installer: DMG, MSIX, .deb), an unsigned iOS IPA
+  # and an Android APK. The portable desktop file names are the updater's
+  # contract: app/lib/lab/updates.dart looks for exactly these four names on
+  # the release, so renaming one here breaks self-update unless the updater
+  # changes with it. The installers, the Linux tar, the iOS IPA and the Android
+  # APK are for people, not for the updater.
   desktop:
     name: desktop (macOS)
     runs-on: macos-latest
@@ -124,10 +125,20 @@ jobs:
           mkdir -p app/dist
           ditto -c -k --keepParent "$bundle" "app/dist/${name}"
 
+          # The DMG is the installer a Mac person expects; the zip above is
+          # what the updater and a portable install read.
+          staging="$(mktemp -d)/Kallo"
+          mkdir -p "$staging"
+          cp -R "$bundle" "$staging/"
+          ln -s /Applications "$staging/Applications"
+          hdiutil create -volname "Kallo" -srcfolder "$staging" -ov -format UDZO \
+            "app/dist/${name%.zip}.dmg"
+          rm -rf "$(dirname "$staging")"
+
       - uses: actions/upload-artifact@v4
         with:
           name: kallo-desktop-macos
-          path: app/dist/*.zip
+          path: app/dist/*
 
   desktop-windows:
     name: desktop (Windows)
@@ -159,10 +170,44 @@ jobs:
           Compress-Archive -Path "$release/*" `
             -DestinationPath "app/dist/kallo-desktop-windows-x86_64.zip" -Force
 
+      # The MSIX is signed with the repository's self-signed certificate; its
+      # public half ships as kallo-msix.cer so a person can trust the package
+      # once. The PFX and its password are repository secrets (`gh secret set
+      # MSIX_CERT_PFX` / `MSIX_CERT_PASSWORD`); without them no release builds.
+      - name: msix certificate
+        shell: bash
+        env:
+          MSIX_CERT_PFX_SECRET: ${{ secrets.MSIX_CERT_PFX }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MSIX_CERT_PFX_SECRET}" ]; then
+            echo "MSIX_CERT_PFX is not configured" >&2
+            exit 1
+          fi
+          echo "${MSIX_CERT_PFX_SECRET}" | base64 --decode > "$RUNNER_TEMP/kallo-msix.pfx"
+
+      - name: build msix
+        working-directory: app
+        shell: pwsh
+        env:
+          MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
+        run: |
+          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)\s*$').Matches[0].Groups[1].Value
+          $version = $version.Split('+')[0]
+          dart run msix:create --build-windows false `
+            --certificate-path "$env:RUNNER_TEMP\kallo-msix.pfx" `
+            --certificate-password "$env:MSIX_CERT_PASSWORD" `
+            --publisher "CN=Kallo" `
+            --logo-path "$env:GITHUB_WORKSPACE\app\icon\kallo-icon-1024.png" `
+            --output-path "$env:GITHUB_WORKSPACE\app\dist" `
+            --output-name "kallo-desktop-windows-x86_64" `
+            --version "$version.0" `
+            --install-certificate false
+
       - uses: actions/upload-artifact@v4
         with:
           name: kallo-desktop-windows
-          path: app/dist/*.zip
+          path: app/dist/*
 
   # The Linux bundle is a tar a person unpacks and runs; it carries the same
   # runner/Release layout Flutter builds, with the folder renamed to `kallo`.
@@ -203,10 +248,50 @@ jobs:
           rm -rf dist/kallo
           ls -lh dist/kallo-desktop-linux-x86_64.tar.gz
 
+          # A .deb is the installable form; the tar above stays for a portable
+          # copy. The package keeps everything under /opt/kallo and links a
+          # launcher into /usr/bin.
+          version="$(sed -n 's/^version: *//p' pubspec.yaml | head -1 | cut -d+ -f1)"
+          root="dist/deb-root"
+          rm -rf "$root"
+          mkdir -p "$root/DEBIAN" "$root/opt/kallo" "$root/usr/bin" \
+            "$root/usr/share/applications" \
+            "$root/usr/share/icons/hicolor/1024x1024/apps"
+          cp -R build/linux/x64/release/bundle/. "$root/opt/kallo/"
+          ln -s /opt/kallo/kallo "$root/usr/bin/kallo"
+          cp icon/kallo-icon-1024.png \
+            "$root/usr/share/icons/hicolor/1024x1024/apps/kallo.png"
+          cat > "$root/DEBIAN/control" <<EOF
+          Package: kallo
+          Version: ${version}
+          Architecture: amd64
+          Maintainer: Kallo contributors <kallo@users.noreply.github.com>
+          Section: graphics
+          Priority: optional
+          Depends: libgtk-3-0, liblzma5
+          Description: Kallo, a film simulation darkroom
+          EOF
+          cat > "$root/usr/share/applications/kallo.desktop" <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=Kallo
+          Comment=A film simulation darkroom
+          Exec=/opt/kallo/kallo
+          Icon=kallo
+          Terminal=false
+          Categories=Graphics;Photography;
+          EOF
+          # gzip, not dpkg's newer zstd default: a .deb that Ubuntu 22.04's
+          # dpkg can read is worth a slightly larger download.
+          dpkg-deb -Zgzip --build --root-owner-group "$root" \
+            dist/kallo-desktop-linux-x86_64.deb
+          rm -rf "$root"
+          ls -lh dist/kallo-desktop-linux-x86_64.deb
+
       - uses: actions/upload-artifact@v4
         with:
           name: kallo-desktop-linux
-          path: app/dist/*.tar.gz
+          path: app/dist/*
 
   # There is no Apple signing identity in this repository, so the iOS app is
   # built with codesigning off and shipped as an unsigned IPA: a sideloading
@@ -303,10 +388,17 @@ jobs:
     needs: [build, desktop, desktop-windows, desktop-linux, ios, android]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+
+      # The public half of the MSIX signing certificate, so a Windows user can
+      # trust the package once and keep updating through later releases.
+      - name: msix certificate
+        run: cp app/windows/msix/kallo-msix.cer dist/
 
       - uses: softprops/action-gh-release@v2
         with:
