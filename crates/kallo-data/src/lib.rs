@@ -2,10 +2,11 @@
 //!
 //! The `.kalofilm` and `.kalopaper` files are the model: a build of
 //! `kallo-core` reads them and writes the stock tables from them, so the
-//! program text holds no measurements. They are also why this crate exists.
-//! `kallo-core` used to read the repository's `data/` directory directly, which
-//! works in a checkout and not in a crate downloaded from crates.io; this crate
-//! carries the same files beside the code, and the build reads them from here.
+//! program text holds no measurements. They are also why this crate exists:
+//! `kallo-core` used to read the repository's `data/` directory directly, and a
+//! crate built away from the repository has no such directory. This crate
+//! carries the same files beside the code, and the build reads them from here,
+//! so a packaged build is enough on its own.
 //!
 //! # Licence
 //!
@@ -20,8 +21,8 @@
 //!
 //! They are a copy of the repository's `data/` directory, made with
 //! `just sync-data`. The test below compares the copy with the originals when
-//! the repository is present; a crate from crates.io has no repository around
-//! it, and the copy is then the only data there is.
+//! the repository is present; away from the repository the copy is the only
+//! data there is.
 
 /// One measured file: the stock's id and the file itself.
 pub struct Source {
@@ -40,7 +41,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     /// The repository's `data/` directory, when there is a repository around
-    /// the crate. A crate from crates.io has none.
+    /// the crate. A packaged crate has none.
     fn repository_data() -> Option<PathBuf> {
         let data = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")

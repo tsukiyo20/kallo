@@ -9,6 +9,7 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
+publish.workspace = true
 keywords = ["spectral", "color", "sensor", "upsampling", "rendering"]
 categories = ["science", "graphics"]
 

@@ -1,5 +1,5 @@
 # The app's binding crate is built by Flutter's native-assets hook, not by
-# `cargo build` at the root: its target is the app, not the crates.io release.
+# `cargo build` at the root: its target is the app, not a published crate.
 [workspace]
 
 [package]

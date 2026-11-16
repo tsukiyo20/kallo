@@ -13,6 +13,11 @@ authors = ["Kallo contributors"]
 repository = "https://github.com/tsukiyo20/kallo"
 homepage = "https://github.com/tsukiyo20/kallo"
 readme = "README.md"
+# Not a crates.io workspace: 0.1.0 was the last version published there, under
+# the old MIT/Apache-2.0 grant. From 0.2 the crates ship in this repository,
+# and every crate sets `publish.workspace = true` to inherit this. The CLI can
+# still be installed from a checkout with `cargo install --git`.
+publish = false
 
 [workspace.lints.rust]
 missing_docs = "warn"

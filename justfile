@@ -35,7 +35,8 @@ stocks:
 # Copy the measurement files into the crate that ships them.
 #
 # `crates/kallo-data` carries the `.kalofilm` and `.kalopaper` files so that
-# `kallo-core` builds from crates.io without this repository. The copies must be
+# `kallo-core`'s build reads them from a crate of their own, keeping the measured
+# data and the program text on either side of a file read. The copies must be
 # byte-identical to `data/` — the crate's tests compare them — so run this after
 # changing a stock file and commit the copies with it.
 sync-data:
