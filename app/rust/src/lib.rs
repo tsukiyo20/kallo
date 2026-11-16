@@ -5,4 +5,13 @@
 //! report out, with progress where a job takes long enough to watch.
 
 pub mod api;
+
+/// The app's own large Rust buffers go back to the system when they are freed.
+#[cfg(target_os = "macos")]
+mod allocator;
+
+#[cfg(target_os = "macos")]
+#[global_allocator]
+static ALLOCATOR: allocator::LargePageAllocator = allocator::LargePageAllocator;
+
 mod frb_generated;

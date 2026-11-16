@@ -68,7 +68,16 @@ impl PreviewSession {
             couplers: job.couplers,
             gpu: job.gpu,
         };
-        let inner = CoreSession::open(request).map_err(|error| error.to_string())?;
+        // The window's photograph and the bench's are one read: the bridge
+        // keeps the last one it decoded, and the bench's copy is a resize of
+        // it rather than a second look at the camera file.
+        let photograph = super::photograph::read(
+            std::path::Path::new(&request.input),
+            request.encoding,
+            request.width,
+        )?;
+        let inner =
+            CoreSession::from_image(request, &photograph).map_err(|error| error.to_string())?;
         Ok(Self { inner })
     }
 

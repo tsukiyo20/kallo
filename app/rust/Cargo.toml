@@ -23,5 +23,10 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 # allowed to be missing (Android may withhold /proc).
 sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 
+# The large-buffer allocator is macOS-only. libc is the wrapper's, and the app
+# links it through the model's dependencies on every platform anyway.
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
