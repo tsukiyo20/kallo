@@ -438,6 +438,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('About says what the app is, and where to say something', (
+    WidgetTester tester,
+  ) async {
+    _phone(tester, height: 1600);
+    await tester.pumpWidget(_app(card: card));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('mobile-settings')));
+    await tester.pumpAndSettle();
+    final Finder page = find.byKey(const Key('mobile-settings-page'));
+    for (
+      int i = 0;
+      i < 8 && find.textContaining('entirely open source').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.drag(page, const Offset(0, -420));
+      await tester.pumpAndSettle();
+    }
+    expect(
+      find.textContaining('entirely open source and free'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('issues and pull requests'), findsOneWidget);
+    expect(find.text('Open the project on GitHub'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('settings is a whole page, not a drawer', (
     WidgetTester tester,
   ) async {

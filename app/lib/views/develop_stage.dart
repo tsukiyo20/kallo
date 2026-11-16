@@ -117,8 +117,9 @@ class _DevelopStageState extends State<DevelopStage> {
   bool _busy = false;
   String? _error;
 
-  /// Whether the shelf is lying on the bench.
+  /// Whether the shelf is lying on the bench, and which half of it is open.
   bool _cardOpen = false;
+  MaterialsKind _cardKind = MaterialsKind.film;
 
   /// Whether the print is read against the original, and where the wipe is.
   /// The wipe is the bench's own tool: not a setting, and not kept.
@@ -387,7 +388,19 @@ class _DevelopStageState extends State<DevelopStage> {
     widget.onTemperature(next);
   }
 
-  void _toggleCard() => setState(() => _cardOpen = !_cardOpen);
+  /// Lay the shelf on the bench with one half open. Asking for the half that
+  /// is already open puts the shelf away, which is what the handle that opened
+  /// it should do when pressed again.
+  void _openCard(MaterialsKind kind) {
+    setState(() {
+      if (_cardOpen && _cardKind == kind) {
+        _cardOpen = false;
+      } else {
+        _cardOpen = true;
+        _cardKind = kind;
+      }
+    });
+  }
 
   void _closeCard() {
     if (!_cardOpen) {
@@ -1445,9 +1458,12 @@ class _DevelopStageState extends State<DevelopStage> {
                       filmId: strip.stockId,
                       paperId: strip.paperId,
                       time: darkroomClock(_minutes),
+                      kind: _cardKind,
+                      onKind: (MaterialsKind kind) =>
+                          setState(() => _cardKind = kind),
                       height: math.min(
                         MaterialsCard.maxHeight,
-                        math.max(160, room.maxHeight * 0.45),
+                        math.max(200, room.maxHeight * 0.58),
                       ),
                       onFilm: (Stock film) => unawaited(_chooseFilm(film)),
                       onPaper: (Stock? paper) => unawaited(_choosePaper(paper)),
@@ -1507,47 +1523,61 @@ class _DevelopStageState extends State<DevelopStage> {
     );
   }
 
-  /// The materials under the print are the print's caption and the shelf's
-  /// handle: a tap lays the shelf on the bench, another tap takes it away.
+  /// The materials under the print are the print's caption and the shelf's two
+  /// handles. Each handle lays the shelf on the bench with its own half open —
+  /// the thing you want to change is the thing you click — and the same handle
+  /// puts it away again.
   Widget _materialsLine(KalloColors colors, KalloStrings s) {
     final Color colour = _cardOpen ? colors.inkMuted : colors.inkFaint;
+    final String film = stockDisplayName(widget.strip.stockLabel);
     final String paper = stockDisplayName(widget.strip.paperLabel ?? '');
-    final String names = paper.isEmpty
-        ? stockDisplayName(widget.strip.stockLabel)
-        : '${stockDisplayName(widget.strip.stockLabel)}   ·   $paper';
     return SizedBox(
       height: 22,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          key: const Key('materials-line'),
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggleCard,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Flexible(
-                child: Text(
-                  names,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: KalloType.small.copyWith(color: colour),
-                ),
-              ),
-              const SizedBox(width: 6),
-              AnimatedRotation(
-                turns: _cardOpen ? 0.25 : 0,
-                duration: KalloMotion.quick,
-                curve: KalloMotion.enter,
-                child: KalloGlyphView(
-                  KalloGlyph.chevronRight,
-                  size: 9,
-                  color: colour,
-                ),
-              ),
-            ],
+      child: Row(
+        key: const Key('materials-line'),
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Flexible(
+            child: _MaterialHandle(
+              key: const Key('materials-film'),
+              label: s.film,
+              value: film,
+              open: _cardOpen && _cardKind == MaterialsKind.film,
+              quiet: colour,
+              onTap: () => _openCard(MaterialsKind.film),
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: KalloSpace.step2),
+            child: Text(
+              '·',
+              style: KalloType.small.copyWith(color: colors.inkFaint),
+            ),
+          ),
+          Flexible(
+            child: _MaterialHandle(
+              key: const Key('materials-paper'),
+              label: s.paper,
+              value: paper.isEmpty ? s.noMaterial : paper,
+              open: _cardOpen && _cardKind == MaterialsKind.paper,
+              quiet: colour,
+              onTap: () => _openCard(MaterialsKind.paper),
+            ),
+          ),
+          const SizedBox(width: 6),
+          IgnorePointer(
+            child: AnimatedRotation(
+              turns: _cardOpen ? 0.25 : 0,
+              duration: KalloMotion.quick,
+              curve: KalloMotion.enter,
+              child: KalloGlyphView(
+                KalloGlyph.chevronRight,
+                size: 9,
+                color: colour,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2038,6 +2068,77 @@ class _Quiet extends StatelessWidget {
                 : colors.inkMuted,
             fontWeight: accent && onTap != null ? FontWeight.w500 : null,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One handle on the materials line: the slot's name and what is in it.
+///
+/// It is not a button: it is the caption under the print, made clickable. The
+/// pointer closes the ink and the shelf comes up under it, which is the whole
+/// of the affordance.
+class _MaterialHandle extends StatefulWidget {
+  const _MaterialHandle({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.open,
+    required this.quiet,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+
+  /// Whether this slot is the half the shelf has open.
+  final bool open;
+
+  /// The caption's colour when nothing is happening.
+  final Color quiet;
+
+  final VoidCallback onTap;
+
+  @override
+  State<_MaterialHandle> createState() => _MaterialHandleState();
+}
+
+class _MaterialHandleState extends State<_MaterialHandle> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final Color value = widget.open || _hover ? colors.ink : widget.quiet;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              widget.label,
+              style: KalloType.caption.copyWith(
+                color: widget.quiet,
+                fontSize: 9.5,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                widget.value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KalloType.small.copyWith(color: value),
+              ),
+            ),
+          ],
         ),
       ),
     );

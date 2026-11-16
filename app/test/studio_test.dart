@@ -15,7 +15,7 @@ import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/develop_stage.dart';
 import 'package:kallo/views/steps.dart';
-import 'package:kallo/widgets/chip.dart';
+import 'package:kallo/widgets/materials_card.dart';
 import 'package:kallo/widgets/stage_tabs.dart';
 import 'package:kallo/widgets/stepper.dart';
 import 'package:kallo/widgets/print_image.dart';
@@ -506,13 +506,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('materials-card')), findsNothing);
-    await tester.tap(find.byKey(const Key('materials-line')));
+
+    // The film handle lays the shelf on the bench with the film half open.
+    await tester.tap(find.byKey(const Key('materials-film')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('materials-card')), findsOneWidget);
-    expect(find.text('PORTRA 400'), findsOneWidget);
+    expect(find.text('KODAK PORTRA 400'), findsOneWidget);
+    expect(find.byKey(const Key('film-kodak_portra_400')), findsOneWidget);
+
+    // The chosen box is a row with a check on it, not a tinted chip.
+    final KalloStockRow chosen = tester.widget<KalloStockRow>(
+      find.widgetWithText(KalloStockRow, 'KODAK VISION3 500T'),
+    );
+    expect(chosen.selected, isTrue);
+    expect(
+      tester
+          .widget<KalloStockRow>(find.byKey(const Key('film-kodak_portra_400')))
+          .selected,
+      isFalse,
+    );
 
     // A strip with a print on it asks before another box clears it.
-    await tester.tap(find.text('PORTRA 400'));
+    await tester.tap(find.text('KODAK PORTRA 400'));
     await tester.pumpAndSettle();
     expect(find.text('换胶片？'), findsOneWidget);
     await tester.tap(find.text('取消'));
@@ -520,10 +535,76 @@ void main() {
     expect(find.byKey(const Key('materials-card')), findsOneWidget);
     expect(
       tester
-          .widget<KalloChip>(find.widgetWithText(KalloChip, 'VISION3 500T'))
+          .widget<KalloStockRow>(
+            find.widgetWithText(KalloStockRow, 'KODAK VISION3 500T'),
+          )
           .selected,
       isTrue,
     );
+  });
+
+  testWidgets('the shelf opens on the half the handle names', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    const Catalogue catalogue = Catalogue(
+      films: <Stock>[
+        Stocks.vision,
+        Stock(
+          id: 'kodak_portra_400',
+          short: 'PORTRA 400',
+          label: 'KODAK PROFESSIONAL PORTRA 400',
+          process: FilmProcess.negative,
+        ),
+      ],
+      papers: <Stock>[Stocks.crystal],
+    );
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: catalogue,
+        strip: const TestStrip(photo: '/photographs/uji.jpg'),
+        photograph: card,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.develop,
+        locale: const Locale('zh'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The paper handle opens the paper half: the film half is not on it.
+    await tester.tap(find.byKey(const Key('materials-paper')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('materials-card')), findsOneWidget);
+    expect(
+      find.byKey(const Key('paper-fuji_crystal_archive_pearl')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('film-kodak_portra_400')), findsNothing);
+
+    // The card's own segments switch halves without closing it.
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('materials-card')),
+        matching: find.text('胶片'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('film-kodak_portra_400')), findsOneWidget);
+
+    // The search is the way to one box on a long shelf.
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('materials-card')),
+        matching: find.byType(EditableText),
+      ),
+      'portra',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('film-kodak_portra_400')), findsOneWidget);
+    expect(find.byKey(Key('film-${Stocks.vision.id}')), findsNothing);
   });
 
   testWidgets('the print can be read against the original', (
@@ -726,6 +807,9 @@ void main() {
     expect(find.text('版本 0.1.0'), findsOneWidget);
     expect(find.text('GitHub'), findsOneWidget);
     expect(find.text('github.com/tsukiyo20/kallo'), findsOneWidget);
+    // The app says what it is: open, free, and where to say something.
+    expect(find.textContaining('完全开源、免费'), findsOneWidget);
+    expect(find.textContaining('MIT 或 Apache-2.0'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('关于')).dy,
       lessThan(tester.getTopLeft(find.text('语言')).dy),

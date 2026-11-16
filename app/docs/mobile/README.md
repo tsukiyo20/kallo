@@ -37,7 +37,7 @@ The compact branch today is not a phone layout; it is the desktop layout with th
 | The panel is the desktop inspector | a fixed 46% / 50% height, scrolling inside | the photograph is small, the controls hide in a second scroll; "To the developer" is not on the first screen |
 | Touch targets are too small | buttons 30–36 pt, steppers ± 28 pt, chips about 24 pt, switches 30 pt | below iOS's 44 pt; one-handed taps miss |
 | The type sizes are desktop sizes | body 13, small 11.5, caption 10.5; tab bar 10.5 | on a phone it reads like a desktop view scaled down |
-| Choosing materials is a "shelf" | all 24 films plus paper laid out flat as chips, wedged into the 46% scroll area | a long scroll to find one film; selection is just an orange chip |
+| Choosing materials was a "shelf" | all 24 films plus paper laid out flat as chips, wedged into the 46% scroll area | a long scroll to find one film; selection was just an orange chip (the desktop shelf has since become a list and a search of its own — see the app README) |
 | Landscape falls back to the desktop | the breakpoint only looks at width `< 700`; an iPhone in landscape is 844 pt | a 232 pt sidebar + a 304 pt inspector, leaving about 300 pt of content |
 | The gallery is desktop geometry | gallery margins of 40 pt, one huge print per row | one per screen; ten prints means ten screens of swiping |
 | A loupe that only works on hover | `Gallery._lookAt` brings out the glass on hover; a touch has no hover | the phone's Loupe switch does nothing |
@@ -412,6 +412,8 @@ content   APPEARANCE
           ABOUT
           ┌──────────────────────────┐
           │ ▣ Kallo 0.1.0           › │
+          │ Open source · free        │
+          │ issues and PRs welcome    │
           └──────────────────────────┘
 ```
 
@@ -419,6 +421,7 @@ content   APPEARANCE
 - A grouped background + cards with 12–16 radius; section headers 11 uppercase; rows 44, primary text 15, secondary 11–13; dividers inset 14.
 - Language uses checkmark rows (`Follow the system` / `English` / `Chinese`), not a segmented control; `Interface` is a 30 pt segmented control (System / Light / Dark) at the right of its row; the spectral path is a 47 × 28 native switch.
 - Rendering is the only page that talks about hardware: the graphics line names the adapter wgpu will open (the same probe), and the processor line names what the system is willing to give plus the core count (Android may not give a name, and then only the count is shown). The engine defaults to GPU; switching to CPU stops trying the adapter, and a GPU error still finishes that one print on the CPU.
+- About is not a link and a version number: it says what the app is — open source and free under MIT or Apache-2.0, issues and pull requests welcome, a star the best thanks — and then the GitHub row opens the repository. The three sentences are the same on the desktop's About page.
 - On the phone, Library has no "choose folder" any more and no import row: bringing pictures in is the gallery header's action, because the wall is where they land. It shows the system location (the `Kallo` album on iOS, `Pictures/Kallo` on Android), the repair status, and a note when iOS grants only partial access.
 - Footnotes appear only where they are needed: the spectral path changes new strips and leaves existing ones alone; a phone cannot choose a folder.
 - Leave 24 pt at the bottom, clear of the home indicator; the content scrolls, and does not nest a sheet's scroll.

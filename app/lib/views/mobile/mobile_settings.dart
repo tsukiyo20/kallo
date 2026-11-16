@@ -406,6 +406,21 @@ class _KalloMobileSettingsState extends State<KalloMobileSettings> {
                           ),
                         ),
                         const KalloMobileDivider(),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            KalloMobileSpace.step3,
+                            KalloMobileSpace.step3,
+                            KalloMobileSpace.step3,
+                            KalloMobileSpace.step3,
+                          ),
+                          child: Text(
+                            s.openSourceNote,
+                            style: KalloMobileType.footnote.copyWith(
+                              color: colors.inkMuted,
+                            ),
+                          ),
+                        ),
+                        const KalloMobileDivider(),
                         KalloMobileRow(
                           title: s.openRepository,
                           chevron: true,
