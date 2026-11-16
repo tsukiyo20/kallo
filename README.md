@@ -1,259 +1,130 @@
-# Kallo
+<p align="center">
+  <img src="app/icon/kallo-icon.svg" width="120" alt="Kallo icon">
+</p>
 
-**A photographic film and print model, in Rust.**
+<h1 align="center">Kallo</h1>
 
-Kallo takes a digital image and puts it through a physical model of a
-negative, a development step and a print. Light is reconstructed as a spectrum,
-the spectrum exposes three emulsion layers, each layer's exposure runs through
-its published characteristic curve, the dyes are printed onto paper, and the
-paper's reflectance is read back into sRGB. Grain is a count of developed
-grains, halation is light that left the pixel, and the orange mask is a coupler
-that disappears wherever cyan dye is formed.
+<p align="center">
+  A film-simulation darkroom: a physical model of film and print, with an app and a CLI on top.
+</p>
 
-There is no "film look" table anywhere in it. Every number comes from a
-manufacturer's data sheet, and the numbers are data files rather than code.
+<p align="center">
+  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-1.85%2B%20%C2%B7%20edition%202024-000000?logo=rust&logoColor=white" alt="Rust 1.85+, edition 2024"></a>
+  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.47.9-02569B?logo=flutter&logoColor=white" alt="Flutter 3.47.9"></a>
+  <a href="https://wgpu.rs"><img src="https://img.shields.io/badge/wgpu-26-5A45FF" alt="wgpu 26"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--3.0--or--later-blue" alt="GPL-3.0-or-later"></a>
+  <a href="https://github.com/tsukiyo20/kallo/releases/latest"><img src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20iOS%20%C2%B7%20Android-8A2BE2" alt="macOS, Windows, Linux, iOS and Android"></a>
+</p>
 
-![The model: one render hung as a strip of seven frames, with the four effects
-carried alongside.](assets/pipeline.png)
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a> · <strong>English</strong>
+</p>
 
-> *Kallo* — from the Greek **kalos** (beautiful). The short form of
-> *kallotype*, the name William Henry Fox Talbot gave his negative-positive
-> process in 1841 before English flattened it into "calotype".
+Kallo takes a photograph and develops it the way a darkroom does: a film, a
+development time, a paper, a print. The point is the model underneath — film and
+paper are simulated from measured curves and published chemistry, not from a
+look-up table — and the app and CLI are two ways to drive it.
 
 ## The model
 
-**The curve is the sheet's.** Density against log exposure is a toe, a straight
-line and a shoulder, so the model is a trapezoid of two softplus corners:
+**Light is spectral.** A photograph becomes 71 wavelengths from 380 to 730 nm;
+each emulsion layer integrates them against its own measured sensitivity, and
+the print reads the paper's reflectance back through CIE into sRGB.
 
-```text
-D(x) = d_min + γ·[ softplus(a·(x − toe))/a − softplus(b·(x − shoulder))/b ]
-```
+**The numbers are measured.** A film is a data file: characteristic curves,
+layer sensitivities, dye absorptions, the orange mask, MTF and grain. All 24
+films and 6 papers name the data sheet and page their numbers came from, and no
+digitised number lives in code — `kallo-core`'s build script generates the stock
+tables from [`data/`](data/README.md).
 
-Each corner is a softplus divided by its own rate, so the plateau between them
-stays `γ·(shoulder − toe)` whatever the two rates are, and the derivative is
-`γ` times the difference of two logistic steps. A single logistic — a curve with
-a *point* of maximum contrast rather than a straight line — is four times worse
-against the same sheets, and puts its base density 0.2 below the measured one.
+**Development, grain and interimage are chemistry.** Contrast follows measured
+kinetics with a Q10 temperature law; grain is a count of developed grains per
+pixel area, so Selwyn granularity falls out of it; halation is light that left
+the pixel; and the orange mask is a coupler that dies wherever cyan is formed.
 
-![The characteristic curve: the model's line through the digitised points of one
-film, with 18 % grey marked.](assets/curves.png)
+![The model: scene, spectrum, exposure, density, dyes, print, file — with grain, halation, couplers and blur carried alongside](assets/pipeline.png)
 
-**The exposure is metered, not guessed.** The input is linear light on the
-scale *1 is white*, so 18 % grey sits at `log10(0.18)` by definition. A camera
-file whose white point was normalised elsewhere has lost that scale, so
-`--ev auto` measures the frame and places its mean on 18 % — the rule an
-averaging meter and a laboratory's average printer both rest on, solved in
-closed form instead of by a test strip.
+The GPU backend is the same model written in WGSL and checked against the CPU
+pixel by pixel, and a stock file is verified by re-deriving every curve from
+the points it carries.
 
-**Development is kinetic.** Contrast follows
-`γ(t) = γ∞ − (γ∞ − γ₀)·e^(−t/τ)` over an *effective* time that compensates
-temperature with a Q10 law, and long development also raises fog and shifts
-speed. Three minutes against twelve takes a colour negative from ×0.71 to ×1.18
-of its contrast and pulls its speed back 0.27 of a stop. The kinetics were
-fitted to DELTA 400's contrast-against-time chart and then checked against
-TRI-X 400's exposure ladder, where they land within a tenth of a stop.
+## The app
 
-**The print is solved, not dialled in.** The enlarger exposure is computed in
-closed form so that an 18 % grey card lands on the paper's target reflectance —
-what an operator does with a test strip — and a colour pack moves it the way the
-filter it names would.
+A Flutter darkroom for macOS, Windows, Linux, iOS and Android: put a photograph
+on the bench, develop it at a few times, print the one you like, and hang the
+prints on a wall.
 
-**A contact proof is the film, not a print of it.** `kalo contact` develops one
-frame at every time in the ladder, lays each development on paper as its own
-strip, and exposes the sheet **once** — the middle strip's balance, which is what
-a laboratory's average printer does. So the rebate prints black, the edge
-markings print light, and the strips can be compared, because none of them was
-corrected. A five-frame strip would be a lie: five development times are five
-pieces of film.
+<p align="center">
+  <img src="app/test/goldens/macos/develop-materials.png" width="49%" alt="The darkroom bench with the film shelf open">
+  <img src="app/test/goldens/macos/gallery.png" width="49%" alt="The gallery wall with three prints">
+</p>
 
-**The film is spectral.** Each layer integrates the light against its own
-sensitivity, so a colour is what the emulsion sees rather than a channel value.
-The dyes are measured absorptions, and the print reads the paper's own dyes.
+## The CLI
 
-![Where each layer sees, and the base the unexposed film carries.](assets/spectra.png)
-
-**The orange mask is a coupler, not a colour.** The cyan layer carries a
-coloured coupler that absorbs blue and is destroyed wherever cyan is made, so
-its absorption and the dye's own unwanted absorption cancel. That is why an
-unexposed negative is orange and an exposed one is not, and it is a term on the
-base density rather than a constant.
-
-**Grain is a count.** A pixel is an aperture over a random arrangement of
-developed grains, so its exposure has counting statistics:
-`σ_logE = 1/(ln 10 · √N)`. One expression gives Selwyn granularity (σ ∝ 1/√area,
-so grain survives a change of scan resolution), keeps a blank frame clean, and
-needs one parameter per layer — the developed grain density — instead of a
-curve of σ against density fitted by hand. The one stock measured in full runs
-0.62, 0.51 and 0.07 grains per µm²: blue needs nine times fewer grains than red
-to be nine times grainier, which is what being the fast front layer means.
-
-**Halation and couplers are light and chemistry.** Halation is two unit-sum
-Gaussian kernels in micrometres of film added to the exposure before grain,
-because it is light reaching the emulsion and grain is what that light develops.
-The couplers are a matrix with a spatial kernel: a developing layer releases an
-inhibitor that suppresses its neighbours' development, which is where interimage
-correction and the light line along a dark edge come from — and the matrix can
-be fitted back out of measured patch densities rather than typed.
-
-The strip is a drawing of the process. The two plots are not drawings: they are
-the numbers in the shipped `.kalofilm`, plotted.
-
-## The data
-
-**Twenty-four films and six papers, every number traced to a data sheet.** A
-film is a `.kalofilm` file — curves, layer sensitivities, dyes, mask, MTF and
-grain, plus a `[measured]` table saying field by field what is measured,
-borrowed or absent. A paper is a `.kalopaper` file: one curve, a target
-reflectance, its own dyes and layers. Everything measured lives in
-[`data/`](data/README.md), and nothing measured lives in the program text.
-
-Six Kodak colour negatives (PORTRA 160, 400 and 800, EKTAR 100, GOLD 200,
-ULTRA MAX 400), four VISION3 cinema stocks (50D, 200T, 250D, 500T), six Fuji
-colour negatives (PRO 400H, NPH 400, C200, FILM 200 and 400, SUPERIA X-TRA 400),
-three E-6 reversals (PROVIA 100F, VELVIA 50, EKTACHROME E100) and five silver
-films (TRI-X 400, T-MAX 400, T-MAX 100, DELTA 400, HP5 PLUS). Each carries its
-own report: what was measured, what was borrowed and why, and what the sheet
-does not say.
-
-## Quick start
+`kallo` is the model without the window — for scripts, contact proofs and
+checking a stock file:
 
 ```bash
-cargo build --release
-cargo run --release --bin kalo -- render photo.png -o out/print.png \
-    --film kodak_portra_400 --paper portra_endura --dev 9
+kallo render photo.jpg -o out.png --film kodak_portra_400 --dev 9
+kallo contact photo.jpg -o proof.png --dev 3,6,9,12,15
 ```
 
-Or install it:
+## Install
+
+Prebuilt packages for every platform are in
+[Releases](https://github.com/tsukiyo20/kallo/releases/latest).
+
+| Platform | Installer | Portable |
+|---|---|---|
+| macOS 13+ | `kallo-desktop-macos-universal.dmg` | `.zip` |
+| Windows 10/11 x64 | `kallo-desktop-windows-x86_64.msi` | `.zip` |
+| Linux x86_64 | `.AppImage` or `.deb` | `.tar.gz` |
+| iOS 15+ | `kallo-ios-unsigned.ipa` | — |
+| Android 8+ | `kallo-android-universal.apk` | — |
+| CLI | `kallo-v0.3.1-<target>.tar.gz` | — |
+
+The desktop builds are unsigned: macOS is ad-hoc signed and not notarized
+(right-click → Open the first time), and Windows SmartScreen may ask about the
+MSI. The mobile builds are for sideloading; the project has no Apple or Play
+signing identity.
+
+## Build
+
+The model needs Rust 1.85+; the app needs Flutter 3.47.9.
 
 ```bash
-cargo install kallo-cli
-kalo stocks                       # every film and paper, with what is measured
-kalo stocks --json                # the same, as one document a program can read
-kalo curve --dev 9 --sweep        # what a development does, before any render
-kalo render photo.png -o out.png --film vision3_500t --ev auto
-kalo contact photo.png -o out/proof.png --dev 3,6,9,12,15
+cargo test --workspace --all-features   # the model
+cd app
+flutter pub get
+flutter analyze && flutter test
+flutter run -d macos                    # or windows, linux, an iOS/Android device
 ```
 
-A camera raw file is read as linear light directly: ARW, NEF, CR2/CR3, RAF,
-ORF, RW2, PEF, DNG and the rest of what FlashRaw decodes, about thirty
-extensions in all. The decoder is on by default; build with
-`--no-default-features` for a binary that reads only ordinary images. The app
-reads the same files: the darkroom's photograph can be a camera raw, and the
-model develops it for the bench because the window's own decoder does not read
-a sensor mosaic.
+[`app/README.md`](app/README.md) is the interface's rulebook; the data format is
+in [`data/README.md`](data/README.md). The CLI runs as
+`cargo run --release --bin kallo --`.
 
-> **macOS:** if `cargo build` fails with *"You have not agreed to the Xcode
-> license agreements"*, run `sudo xcodebuild -license accept` once.
+## Repository
 
-## Checking the model
-
-Three layers, cheapest first.
-
-**The data.** `kalo stock check <file>` re-derives every curve from the points
-the file carries and refuses a mismatch; the film reports quote the residuals,
-and [`kalofilm.py`](data/films/tools/kalofilm.py) verifies a file's digest and
-tables without the renderer at all.
-
-**The pipeline, without reference photographs.** `cargo test` pushes an 18 %
-grey patch through every stock and asserts what must hold whatever the film is:
-it comes back at 18 % and neutral, a ramp stays monotone, and development moves
-contrast in the right direction. Those are tests over every film and paper in
-`data/` rather than over a default, so CI runs all thirty on three operating
-systems.
-
-**Against real film.** That needs paired exposures of the same scene — a
-ColorChecker and a grey card shot on the stock, scanned — and is not something
-the repository can do on its own. The numbers to compute are the industry's:
-density against exposure, ΔE2000 on the patches, the noise power spectrum, and
-an MTF from a slanted edge.
-
-The GPU backend is this same model, transcribed into WGSL and checked against
-the CPU pixel by pixel: across a 2 048-pixel grid spanning toe and shoulder the
-worst per-channel difference is 1.0 × 10⁻⁶ in linear light, against a stated
-tolerance of 1 × 10⁻⁴. It is on by default and worth it — about 4.5× on the
-scalar path and 80× on the spectral chain, where seventy-one wavelengths per
-pixel across four integrations is exactly the work a device is for. `--no-gpu`
-is there for when certain beats fast, and the app's Settings page has the same
-choice: it names the adapter it detected, defaults to it, and lets a person pin
-the CPU; a frame the device refuses is finished on the CPU either way.
-
-## What this is not
-
-- Not a LUT pack, and not a "film look" filter that happens to be called a
-  simulation.
-- Not a reimplementation of anything. The physics is public; every line is
-  written against published literature and against manufacturer data sheets.
-- Not a product yet. There is no GUI and no colour management.
-
-## Crates
-
-| Crate | Role |
+| Path | What it is |
 |---|---|
-| `kallo-data` | The measurements: the `.kalofilm` and `.kalopaper` files the model is generated from, CC BY-SA 4.0. |
-| `kallo-core` | The model: curves, development kinetics, the built-in stocks, render. No I/O, no unsafe. |
-| `kallo-spectral` | Spectra, sensors, and the RGB → spectrum reconstruction. |
-| `kallo-io` | Decoding and encoding. The only place that touches a file format. |
-| `kallo-raw` | Camera raw to linear light, through FlashRaw. |
-| `kallo-api` | The use case: read a photograph once, develop a roll, print a proof. |
-| `kallo-cli` | The `kalo` binary, plus a library so the commands are testable. |
-| `kallo-gpu` | The wgpu backend, feature-gated into the CLI. |
-
-None of these crates is published to crates.io any more: 0.1.0 was the last
-release there, under the old MIT/Apache-2.0 grant, and those copies stay under
-it. From 0.2 the crates live in this repository only; the `kalo` binary is in
-the release tarballs, and `cargo install --git` from this repository builds it
-too.
+| [`crates/`](crates/) | the model and the `kallo` CLI |
+| [`app/`](app/) | the Flutter app; `app/rust/` links the model into it |
+| [`data/`](data/) | 24 films and 6 papers, every number traced to a data sheet |
+| [`justfile`](justfile) | the local commands CI also runs |
 
 ## Licence
 
-The code is free software under the **GNU General Public License, version 3 or
-later** (GPL-3.0-or-later); the full text is in [`LICENSE`](LICENSE). You can
-run it, study it, change it and share it, provided the copies and the changes
-you convey stay under the same licence.
-
-An **additional permission under section 7 of the GPLv3** lets the project
-convey the official builds through the Apple App Store, TestFlight, Google Play
-and comparable stores, whose terms would otherwise conflict with the GPL. The
-exact permission, and what it does not change, is in
-[`APPSTORE-EXCEPTION.md`](APPSTORE-EXCEPTION.md); outside the stores the GPL
-applies unchanged, and the source stays in this repository at the tag of every
-release.
-
-The **measurement data is CC BY-SA 4.0**, not GPL — share it, adapt it, sell
-it, but keep it open; the full text is in
-[`data/films/LICENSE`](data/films/LICENSE), and what is not redistributed is in
-[`data/films/NOTICE.md`](data/films/NOTICE.md).
-
-The boundary is a file read. `kallo-core`'s build script reads the `.kalofilm`
-and `.kalopaper` files at build time and generates the stock tables from them,
-so the program text holds no measurements. The files reach the build through
-[`crates/kallo-data`](crates/kallo-data/), which carries a copy of
-[`data/`](data/README.md); `just sync-data` refreshes the copy.
+GPL-3.0-or-later, see [`LICENSE`](LICENSE). The official builds also carry a
+section 7 permission for the App Store, TestFlight and Play, see
+[`APPSTORE-EXCEPTION.md`](APPSTORE-EXCEPTION.md). The measurement data is
+CC BY-SA 4.0, see [`data/films/LICENSE`](data/films/LICENSE).
 
 ## Contributing
 
-Early days — open an issue before a large pull request. Useful contributions
-right now: curve digitisation, test images with known exposure, and critiques of
-the development model.
-
-Contributions are accepted under GPL-3.0-or-later **including the App Store
-additional permission** — by opening a pull request you agree to those terms, so
-that the official builds can keep using your work. See
-[`APPSTORE-EXCEPTION.md`](APPSTORE-EXCEPTION.md).
-
-`just check` runs formatting, clippy and the tests, which are the three jobs CI
-runs; [`justfile`](justfile) lists every recipe as the plain `cargo` command
-behind it. The interface in [`app/`](app/README.md) is a Flutter build that
-draws the film strip from a table this model generates — it is a second consumer
-of the same data, not a second model.
-
-## References
-
-- Hurter & Driffield, *Photo-chemical Investigations* (1890) — the H&D curve.
-- Mees & James, *The Theory of the Photographic Process*, 4th ed. — development
-  kinetics, granularity.
-- Hunt, *The Reproduction of Colour*, 6th ed. — couplers and interimage effects.
-- Giorgianni & Madden, *Digital Color Management*, 2nd ed. — the
-  negative/print pipeline.
-- Mallett & Yuksel, *Spectral Primary Decomposition for Rendering with sRGB
-  Reflectance* (2019) — spectral upsampling.
+Issues and pull requests are welcome; open an issue before a large change.
+Contributions are accepted under GPL-3.0-or-later including the App Store
+permission. Before opening a PR, run `cargo fmt --all --check`,
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`cargo test --workspace --all-features`, and
+`cd app && flutter analyze && flutter test`.
