@@ -195,10 +195,12 @@ jobs:
           New-Item -ItemType Directory -Force "$installer\obj" | Out-Null
           New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\app\dist" | Out-Null
           heat.exe dir $source -cg AppFiles -gg -srd -sfrag -dr INSTALLFOLDER -var var.SourceDir -out "$installer\files.wxs"
-          candle.exe -nologo -arch x64 -dVersion=$version `
-            -dSourceDir=$source `
-            -dIconPath="$env:GITHUB_WORKSPACE\app\windows\runner\resources\app_icon.ico" `
-            -dLicensePath="$installer\license.rtf" `
+          # Quote every -d argument whole: a bare token such as
+          # `-dVersion=$version` reaches candle as the literal text.
+          candle.exe -nologo -arch x64 "-dVersion=$version" `
+            "-dSourceDir=$source" `
+            "-dIconPath=$env:GITHUB_WORKSPACE\app\windows\runner\resources\app_icon.ico" `
+            "-dLicensePath=$installer\license.rtf" `
             -out "$installer\obj\" `
             "$installer\Product.wxs" "$installer\files.wxs"
           light.exe -nologo -sval -ext WixUIExtension -cultures:en-us `
@@ -207,6 +209,7 @@ jobs:
           if (-Not (Test-Path "$env:GITHUB_WORKSPACE\app\dist\kallo-desktop-windows-x86_64.msi")) {
             throw "the build has no msi"
           }
+          Write-Output "msi $version"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -329,6 +332,19 @@ jobs:
             "dist/kallo-desktop-linux-x86_64.AppImage"
           rm -rf "$appdir"
           ls -lh dist/kallo-desktop-linux-x86_64.AppImage
+
+      # Prove the AppImage runs without a FUSE mount: the runtime's own
+      # --appimage-extract has to produce the AppRun and the bundle.
+      - name: verify appimage
+        working-directory: app
+        run: |
+          set -euo pipefail
+          "./dist/kallo-desktop-linux-x86_64.AppImage" --appimage-extract > /dev/null
+          test -x squashfs-root/AppRun
+          test -x squashfs-root/usr/bin/kallo
+          test -f squashfs-root/kallo.desktop
+          test -f squashfs-root/usr/bin/lib/libapp.so
+          rm -rf squashfs-root
 
       - uses: actions/upload-artifact@v4
         with:
