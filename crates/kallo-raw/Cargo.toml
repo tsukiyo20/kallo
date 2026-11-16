@@ -16,7 +16,7 @@ flashraw = { version = "0.3", default-features = false, features = [
     "simd",
     "mmap",
 ] }
-kallo-io = { path = "../kallo-io", version = "0.2.0" }
+kallo-io = { path = "../kallo-io", version = "0.2.1" }
 
 [lints]
 workspace = true

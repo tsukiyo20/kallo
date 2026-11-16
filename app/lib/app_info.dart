@@ -5,7 +5,7 @@
 /// pubspec and fails when the two disagree.
 abstract final class KalloInfo {
   static const String name = 'Kallo';
-  static const String version = '0.2.0';
+  static const String version = '0.2.1';
   static const String repository = 'https://github.com/tsukiyo20/kallo';
 
   /// The releases page: GitHub's human page for the same repository.

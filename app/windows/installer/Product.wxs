@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Windows MSI. `.github/workflows/release.yml` harvests the Flutter build
+  with `heat dir` into files.wxs, then compiles this file and that one with
+  candle/light from WiX 3.
+
+  The install is per-user, under %LOCALAPPDATA%\Kallo: no administrator prompt,
+  and the portable app can still replace its own files (the folder is
+  writable), so the in-app updater keeps working.
+
+  UpgradeCode is stable across releases — that is what lets a newer MSI replace
+  an older one. Product Id is generated per build.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Kallo"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="Kallo contributors"
+           UpgradeCode="777726D9-6DB5-4A26-8979-897018724213">
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perUser"
+             InstallPrivileges="limited"
+             Platform="x64" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Kallo is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="KalloIcon" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="KalloIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/tsukiyo20/kallo" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="INSTALLFOLDER" Name="Kallo" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Kallo" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="*">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="Kallo"
+                  Description="A film simulation darkroom"
+                  Target="[INSTALLFOLDER]kallo.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+        <!-- A per-user component needs a per-user key path; the short-lived
+             HKCU value is the one it registers and removes. -->
+        <RegistryValue Root="HKCU"
+                       Key="Software\Kallo"
+                       Name="installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="ProductFeature" Title="Kallo" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicensePath)" />
+    <UIRef Id="WixUI_InstallDir" />
+  </Product>
+</Wix>
