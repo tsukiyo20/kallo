@@ -217,8 +217,7 @@ and comparable stores, whose terms would otherwise conflict with the GPL. The
 exact permission, and what it does not change, is in
 [`APPSTORE-EXCEPTION.md`](APPSTORE-EXCEPTION.md); outside the stores the GPL
 applies unchanged, and the source stays in this repository at the tag of every
-release. Releases up to v0.2.1 were published under MIT or Apache-2.0 — that
-grant cannot be taken back, and those copies stay under it.
+release.
 
 The **measurement data is CC BY-SA 4.0**, not GPL — share it, adapt it, sell
 it, but keep it open; the full text is in

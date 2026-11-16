@@ -472,6 +472,14 @@ jobs:
           path: dist
           merge-multiple: true
 
+      # The checksums are written beside the files, so the release verifies
+      # itself without anyone downloading it first.
+      - name: checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
