@@ -3,7 +3,7 @@ description: >-
   Kallo: a design language, a handful of primitives, and the places a roll of
   film passes through. Not a widget library — this is the app's vocabulary.
 publish_to: none
-version: 0.2.0
+version: 0.2.1
 
 environment:
   # Flutter 3.47 is the first version that puts Impeller on macOS, Windows and
@@ -43,21 +43,6 @@ dev_dependencies:
   # test`. See integration_test/ffi_roll_test.dart.
   integration_test:
     sdk: flutter
-  # The MSIX packager a release uses for the Windows installer. It only runs on
-  # Windows, in `.github/workflows/release.yml`; the app never imports it.
-  msix: ^3.18.0
-
-# The Windows installer a release carries. The version is taken from the
-# `version:` above, and the workflow passes the signing certificate and the
-# same publisher subject, so the package identity stays stable across releases.
-# The public half of the self-signed certificate ships as
-# `windows/msix/kallo-msix.cer`; users import it once before installing.
-msix_config:
-  display_name: Kallo
-  publisher_display_name: Kallo contributors
-  identity_name: io.github.tsukiyo20.kallo
-  publisher: CN=Kallo
-  install_certificate: false
 
 flutter:
   # Material is not used anywhere in this app, and this is where that is said.
