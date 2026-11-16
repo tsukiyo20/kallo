@@ -281,7 +281,9 @@ jobs:
           Terminal=false
           Categories=Graphics;Photography;
           EOF
-          dpkg-deb --build --root-owner-group "$root" \
+          # gzip, not dpkg's newer zstd default: a .deb that Ubuntu 22.04's
+          # dpkg can read is worth a slightly larger download.
+          dpkg-deb -Zgzip --build --root-owner-group "$root" \
             dist/kallo-desktop-linux-x86_64.deb
           rm -rf "$root"
           ls -lh dist/kallo-desktop-linux-x86_64.deb
