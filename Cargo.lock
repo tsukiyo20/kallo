@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-api"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "kallo-core",
  "kallo-gpu",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-cli"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "clap",
  "kallo-api",
@@ -679,7 +679,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "kallo-data",
  "kallo-spectral",
@@ -688,11 +688,11 @@ dependencies = [
 
 [[package]]
 name = "kallo-data"
-version = "0.3.1"
+version = "0.3.2"
 
 [[package]]
 name = "kallo-gpu"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "kallo-core",
  "pollster",
@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-io"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "image",
  "kallo-core",
@@ -710,7 +710,7 @@ dependencies = [
 
 [[package]]
 name = "kallo-raw"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "flashraw",
  "kallo-io",
@@ -718,11 +718,11 @@ dependencies = [
 
 [[package]]
 name = "kallo-spectral"
-version = "0.3.1"
+version = "0.3.2"
 
 [[package]]
 name = "kallo-view"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "kallo-core",
  "serde",

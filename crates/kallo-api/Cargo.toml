@@ -19,12 +19,12 @@ gpu = ["dep:kallo-gpu"]
 raw = ["dep:kallo-raw"]
 
 [dependencies]
-kallo-core = { path = "../kallo-core", version = "0.3.1" }
-kallo-gpu = { path = "../kallo-gpu", version = "0.3.1", optional = true }
-kallo-io = { path = "../kallo-io", version = "0.3.1" }
-kallo-raw = { path = "../kallo-raw", version = "0.3.1", optional = true }
-kallo-spectral = { path = "../kallo-spectral", version = "0.3.1" }
-kallo-view = { path = "../kallo-view", version = "0.3.1" }
+kallo-core = { path = "../kallo-core", version = "0.3.2" }
+kallo-gpu = { path = "../kallo-gpu", version = "0.3.2", optional = true }
+kallo-io = { path = "../kallo-io", version = "0.3.2" }
+kallo-raw = { path = "../kallo-raw", version = "0.3.2", optional = true }
+kallo-spectral = { path = "../kallo-spectral", version = "0.3.2" }
+kallo-view = { path = "../kallo-view", version = "0.3.2" }
 serde_json.workspace = true
 
 [lints]

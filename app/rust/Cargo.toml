@@ -5,7 +5,7 @@
 [package]
 name = "rust_lib_kallo"
 description = "The model as a library the app can call"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 publish = false
 license = "GPL-3.0-or-later"
