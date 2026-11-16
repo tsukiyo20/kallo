@@ -175,7 +175,7 @@ where
     Ok(dynamic)
 }
 
-/// Read an image from disk at no more than [width], in one pass.
+/// Read an image from disk at no more than `width`, in one pass.
 ///
 /// This is [`load`] followed by [`resize_to_width`], without the full-size f64
 /// frame in between: the decoder's pixels are sampled per destination pixel and
@@ -227,7 +227,7 @@ fn full_image(dynamic: &image::DynamicImage, encoding: InputEncoding) -> Image {
     }
 }
 
-/// The frame at [width], averaged while it is still the decoder's pixels.
+/// The frame at `width`, averaged while it is still the decoder's pixels.
 ///
 /// The arithmetic is [`resize_to_width`]'s, pixel for pixel: the same source
 /// rectangle per destination pixel, summed in the same row-major order, so a

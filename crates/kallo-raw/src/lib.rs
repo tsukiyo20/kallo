@@ -111,7 +111,7 @@ pub fn load(path: impl AsRef<Path>) -> Result<Image, RawError> {
     Ok(image_from(samples, width, height, orientation))
 }
 
-/// Read a camera raw at no more than [width], in one pass.
+/// Read a camera raw at no more than `width`, in one pass.
 ///
 /// [`load`] builds the whole decoded frame as f64 before [`kallo_io::resize_to_width`]
 /// takes the window's copy: a 33-megapixel raw is 786 MB of f64, and the bench
@@ -198,7 +198,7 @@ fn image_from(samples: &[f32], width: u32, height: u32, orientation: Orientation
     image
 }
 
-/// The frame at [width], averaged while it is still the decoder's samples.
+/// The frame at `width`, averaged while it is still the decoder's samples.
 ///
 /// The arithmetic is [`kallo_io::resize_to_width`]'s, pixel for pixel: the same
 /// source rectangle per destination pixel, summed in the same row-major order

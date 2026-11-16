@@ -37,7 +37,7 @@ pub fn read_input(path: &Path, encoding: InputEncoding) -> Result<Image, Error> 
     })
 }
 
-/// Read the input at no more than [width], in one pass.
+/// Read the input at no more than `width`, in one pass.
 ///
 /// The bench and the gallery want a window-sized copy, not a camera-sized one,
 /// and a 33-megapixel file is 786 MB as the f64 [`Image`] [`read_input`] makes.
