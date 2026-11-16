@@ -60,7 +60,7 @@ jobs:
           fi
           mkdir -p "dist/${name}"
           cp "target/${TARGET}/release/${bin}" "dist/${name}/"
-          cp README.md LICENSE "dist/${name}/"
+          cp README.md LICENSE APPSTORE-EXCEPTION.md "dist/${name}/"
           tar -czf "dist/${name}.tar.gz" -C dist "${name}"
 
       - uses: actions/upload-artifact@v4
@@ -123,6 +123,9 @@ jobs:
             exit 1
           fi
           mkdir -p app/dist
+          # A GPL binary carries its licence: inside the app, so the zip, the
+          # dmg and an in-place update all keep it.
+          cp LICENSE APPSTORE-EXCEPTION.md "$bundle/Contents/Resources/"
           ditto -c -k --keepParent "$bundle" "app/dist/${name}"
 
           # The DMG is the installer a Mac person expects; the zip above is
@@ -167,6 +170,9 @@ jobs:
             throw "the build has no kallo.exe"
           }
           New-Item -ItemType Directory -Force app/dist | Out-Null
+          # The licence travels with the binary: into the portable zip, and into
+          # the MSI because heat harvests this same folder.
+          Copy-Item LICENSE, APPSTORE-EXCEPTION.md -Destination $release
           Compress-Archive -Path "$release/*" `
             -DestinationPath "app/dist/kallo-desktop-windows-x86_64.zip" -Force
 
@@ -252,6 +258,9 @@ jobs:
           set -euo pipefail
           rm -rf dist/kallo dist/kallo-desktop-linux-x86_64.tar.gz
           mkdir -p dist
+          # The licence travels with the binary in every form built below: the
+          # tar, the .deb under /opt/kallo, and the AppImage.
+          cp ../LICENSE ../APPSTORE-EXCEPTION.md build/linux/x64/release/bundle/
           cp -R build/linux/x64/release/bundle dist/kallo
           tar -czf dist/kallo-desktop-linux-x86_64.tar.gz -C dist kallo
           rm -rf dist/kallo
@@ -384,6 +393,8 @@ jobs:
           rm -rf dist/Payload
           mkdir -p dist/Payload
           cp -R build/ios/iphoneos/Runner.app dist/Payload/
+          # The licence travels inside the app bundle; the IPA is the app.
+          cp ../LICENSE ../APPSTORE-EXCEPTION.md dist/Payload/Runner.app/
           (cd dist && zip -qry kallo-ios-unsigned.ipa Payload)
           rm -rf dist/Payload
           ls -lh dist/kallo-ios-unsigned.ipa
@@ -420,6 +431,14 @@ jobs:
             sdkmanager="$(command -v sdkmanager)"
           fi
           yes | "$sdkmanager" --install "ndk;28.2.13676358" > /dev/null
+
+      - name: licence
+        working-directory: app
+        run: |
+          # The APK carries its licence as an Android asset: Gradle merges
+          # src/main/assets into the package.
+          mkdir -p android/app/src/main/assets
+          cp ../LICENSE ../APPSTORE-EXCEPTION.md android/app/src/main/assets/
 
       - name: build
         working-directory: app

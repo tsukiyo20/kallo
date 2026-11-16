@@ -6,7 +6,9 @@ members = ["crates/*"]
 version = "0.2.1"
 edition = "2024"
 rust-version = "1.85"
-license = "MIT OR Apache-2.0"
+# GPL-3.0-or-later, with the App Store additional permission in
+# APPSTORE-EXCEPTION.md. The measurement data (kallo-data) stays CC BY-SA 4.0.
+license = "GPL-3.0-or-later"
 authors = ["Kallo contributors"]
 repository = "https://github.com/tsukiyo20/kallo"
 homepage = "https://github.com/tsukiyo20/kallo"

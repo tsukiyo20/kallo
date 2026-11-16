@@ -551,8 +551,8 @@ class KalloStrings {
   /// terms, the invitation, and the ask — a person reading About is already
   /// looking for one of them.
   String get openSourceNote => zh
-      ? 'Kallo 完全开源、免费，许可证是 MIT 或 Apache-2.0。模型和界面都在 GitHub 上：欢迎提 issue，也欢迎提 PR。喜欢的话，点个 star 就是最好的鼓励。'
-      : 'Kallo is entirely open source and free, under the MIT or Apache-2.0 licence. The model and the interface both live on GitHub: issues and pull requests are welcome, and a star is the best thanks if you like it.';
+      ? 'Kallo 完全开源、免费，许可证是 GNU GPL v3 或更高版本（GPL-3.0-or-later）。模型和界面都在 GitHub 上：欢迎提 issue，也欢迎提 PR。喜欢的话，点个 star 就是最好的鼓励。'
+      : 'Kallo is entirely open source and free, under the GNU GPL version 3 or later (GPL-3.0-or-later). The model and the interface both live on GitHub: issues and pull requests are welcome, and a star is the best thanks if you like it.';
 
   String get openRepository =>
       zh ? '在 GitHub 上打开项目' : 'Open the project on GitHub';

@@ -811,7 +811,7 @@ void main() {
     expect(find.text('github.com/tsukiyo20/kallo'), findsOneWidget);
     // The app says what it is: open, free, and where to say something.
     expect(find.textContaining('完全开源、免费'), findsOneWidget);
-    expect(find.textContaining('MIT 或 Apache-2.0'), findsOneWidget);
+    expect(find.textContaining('GPL-3.0-or-later'), findsOneWidget);
     // The changelog is the same repository at its releases page, and the
     // updater below it is a check that has not run: nothing checked on open.
     expect(find.text('更新日志'), findsOneWidget);

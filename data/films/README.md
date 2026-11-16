@@ -82,7 +82,7 @@ keep them open. The full text is in [LICENSE](LICENSE), which also records that
 the three films published before 2026-11-09 went out under CC BY 4.0 and that
 those copies keep that grant.
 
-Code that reads them lives in the repository and is MIT or Apache-2.0: the
+Code that reads them lives in the repository and is GPL-3.0-or-later: the
 licence on
 the data does not reach the renderer. See [NOTICE.md](NOTICE.md) for trademarks
 and what is not redistributed.
