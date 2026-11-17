@@ -20,6 +20,16 @@ pub fn run(args: RenderArgs) -> Result<(), CliError> {
         None => None,
     };
 
+    // The recipe is resolved against the film that will actually be developed:
+    // a `.kalofilm` file is a different packed file from the compiled stock it
+    // replaces, so its digest is the one a recipe is checked against.
+    let developed = film.unwrap_or(selection.film);
+    let (tuning, departures, warnings) =
+        crate::recipe::resolve(&args.set, &args.recipe, developed, args.allow_stale)?;
+    for warning in &warnings {
+        eprintln!("warning: {warning}");
+    }
+
     let mut image = read_input(&args.input, args.input_encoding.into())?;
     // Downsampled before anything else, because everything after this reads the
     // frame at the size it is rendered at: the meter averages it, the grain is
@@ -40,6 +50,7 @@ pub fn run(args: RenderArgs) -> Result<(), CliError> {
         grain: args.grain,
         grain_um: args.grain_um,
         grain_seed: args.grain_seed,
+        tuning,
         scanner: args.scanner,
         scan_optics_um: args.scan_optics_um,
         gpu: args.gpu,
@@ -47,6 +58,12 @@ pub fn run(args: RenderArgs) -> Result<(), CliError> {
     let outcome = render(&mut image, film, &selection, &options, &args.output)?;
     for warning in &outcome.warnings {
         eprintln!("warning: {warning}");
+    }
+    for departure in &departures {
+        eprintln!(
+            "note: {} = {} (the file's field is {})",
+            departure.key, departure.value, departure.against
+        );
     }
 
     print_report(

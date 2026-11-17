@@ -209,6 +209,42 @@ impl PrintContext {
         self
     }
 
+    /// Scale a borrowed dye set's absorption, which is the departure a recipe
+    /// may make from a dye set the stock does not own.
+    ///
+    /// The grey balance is recomputed for the scaled set, because the balance
+    /// is a property of the dyes; the enlarger's exposure shift is not, and a
+    /// saturation departure is therefore a visible departure and not a new
+    /// print that happens to be balanced.
+    #[must_use]
+    pub fn with_dye_saturation(mut self, saturation: f64) -> Self {
+        if saturation == 1.0 {
+            return self;
+        }
+        for dye in &mut self.dye {
+            for value in dye.values_mut() {
+                *value *= saturation;
+            }
+        }
+        self.reference = self.balanced(self.reference_density);
+        self
+    }
+
+    /// Scale the mask the print sees, which is the departure a recipe may make
+    /// from a borrowed mask.
+    #[must_use]
+    pub fn with_mask_strength(mut self, strength: f64) -> Self {
+        if strength == 1.0 {
+            return self;
+        }
+        if let Some(base) = self.base_density.as_mut() {
+            for value in base.values_mut() {
+                *value *= strength;
+            }
+        }
+        self
+    }
+
     /// The gain the grey balance applies at a neutral density, per layer.
     ///
     /// A diagnostic: if real dyes are neutral by design, these gains should be

@@ -61,6 +61,8 @@ pub struct RenderOptions {
     pub grain: bool,
     /// Override the grain's correlation length.
     pub grain_um: Option<f64>,
+    /// The scalars a stock recipe departs on; the identity by default.
+    pub tuning: kallo_core::Tuning,
     /// Grain seed.
     pub grain_seed: u64,
     /// Scan the print.
@@ -84,6 +86,7 @@ impl Default for RenderOptions {
             interimage: false,
             grain: false,
             grain_um: None,
+            tuning: kallo_core::Tuning::default(),
             grain_seed: 0,
             scanner: false,
             scan_optics_um: None,
@@ -260,6 +263,7 @@ fn render_image_inner(
         }
         None => prepared,
     };
+    let prepared = prepared.with_tuning(&options.tuning);
     let params = selection.render_params(exposure_ev, options.print_ev, interimage, film);
     report_stage(&mut progress, 0.06);
 
@@ -268,19 +272,62 @@ fn render_image_inner(
     // differs by a factor of nine between its layers, and a stock without a
     // measurement falls back to the placeholder.
     let grain = options.grain.then(|| {
-        let field =
+        let mut field =
             GrainField::for_stock(width, height, options.frame_mm, options.grain_seed, film);
+        let tuning = &options.tuning;
+        if tuning.grain_strength != 1.0 {
+            let density = field
+                .grains_per_um2
+                .map(|density| density.max(0.0) * tuning.grain_strength);
+            field.grains_per_um2 = density;
+            let sizes = GrainField::spacing_of(&density);
+            field = field.with_grain_sizes(sizes);
+        }
         match options.grain_um {
             Some(diameter) => field.with_grain_sizes([diameter; 3]),
+            None if tuning.grain_size != 1.0 => {
+                let sizes = field.grain_um.map(|size| size * tuning.grain_size);
+                field.with_grain_sizes(sizes)
+            }
             None => field,
         }
     });
-    let emulsion = options
-        .emulsion
-        .then(|| EmulsionBlur::for_stock(film, pixel_um));
-    let halation = options.halation.then(|| Halation::typical(pixel_um));
-    let couplers = options.couplers.then(|| Couplers::typical(pixel_um));
-    let interimage_field = interimage.then(|| InterImage::typical(pixel_um));
+    let emulsion = options.emulsion.then(|| {
+        let mut blur = EmulsionBlur::for_stock(film, pixel_um);
+        if options.tuning.blur_sharpness != 1.0 {
+            blur.sigma_um = blur
+                .sigma_um
+                .map(|sigma| sigma / options.tuning.blur_sharpness.max(1e-9));
+        }
+        blur
+    });
+    let halation = options.halation.then(|| {
+        let mut halation = Halation::typical(pixel_um);
+        if options.tuning.halation_strength != 1.0 {
+            for halo in [&mut halation.scatter, &mut halation.reflection] {
+                halo.strength = halo
+                    .strength
+                    .map(|strength| strength * options.tuning.halation_strength);
+            }
+        }
+        halation
+    });
+    let couplers = options.couplers.then(|| {
+        let mut couplers = Couplers::typical(pixel_um);
+        if options.tuning.couplers_strength != 1.0 {
+            couplers.inhibition = couplers
+                .inhibition
+                .map(|row| row.map(|value| value * options.tuning.couplers_strength));
+        }
+        couplers
+    });
+    let interimage_field = interimage.then(|| {
+        let mut interimage = InterImage::typical(pixel_um);
+        if options.tuning.interimage_strength != 1.0 {
+            interimage.gain *= options.tuning.interimage_strength;
+        }
+        interimage
+    });
     let finishing = OwnedFinishing {
         emulsion,
         halation,
