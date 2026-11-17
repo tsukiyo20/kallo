@@ -23,7 +23,7 @@ use std::path::Path;
 use kallo_core::CharacteristicCurve;
 use kallo_core::Provenance;
 use kallo_core::dye::InhibitorLayer;
-use kallo_core::emulsion::{FilmProcess, FilmStock};
+use kallo_core::emulsion::{Control, FilmProcess, FilmStock, MeasuredField, MeasuredState};
 
 use crate::stockfile::{Value, parse};
 
@@ -110,7 +110,8 @@ pub fn read_owned(path: impl AsRef<Path>) -> Result<Box<FilmStock>, FilmFileErro
         .map_err(|error| FilmFileError::Header(format!("the header does not parse: {error}")))?;
     let tables = &bytes[header_end..bytes.len() - 32];
 
-    build(&table, tables)
+    let digest = leak_str(format!("sha256:{}", hex(&bytes[bytes.len() - 32..])));
+    build(&table, tables, digest)
 }
 
 fn string(
@@ -158,11 +159,14 @@ fn grid(slice: &[f64]) -> Result<[f64; GRID_LEN], FilmFileError> {
 fn build(
     table: &std::collections::BTreeMap<String, Value>,
     tables: &[u8],
+    digest: &'static str,
 ) -> Result<Box<FilmStock>, FilmFileError> {
     let schema = string(table, "schema")?;
-    if schema != "film/v1" {
-        return Err(FilmFileError::Format(format!("schema `{schema}`")));
-    }
+    let structured = match schema.as_str() {
+        "film/v1" => false,
+        "film/v2" => true,
+        other => return Err(FilmFileError::Format(format!("schema `{other}`"))),
+    };
     let process = match string(table, "process")?.as_str() {
         "negative" => FilmProcess::Negative,
         "reversal" => FilmProcess::Reversal,
@@ -265,25 +269,132 @@ fn build(
         // The file's own order, which is alphabetical: the compiled table has a
         // reading order the model chose, and a file read here shows what it
         // says rather than the order the binary would have put it in.
-        measured: measured(table),
+        digest,
+        measured: measured(table, structured),
     }))
 }
 
-/// The `[measured]` section, one `(field, sentence)` per line, in file order.
+/// The `[measured]` table: either one `(field, sentence)` per line (v1) or one
+/// section per field with a verdict, a sentence and its controls (v2).
 fn measured(
     table: &std::collections::BTreeMap<String, Value>,
-) -> &'static [(&'static str, &'static str)] {
-    let entries: Vec<(&'static str, &'static str)> = table
-        .iter()
-        .filter_map(|(key, value)| {
-            let field = key.strip_prefix("measured.")?;
-            let Value::String(text) = value else {
-                return None;
+    structured: bool,
+) -> &'static [MeasuredField] {
+    if !structured {
+        let entries: Vec<MeasuredField> = table
+            .iter()
+            .filter_map(|(key, value)| {
+                let field = key.strip_prefix("measured.")?;
+                let Value::String(text) = value else {
+                    return None;
+                };
+                let (state, source) = split_claim(text.clone());
+                Some(MeasuredField {
+                    field: leak_str(field.to_owned()),
+                    state,
+                    source: leak_str(source),
+                    controls: &[],
+                })
+            })
+            .collect();
+        return Box::leak(entries.into_boxed_slice());
+    }
+
+    // Flattened keys sort alphabetically; collect per field first and keep the
+    // order the fields appear in the sorted table.
+    let mut names: Vec<String> = Vec::new();
+    for key in table.keys() {
+        if let Some(rest) = key.strip_prefix("measured.") {
+            let field = rest.split('.').next().unwrap_or(rest);
+            if !names.iter().any(|known| known == field) {
+                names.push(field.to_owned());
+            }
+        }
+    }
+    let mut entries: Vec<MeasuredField> = Vec::new();
+    for name in names {
+        let prefix = format!("measured.{name}.");
+        let state = table
+            .get(&format!("measured.{name}.state"))
+            .and_then(|value| match value {
+                Value::String(word) => state_from_word(word),
+                _ => None,
+            });
+        let source = table
+            .get(&format!("measured.{name}.source"))
+            .and_then(|value| match value {
+                Value::String(text) => Some(text.clone()),
+                _ => None,
+            })
+            .unwrap_or_default();
+        let mut controls: Vec<Control> = Vec::new();
+        for key in table.keys() {
+            let Some(rest) = key.strip_prefix(&prefix) else {
+                continue;
             };
-            Some((leak_str(field.to_owned()), leak_str(text.clone())))
-        })
-        .collect();
+            let Some(control) = rest.strip_suffix(".value") else {
+                continue;
+            };
+            let number = |field: &str| -> Option<f64> {
+                match table.get(&format!("{prefix}{control}.{field}")) {
+                    Some(Value::Number(number)) => Some(*number),
+                    _ => None,
+                }
+            };
+            let (Some(value), Some(min), Some(max)) =
+                (number("value"), number("min"), number("max"))
+            else {
+                continue;
+            };
+            controls.push(Control {
+                name: leak_str(control.to_owned()),
+                value,
+                min,
+                max,
+            });
+        }
+        // The order a field's controls are shown in, not the alphabetical one.
+        const CONTROL_ORDER: [&str; 4] = ["strength", "size", "sharpness", "saturation"];
+        controls.sort_by_key(|control| {
+            CONTROL_ORDER
+                .iter()
+                .position(|name| *name == control.name)
+                .unwrap_or(CONTROL_ORDER.len())
+        });
+        let controls = Box::leak(controls.into_boxed_slice());
+        entries.push(MeasuredField {
+            field: leak_str(name),
+            state,
+            source: leak_str(source),
+            controls,
+        });
+    }
     Box::leak(entries.into_boxed_slice())
+}
+
+fn state_from_word(word: &str) -> Option<MeasuredState> {
+    match word {
+        "measured" => Some(MeasuredState::Measured),
+        "estimate" => Some(MeasuredState::Estimate),
+        "borrowed" => Some(MeasuredState::Borrowed),
+        "placeholder" => Some(MeasuredState::Placeholder),
+        "none" => Some(MeasuredState::None),
+        _ => None,
+    }
+}
+
+/// Split a v1 `claim: sentence` into its verdict and its sentence.
+fn split_claim(text: String) -> (Option<MeasuredState>, String) {
+    if let Some((head, rest)) = text.split_once(':') {
+        if let Some(state) = state_from_word(head.trim()) {
+            return (Some(state), rest.trim().to_owned());
+        }
+        return (None, text);
+    }
+    if let Some(state) = state_from_word(text.trim()) {
+        return (Some(state), String::new());
+    }
+    (None, text)
 }
 
 fn strings(
@@ -483,6 +594,18 @@ mod tests {
             assert_eq!(loaded.mask, compiled.mask);
             assert_eq!(loaded.sigma_um, compiled.sigma_um);
             assert_eq!(loaded.cl_layer.is_some(), compiled.cl_layer.is_some());
+            assert_eq!(loaded.digest, compiled.digest);
+            assert_eq!(loaded.measured.len(), compiled.measured.len());
+            for compiled in compiled.measured {
+                let loaded = loaded
+                    .measured
+                    .iter()
+                    .find(|field| field.field == compiled.field)
+                    .unwrap_or_else(|| panic!("{id}: missing {}", compiled.field));
+                assert_eq!(loaded.state, compiled.state);
+                assert_eq!(loaded.source, compiled.source);
+                assert_eq!(loaded.controls, compiled.controls);
+            }
         }
     }
 
@@ -499,6 +622,102 @@ mod tests {
             other => panic!("expected a digest failure, got {other:?}"),
         }
         let _ = std::fs::remove_file(&scratch);
+    }
+
+    /// Rewrite a v2 header as the v1 shape: one prose line per field.
+    fn as_v1(bytes: &[u8]) -> Vec<u8> {
+        let header_len = u32::from_le_bytes(bytes[12..16].try_into().expect("four bytes")) as usize;
+        let header = std::str::from_utf8(&bytes[16..16 + header_len]).expect("utf-8");
+        let mut out = String::new();
+        let mut measured: Vec<(String, String)> = Vec::new();
+        let mut in_field = false;
+        for line in header.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("schema = ") {
+                out.push_str("schema = \"film/v1\"\n");
+                continue;
+            }
+            if let Some(field) = trimmed
+                .strip_prefix("[measured.")
+                .and_then(|rest| rest.strip_suffix(']'))
+            {
+                measured.push((field.to_owned(), String::new()));
+                in_field = true;
+                continue;
+            }
+            if in_field {
+                if trimmed.starts_with('[') {
+                    in_field = false;
+                } else if let Some((key, value)) = trimmed.split_once(" = ") {
+                    match key {
+                        "state" => {
+                            measured.last_mut().expect("a field").1 =
+                                value.trim_matches('"').to_owned()
+                        }
+                        "source" => {
+                            let field = &mut measured.last_mut().expect("a field");
+                            let source = value.trim_matches('"');
+                            field.1 = if field.1.is_empty() {
+                                source.to_owned()
+                            } else {
+                                format!("{}: {source}", field.1)
+                            };
+                        }
+                        _ => {}
+                    }
+                    continue;
+                } else if trimmed.is_empty() {
+                    continue;
+                }
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        out.push_str("[measured]\n");
+        for (field, text) in measured {
+            let claim = text.split(':').next().unwrap_or("").trim().to_owned();
+            let body = text
+                .split_once(':')
+                .map(|(_, rest)| rest.trim().to_owned())
+                .unwrap_or_default();
+            if body.is_empty() {
+                out.push_str(&format!("{field} = \"{claim}\"\n"));
+            } else {
+                out.push_str(&format!("{field} = \"{claim}: {body}\"\n"));
+            }
+        }
+        let tables = &bytes[16 + header_len..bytes.len() - 32];
+        let mut payload = bytes[..12].to_vec();
+        payload.extend_from_slice(&(out.len() as u32).to_le_bytes());
+        payload.extend_from_slice(out.as_bytes());
+        payload.extend_from_slice(tables);
+        let digest = sha256(&payload);
+        payload.extend_from_slice(&digest);
+        payload
+    }
+
+    /// A v2 reader reads a v1 file: the verdict is split off the sentence.
+    #[test]
+    fn a_v1_file_still_reads() {
+        let bytes = as_v1(film("vision3-250d"));
+        let path = written("v1", "vision3-250d", &bytes);
+        let loaded = read(&path).unwrap_or_else(|error| panic!("{error}"));
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(loaded.id, "vision3_250d");
+        assert_eq!(
+            loaded
+                .measured
+                .iter()
+                .find(|field| field.field == "grain")
+                .and_then(|field| field.state),
+            Some(MeasuredState::Placeholder)
+        );
+        assert!(
+            loaded
+                .measured
+                .iter()
+                .all(|field| field.controls.is_empty())
+        );
     }
 
     /// FIPS 180-2's published vectors: an empty message and the two standard

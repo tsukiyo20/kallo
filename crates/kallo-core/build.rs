@@ -113,6 +113,10 @@ fn escaped(text: &str) -> String {
 const MEASURED_ORDER: [&str; 7] = [
     "curves", "layers", "dyes", "mask", "mtf", "grain", "cl_layer",
 ];
+/// A paper's fields, in the order its record shows them.
+const PAPER_MEASURED_ORDER: [&str; 4] = ["curve", "dyes", "layers", "white"];
+/// The order a field's controls are shown in, not the alphabetical one.
+const CONTROL_ORDER: [&str; 4] = ["strength", "size", "sharpness", "saturation"];
 
 impl Header {
     fn get(&self, section: &str, key: &str) -> &str {
@@ -159,12 +163,25 @@ impl Header {
         self.optional(section, key)
             .map(|value| value.trim_matches('"'))
     }
+
+    /// The file's data schema. A file that does not say is v1, which is what
+    /// every file written before the measured table became structured was.
+    fn schema(&self) -> &str {
+        self.maybe("", "schema").unwrap_or("film/v1")
+    }
+
+    /// Whether the measured table is the structured v2 one.
+    fn is_v2(&self) -> bool {
+        self.schema().ends_with("/v2")
+    }
 }
 
 struct Film {
     header: Header,
     tables: BTreeMap<String, Vec<Vec<f64>>>,
     kind: Kind,
+    /// The file's trailing SHA-256, as the catalogue reports it.
+    digest: String,
 }
 
 fn read(name: &str, bytes: &[u8]) -> Film {
@@ -212,10 +229,18 @@ fn read(name: &str, bytes: &[u8]) -> Film {
         offset += bytes_needed;
         tables.insert(name, table);
     }
+    let digest = format!(
+        "sha256:{}",
+        bytes[bytes.len() - 32..]
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
     Film {
         header,
         tables,
         kind,
+        digest,
     }
 }
 
@@ -388,7 +413,8 @@ impl Film {
         writeln!(code, "        reference_time_min: {time:.4},").unwrap();
         writeln!(code, "        reference_temp_c: {temp:.4},").unwrap();
         self.emit_provenance(code);
-        self.emit_measured(code);
+        writeln!(code, "        digest: \"{}\",", self.digest).unwrap();
+        self.emit_measured(code, &MEASURED_ORDER);
         writeln!(code, "    }},").unwrap();
         let _ = index;
     }
@@ -403,17 +429,86 @@ impl Film {
         writeln!(code, "        }},").unwrap();
     }
 
-    /// What each field admits to: measured, borrowed, placeholder or none.
+    /// What each field admits to, and the controls it exposes.
     ///
-    /// The order is [`MEASURED_ORDER`]'s, and any field the order does not name
-    /// follows in the file's own order — a stock that grew a field should not
-    /// need two edits to be visible.
-    fn emit_measured(&self, code: &mut String) {
+    /// The order is the model's reading order, and any field the order does not
+    /// name follows in the file's own order — a stock that grew a field should
+    /// not need two edits to be visible.
+    ///
+    /// A v2 file carries one section per field; a v1 file carries one sentence
+    /// per field, and the verdict is split off here so that an old file still
+    /// says what it knows.
+    fn emit_measured(&self, code: &mut String, order: &[&str]) {
+        if self.header.is_v2() {
+            let mut names: Vec<String> = order
+                .iter()
+                .map(|name| (*name).to_owned())
+                .filter(|name| {
+                    self.header
+                        .sections
+                        .contains_key(&format!("measured.{name}"))
+                })
+                .collect();
+            for name in self.header.sections.keys() {
+                if let Some(field) = name.strip_prefix("measured.") {
+                    if !names.iter().any(|known| known == field) {
+                        names.push(field.to_owned());
+                    }
+                }
+            }
+            writeln!(code, "        measured: &[").unwrap();
+            for name in names {
+                let section = format!("measured.{name}");
+                let source = escaped(self.header.maybe(&section, "source").unwrap_or(""));
+                let state = match self.header.maybe(&section, "state") {
+                    Some(word) => state_literal(word),
+                    None => "None".to_owned(),
+                };
+                let mut controls: Vec<(&str, f64, f64, f64)> = Vec::new();
+                if let Some(values) = self.header.sections.get(&section) {
+                    for key in values.keys() {
+                        let Some(control) = key.strip_suffix(".value") else {
+                            continue;
+                        };
+                        let number = |field: &str| -> f64 {
+                            values
+                                .get(&format!("{control}.{field}"))
+                                .unwrap_or_else(|| panic!("{section}.{control} has no `{field}`"))
+                                .parse()
+                                .expect("a number")
+                        };
+                        controls.push((control, number("value"), number("min"), number("max")));
+                    }
+                }
+                controls.sort_by_key(|(control, ..)| {
+                    CONTROL_ORDER
+                        .iter()
+                        .position(|name| name == control)
+                        .unwrap_or(CONTROL_ORDER.len())
+                });
+                writeln!(
+                    code,
+                    "            MeasuredField {{ field: \"{name}\", state: {state}, source: \"{source}\", controls: &["
+                )
+                .unwrap();
+                for (control, value, min, max) in controls {
+                    writeln!(
+                        code,
+                        "                Control {{ name: \"{control}\", value: {value:.1}, min: {min:.1}, max: {max:.1} }},"
+                    )
+                    .unwrap();
+                }
+                writeln!(code, "            ] }},").unwrap();
+            }
+            writeln!(code, "        ],").unwrap();
+            return;
+        }
+
         let Some(section) = self.header.sections.get("measured") else {
             writeln!(code, "        measured: &[],").unwrap();
             return;
         };
-        let mut names: Vec<&str> = MEASURED_ORDER
+        let mut names: Vec<&str> = order
             .iter()
             .copied()
             .filter(|name| section.contains_key(*name))
@@ -425,8 +520,13 @@ impl Film {
         }
         writeln!(code, "        measured: &[").unwrap();
         for name in names {
-            let value = escaped(section[name].trim_matches('"'));
-            writeln!(code, "            (\"{name}\", \"{value}\"),").unwrap();
+            let (state, source) = split_claim(section[name].trim_matches('"'));
+            writeln!(
+                code,
+                "            MeasuredField {{ field: \"{name}\", state: {state}, source: \"{}\", controls: &[] }},",
+                escaped(source)
+            )
+            .unwrap();
         }
         writeln!(code, "        ],").unwrap();
     }
@@ -478,9 +578,46 @@ impl Film {
         writeln!(code, "        dyes: &DYES_{ident},").unwrap();
         writeln!(code, "        layers: &LAYERS_{ident},").unwrap();
         self.emit_provenance(code);
-        self.emit_measured(code);
+        writeln!(code, "        digest: \"{}\",", self.digest).unwrap();
+        self.emit_measured(code, &PAPER_MEASURED_ORDER);
         writeln!(code, "    }},").unwrap();
     }
+}
+
+/// The Rust literal for a verdict word.
+fn state_literal(word: &str) -> String {
+    let variant = match word {
+        "measured" => "Measured",
+        "estimate" => "Estimate",
+        "borrowed" => "Borrowed",
+        "placeholder" => "Placeholder",
+        "none" => "None",
+        other => panic!("unknown measured state {other:?}"),
+    };
+    format!("Some(MeasuredState::{variant})")
+}
+
+/// Split a v1 `claim: sentence` into its verdict and its sentence.
+fn split_claim(text: &str) -> (String, &str) {
+    let head = text.split_once(':').map(|(head, _)| head.trim());
+    if let Some(head) = head {
+        if matches!(
+            head,
+            "measured" | "estimate" | "borrowed" | "placeholder" | "none"
+        ) {
+            return (
+                state_literal(head),
+                text.split_once(':').expect("a colon").1.trim(),
+            );
+        }
+    }
+    if matches!(
+        text.trim(),
+        "measured" | "estimate" | "borrowed" | "placeholder" | "none"
+    ) {
+        return (state_literal(text.trim()), "");
+    }
+    ("None".to_owned(), text)
 }
 
 fn emit_matrix(code: &mut String, name: &str, rows: &[Vec<f64>]) {

@@ -1,16 +1,16 @@
 //! The catalogue: what is compiled in, as a document a program can read.
+//!
+//! The catalogue is the model's own list of stocks, read from the same files the
+//! renderer uses. Since the measured table became structured it also carries
+//! what each field admits to — the verdict, the sentence, and the controls a
+//! recipe may move — plus the digest of the packed file the stock was read
+//! from, which is what a recipe is bound to.
 
 use kallo_core::{
-    FILM_STOCKS, FilmProcess, FilmStock, PAPER_STOCKS, PaperEmulsion, PaperStock, Provenance,
+    FILM_STOCKS, FilmProcess, FilmStock, MeasuredField, MeasuredState, PAPER_STOCKS, PaperEmulsion,
+    PaperStock, Provenance,
 };
 use serde_json::{Map, Value, json};
-
-/// The words a `[measured]` line may begin with, before its colon.
-///
-/// They are the format's own vocabulary — `data/films/FORMAT.md` — and this is
-/// the one place that reads them, so that a program asking for the catalogue
-/// gets a verdict rather than a sentence it has to parse itself.
-const CLAIMS: [&str; 4] = ["measured", "borrowed", "placeholder", "none"];
 
 /// Every stock, as a document a program can read.
 ///
@@ -18,12 +18,13 @@ const CLAIMS: [&str; 4] = ["measured", "borrowed", "placeholder", "none"];
 /// files: a shelf that showed a film the model did not have would be an
 /// interface lying about its own model, and a catalogue generated separately
 /// would be that lie with a schema.
-/// Every stock, as a document a program can read.
+#[must_use]
 pub fn value() -> Value {
     json!({
-        "schema": "kallo/catalogue/1",
+        "schema": "kallo/catalogue/2",
         "films": FILM_STOCKS.iter().map(film).collect::<Vec<Value>>(),
         "papers": PAPER_STOCKS.iter().map(paper).collect::<Vec<Value>>(),
+        "model": model(),
     })
 }
 
@@ -39,6 +40,7 @@ fn film(stock: &FilmStock) -> Value {
             "temp_c": stock.reference_temp_c,
         },
         "provenance": provenance(&stock.provenance),
+        "stock_digest": stock.digest,
         "measured": measured(stock.measured),
     })
 }
@@ -55,6 +57,7 @@ fn paper(stock: &PaperStock) -> Value {
         },
         "note": stock.note,
         "provenance": provenance(&stock.provenance),
+        "stock_digest": stock.digest,
         "measured": measured(stock.measured),
     })
 }
@@ -76,37 +79,97 @@ fn provenance(provenance: &Provenance) -> Value {
     })
 }
 
-/// What each field admits to, with the verdict split off the sentence.
+/// One field's record: the verdict, the author's sentence, and the controls.
 ///
-/// `{"field": "grain", "claim": "placeholder", "detail": "the sheet prints a
-/// Print Grain Index …"}`. A line that does not begin with a claim keeps its
-/// whole text as the detail and an empty claim, which is the honest reading of
-/// a sentence the format did not anticipate.
-fn measured(rows: &[(&str, &str)]) -> Vec<Value> {
+/// `claim` and `detail` are the v1 shape kept for readers that predate the
+/// structured table; `state` and `source` are the same content as data. A field
+/// the vocabulary could not classify keeps its sentence, has no state, and
+/// stays locked.
+fn measured(rows: &[MeasuredField]) -> Vec<Value> {
     rows.iter()
-        .map(|(field, text)| {
-            let (claim, detail) = split(text);
+        .map(|field| {
             let mut row = Map::new();
-            row.insert("field".to_owned(), json!(field));
-            row.insert("claim".to_owned(), json!(claim));
-            row.insert("detail".to_owned(), json!(detail));
+            let state = field.state.map(MeasuredState::word).unwrap_or("");
+            let grade = field.state.and_then(|state| match state {
+                MeasuredState::Measured
+                | MeasuredState::Estimate
+                | MeasuredState::Borrowed
+                | MeasuredState::Placeholder => Some(json!(state.grade())),
+                MeasuredState::None => None,
+            });
+            row.insert("field".to_owned(), json!(field.field));
+            row.insert("claim".to_owned(), json!(state));
+            row.insert("detail".to_owned(), json!(field.source));
+            row.insert(
+                "state".to_owned(),
+                match field.state {
+                    Some(state) => json!(state.word()),
+                    None => Value::Null,
+                },
+            );
+            row.insert("grade".to_owned(), grade.unwrap_or(Value::Null));
+            row.insert("source".to_owned(), json!(field.source));
+            row.insert(
+                "locked".to_owned(),
+                json!(
+                    field.state.is_none_or(MeasuredState::is_measured) || field.controls.is_empty()
+                ),
+            );
+            row.insert(
+                "advanced_unlock".to_owned(),
+                json!(
+                    field.state.is_some_and(MeasuredState::is_measured)
+                        && !field.controls.is_empty()
+                ),
+            );
+            row.insert(
+                "controls".to_owned(),
+                Value::Array(
+                    field
+                        .controls
+                        .iter()
+                        .map(|control| {
+                            json!({
+                                "name": control.name,
+                                "value": control.value,
+                                "min": control.min,
+                                "max": control.max,
+                            })
+                        })
+                        .collect(),
+                ),
+            );
             Value::Object(row)
         })
         .collect()
 }
 
-/// Split `claim: detail`, or `claim`, into its two halves.
-fn split(text: &str) -> (&str, &str) {
-    match text.split_once(':') {
-        Some((head, rest)) if is_claim(head) => (head, rest.trim()),
-        _ if is_claim(text) => (text, ""),
-        _ => ("", text),
-    }
-}
-
-fn is_claim(word: &str) -> bool {
-    let word = word.trim();
-    CLAIMS.iter().any(|claim| claim.eq_ignore_ascii_case(word))
+/// The model's own placeholders, which are not any stock's data.
+///
+/// The couplers, interimage and halation values are compiled behaviour for a
+/// colour negative in general; no stock file carries them, so the catalogue
+/// carries them once.
+fn model() -> Vec<Value> {
+    [
+        ("halation", "the strengths describe a modern colour negative in general; the reflection width is geometry"),
+        ("couplers", "the inhibition matrix is the compiled typical pair, not this stock's couplers"),
+        ("interimage", "the interimage strength is the compiled typical value for colour negative in general"),
+    ]
+    .into_iter()
+    .map(|(field, source)| {
+        json!({
+            "field": field,
+            "claim": "placeholder",
+            "detail": source,
+            "state": "placeholder",
+            "grade": MeasuredState::Placeholder.grade(),
+            "source": source,
+            "locked": false,
+            "advanced_unlock": false,
+            "controls": [{ "name": "strength", "value": 1.0, "min": 0.0, "max": 2.0 }],
+        })
+    })
+    .collect()
 }
 
 /// The catalogue as one document for a caller that speaks JSON.
@@ -131,20 +194,12 @@ mod tests {
             panic!("no papers");
         };
         assert_eq!(papers.len(), PAPER_STOCKS.len());
+        assert_eq!(value()["schema"], "kallo/catalogue/2");
     }
 
-    /// Every film says where it came from, and what each field admits to.
-    ///
-    /// A catalogue entry without a provenance would be a shelf with the labels
-    /// torn off, and the note is what the app shows a person who asks why a
-    /// film looks the way it does.
-    ///
-    /// A line that does not begin with one of the four verdicts is allowed and
-    /// is passed through whole: a file that says "measured (old emulsion)" is
-    /// making a narrower claim than the vocabulary can carry, and flattening it
-    /// to one of the four would be the catalogue losing the file's nuance.
+    /// Every field says what it is, and what may move.
     #[test]
-    fn every_film_cites_its_sheet_and_its_borrows() {
+    fn every_field_has_a_verdict_and_a_sentence() {
         for stock in FILM_STOCKS {
             assert!(
                 !stock.provenance.publication.is_empty(),
@@ -153,21 +208,55 @@ mod tests {
             );
             assert!(!stock.measured.is_empty(), "{} admits to nothing", stock.id);
             assert!(!stock.note.trim().is_empty(), "{} has no note", stock.id);
-            for (field, text) in stock.measured {
+            assert!(
+                stock.digest.starts_with("sha256:") && stock.digest.len() == 71,
+                "{} has no file digest",
+                stock.id
+            );
+            for field in stock.measured {
                 assert!(
-                    !text.trim().is_empty(),
-                    "{} says nothing about its {field}",
+                    !field.field.trim().is_empty(),
+                    "{} has a nameless field",
                     stock.id
                 );
+                for control in field.controls {
+                    assert!(
+                        control.min <= control.value && control.value <= control.max,
+                        "{}.{} default {} is outside {}..{}",
+                        stock.id,
+                        control.name,
+                        control.value,
+                        control.min,
+                        control.max
+                    );
+                }
+            }
+        }
+        for stock in PAPER_STOCKS {
+            assert!(!stock.measured.is_empty(), "{} admits to nothing", stock.id);
+            assert!(stock.digest.starts_with("sha256:"));
+        }
+    }
+
+    /// Only fields that are not this stock's own measurement expose controls,
+    /// and a control's default is the file's value.
+    #[test]
+    fn controls_are_the_unknowns() {
+        for stock in FILM_STOCKS {
+            for field in stock.measured {
+                if field.state.is_some_and(MeasuredState::is_measured) {
+                    assert!(
+                        field.controls.is_empty(),
+                        "{} exposes a control on measured {}",
+                        stock.id,
+                        field.field
+                    );
+                }
             }
         }
     }
 
     /// A paper says what it carries, and a silver one says so.
-    ///
-    /// A colour film printed on a silver paper is a black-and-white print in
-    /// the world and a colour print in this model, so the catalogue has to be
-    /// able to tell a shelf which papers are which.
     #[test]
     fn the_papers_say_what_they_carry() {
         let silver: Vec<&str> = PAPER_STOCKS
@@ -199,21 +288,20 @@ mod tests {
         }
     }
 
-    /// The split survives the three shapes the files actually contain.
+    /// The model carries its own placeholders once, not on every stock.
     #[test]
-    fn the_claim_comes_off_the_sentence() {
-        assert_eq!(
-            split("measured: page 4, three curves"),
-            ("measured", "page 4, three curves")
-        );
-        assert_eq!(split("borrowed"), ("borrowed", ""));
-        assert_eq!(
-            split("none: a reversal has no orange mask"),
-            ("none", "a reversal has no orange mask")
-        );
-        assert_eq!(
-            split("the sheet prints 0.4 at 5 nm: a note"),
-            ("", "the sheet prints 0.4 at 5 nm: a note")
-        );
+    fn the_model_placeholders_are_catalogued() {
+        let Value::Array(model) = &value()["model"] else {
+            panic!("no model section");
+        };
+        let fields: Vec<&str> = model
+            .iter()
+            .map(|entry| entry["field"].as_str().expect("a field"))
+            .collect();
+        assert_eq!(fields, ["halation", "couplers", "interimage"]);
+        for entry in model {
+            assert_eq!(entry["locked"], false);
+            assert_eq!(entry["controls"][0]["value"], 1.0);
+        }
     }
 }
