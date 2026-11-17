@@ -84,6 +84,13 @@ pub enum Error {
         /// What the table layer said.
         message: String,
     },
+    /// A stock recipe could not be read, or no longer fits the stock.
+    Recipe {
+        /// The recipe file, when the failure came from one.
+        path: Option<PathBuf>,
+        /// What to tell the user.
+        message: String,
+    },
     /// A contact proof could not be made, or its record written.
     Contact {
         /// What to tell the user.
@@ -136,6 +143,10 @@ impl std::fmt::Display for Error {
             Self::Lut { path, message } => {
                 write!(f, "lookup table {}: {message}", path.display())
             }
+            Self::Recipe { path, message } => match path {
+                Some(path) => write!(f, "recipe {}: {message}", path.display()),
+                None => write!(f, "{message}"),
+            },
             Self::Contact { message } => write!(f, "{message}"),
             Self::Write { path, source } => {
                 write!(f, "could not write {}: {source}", path.display())
@@ -158,6 +169,7 @@ impl std::error::Error for Error {
             | Self::Gpu { .. }
             | Self::Lut { .. }
             | Self::Stock { .. }
+            | Self::Recipe { .. }
             | Self::Contact { .. } => None,
         }
     }

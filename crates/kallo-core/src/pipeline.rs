@@ -355,6 +355,32 @@ impl PreparedRender {
         self
     }
 
+    /// Move the scalars a stock recipe may depart on.
+    ///
+    /// The identity tuning returns `self` untouched, so a render with no recipe
+    /// is the same arithmetic it was before. A departure is not re-balanced:
+    /// the enlarger was set for the stock, and a print whose mask or dyes were
+    /// moved after that is a print an operator would fix with a test strip, not
+    /// one this model silently re-solves.
+    #[must_use]
+    pub fn with_tuning(mut self, tuning: &crate::tuning::Tuning) -> Self {
+        if tuning.is_identity() {
+            return self;
+        }
+        let strength = tuning.mask_strength;
+        if strength != 1.0 {
+            self.base_density = self.base_density.map(|density| density * strength);
+        }
+        if let Some(print) = self.print.take() {
+            let print = match strength {
+                1.0 => print,
+                _ => print.with_mask_strength(strength),
+            };
+            self.print = Some(print.with_dye_saturation(tuning.dye_saturation));
+        }
+        self
+    }
+
     /// The curve, the paper and the enlarger as plain numbers.
     ///
     /// Always available, because a spectral render runs the same three stages:

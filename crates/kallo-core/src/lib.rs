@@ -49,6 +49,7 @@ pub mod psf;
 pub mod scan;
 pub mod scanner;
 pub mod spectral;
+pub mod tuning;
 
 pub use color::{linear_to_srgb, srgb_to_linear};
 pub use contact::print as contact_print;
@@ -76,3 +77,4 @@ pub use print::{Masking, PrintContext};
 pub use scan::ScanContext;
 pub use scanner::Scanner;
 pub use spectral::{CameraProfile, SpectralContext};
+pub use tuning::Tuning;

@@ -246,6 +246,26 @@ pub struct RenderArgs {
     #[arg(long, value_name = "N", default_value_t = 0)]
     pub grain_seed: u64,
 
+    /// Move a stock control for this render only: `grain.strength=0.6`, or
+    /// `kodak_portra_400.grain.strength=0.6`. Repeat it for more than one.
+    ///
+    /// The stock file says which controls exist and what interval each may
+    /// take; a measured field is locked and cannot be moved.
+    #[arg(long = "set", value_name = "CONTROL=VALUE", action = clap::ArgAction::Append)]
+    pub set: Vec<String>,
+
+    /// Read a stock recipe (JSON) written against this packed stock file.
+    ///
+    /// A recipe whose stock digest no longer matches is refused; pass
+    /// --allow-stale to apply the overrides that still fit and say what was
+    /// dropped.
+    #[arg(long = "recipe", value_name = "PATH", action = clap::ArgAction::Append)]
+    pub recipe: Vec<std::path::PathBuf>,
+
+    /// Apply a recipe written against an older packed file, with warnings.
+    #[arg(long)]
+    pub allow_stale: bool,
+
     /// Render on the CPU.
     ///
     /// The GPU is the default: everything the model does — both exposure paths,
