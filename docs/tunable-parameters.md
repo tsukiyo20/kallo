@@ -66,10 +66,11 @@ Some lines are mixed: FUJI PRO 400H's grain is measured for cyan and magenta and
 a placeholder for yellow, its CL layer has a measured sensitivity and placeholder
 gain, and VISION3 500T's MTF is borrowed from the compiled fit of its own sheet.
 
-The eleven papers are different: every paper has a measured curve, ten have
-measured dyes and layer sensitivities (POLYMAX II RC is a silver paper with
-neither), and ten a measured white — the Pearl's white is the toe of its own
-curve. There is nothing on the paper shelf to adjust, and the schema says so.
+The papers are different: every paper has a measured curve; the colour papers
+have measured dyes and layer sensitivities and the silver papers carry none (flat
+by necessity); and every paper's white is measured — the Pearl's is the toe of
+its own curve. There is nothing on the paper shelf to adjust, and the schema says
+so.
 
 ## What moves, and what stays locked
 
@@ -300,7 +301,7 @@ Phases (a) and (b) are each one pull request, in order; (c) is one data pull
 request per measurement.
 
 **Phase (a) — the data says what it knows; nothing renders differently.** Bump
-the format to v2 in FORMAT.md; repack the thirty-five files with structured
+the format to v2 in FORMAT.md; repack every stock file with structured
 `[measured.*]` sections, keeping every `source` sentence; teach the build parser
 and the CLI file reader to read v1 and v2; extend the catalogue to
 `kallo/catalogue/2`; make `kallo stock check` validate the new rows. Tests: a v2
