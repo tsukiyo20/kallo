@@ -29,6 +29,7 @@ import 'lab/open_print_library.dart';
 import 'lab/print_marker.dart';
 import 'lab/print_meta.dart';
 import 'lab/print_request.dart';
+import 'lab/recipe_store.dart';
 import 'lab/roll.dart';
 import 'lab/roll_store.dart';
 import 'lab/render_mode.dart';
@@ -38,6 +39,7 @@ import 'lab/strip.dart';
 import 'lab/strip_develop.dart';
 import 'lab/strip_store.dart';
 import 'lab/system_print_service.dart';
+import 'lab/tuning.dart';
 import 'views/chambers.dart';
 import 'views/steps.dart';
 import 'views/studio.dart';
@@ -702,6 +704,7 @@ class _KalloAppState extends State<KalloApp> {
     if (strip == null || strip.photo == null) {
       return;
     }
+    await StockRecipes.ensureLoaded();
     TestPrint? replaced;
     for (final TestPrint print in strip.prints) {
       if (print.minutes == minutes) {
@@ -713,6 +716,7 @@ class _KalloAppState extends State<KalloApp> {
       model: Model.find(),
       strip: strip,
       minutes: minutes,
+      tuning: _tuningFor(strip),
       onProgress: onProgress,
     );
     if (!mounted) {
@@ -765,6 +769,7 @@ class _KalloAppState extends State<KalloApp> {
       return;
     }
     final Directory exports = library.workFolder;
+    await StockRecipes.ensureLoaded();
     try {
       final String filmName =
           _catalogue?.film(strip.stockId)?.displayName ?? strip.stockLabel;
@@ -782,6 +787,7 @@ class _KalloAppState extends State<KalloApp> {
         printEv: request.printEv,
         filters: request.filters,
         heatGlass: request.heatGlass,
+        tuning: _tuningFor(strip),
         border: request.border.name,
         onProgress: onProgress,
       );
@@ -848,6 +854,18 @@ class _KalloAppState extends State<KalloApp> {
     }
   }
 
+  /// The departures the chosen stock's recipe applies to the next print.
+  ///
+  /// A stock with no recipe, or a recipe written against another version of the
+  /// file, is the model's own stock: the identity.
+  Tuning _tuningFor(TestStrip strip) {
+    final Catalogue catalogue = _catalogue ?? Catalogue.carried;
+    return StockRecipes.tuningFor(
+      catalogue.film(strip.stockId),
+      model: catalogue.model,
+    );
+  }
+
   /// Read the folder the person chose, and the prints in it.
   Future<void> _openExports() async {
     final bool phone = Platform.isIOS || Platform.isAndroid;
@@ -867,6 +885,9 @@ class _KalloAppState extends State<KalloApp> {
       RenderPreference.set(_renderMode);
       await _openLibrary();
     }
+    // The support folder is known now — on a phone the bridge just named it —
+    // so the stock recipes beside the settings file can be read.
+    await StockRecipes.ensureLoaded();
     await _reloadPrints();
     _startWatching();
   }

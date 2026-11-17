@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chart.dart';
 import 'render_mode.dart';
+import 'tuning.dart';
 
 /// One photograph held on the bench, ready to be printed at any setting.
 ///
@@ -84,6 +85,12 @@ abstract class Model {
 
     /// A heat-absorbing glass in the light path, by name: `kg3`.
     String? heatGlass,
+
+    /// The scalars a stock recipe moves; the identity by default.
+    ///
+    /// A print with no recipe is the file's own rendering, bit for bit, which
+    /// is why the default is the identity rather than an absent argument.
+    Tuning tuning = Tuning.identity,
 
     /// How much of the print is done, 0..1, as the model reports it.
     ///
@@ -243,6 +250,7 @@ class ProcessModel implements Model {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    Tuning tuning = Tuning.identity,
     void Function(double)? onProgress,
   }) async {
     if (!available) {
@@ -268,6 +276,16 @@ class ProcessModel implements Model {
       if (printEv != 0) ...<String>['--print-ev', printEv.toStringAsFixed(2)],
       if (filters.isNotEmpty) ...<String>['--filters', filters],
       if (heatGlass != null) ...<String>['--heat-glass', heatGlass],
+      // A recipe's departures are the model's `--set` expressions: the same
+      // validation, the same report, and the same refusal of a control the
+      // stock file does not have. Identity adds nothing, so a print with no
+      // recipe is the command line the app always ran.
+      if (!tuning.isIdentity)
+        for (final MapEntry<String, double> control
+            in tuning.overrides.entries) ...<String>[
+          '--set',
+          '${control.key}=${control.value}',
+        ],
       '--ev',
       'auto',
       '--grain',

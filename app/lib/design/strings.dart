@@ -346,6 +346,7 @@ class KalloStrings {
   /// is shown as it stands.
   String claim(String claim) => switch (claim) {
     'measured' => zh ? '量到' : 'measured',
+    'estimate' => zh ? '估读' : 'estimate',
     'borrowed' => zh ? '借来' : 'borrowed',
     'placeholder' => zh ? '占位' : 'placeholder',
     'none' => zh ? '没有' : 'none',
@@ -360,8 +361,12 @@ class KalloStrings {
     'dyes' => zh ? '染料' : 'dyes',
     'mask' => zh ? '遮罩' : 'mask',
     'grain' => zh ? '颗粒' : 'grain',
+    'mtf' => zh ? '锐度' : 'MTF',
     'cl_layer' => zh ? '抑制层' : 'CL layer',
     'white' => zh ? '白' : 'white',
+    'halation' => zh ? '光晕' : 'halation',
+    'couplers' => zh ? '偶联' : 'couplers',
+    'interimage' => zh ? '层间效应' : 'interimage',
     _ => field,
   };
 
@@ -375,6 +380,64 @@ class KalloStrings {
   String get noCurve => zh
       ? '这一卷没有附带密度数据，所以没有曲线可画。'
       : 'This roll came without density data, so there are no curves to draw.';
+
+  // -- the stock record -----------------------------------------------------
+
+  /// The sheet a stock's `[measured]` table has always promised, opened from
+  /// the stock on the shelf. The number is a scalar a recipe may move.
+  String get record => zh ? '记录' : 'Record';
+  String get provenance => zh ? '出处' : 'PROVENANCE';
+  String get publication => zh ? '文献' : 'Publication';
+  String get modelDefaults => zh ? '模型的占位值' : "THE MODEL'S PLACEHOLDERS";
+
+  /// The name of one control, in the model's vocabulary.
+  String controlName(String name) => switch (name) {
+    'strength' => zh ? '强度' : 'strength',
+    'size' => zh ? '尺寸' : 'size',
+    'sharpness' => zh ? '锐度' : 'sharpness',
+    'saturation' => zh ? '饱和度' : 'saturation',
+    _ => name,
+  };
+
+  /// The file's number beside the control that may move it.
+  String fileValue(String value) => zh ? '文件 ×$value' : "file ×$value";
+
+  /// The current number, the one a print will use.
+  String currentValue(String value) => '×$value';
+
+  /// Back to the file's own number, for one control or the whole record.
+  String get recordReset => zh ? '归位' : 'Reset';
+  String get recordResetAll => zh ? '全部归位' : 'Reset all';
+
+  /// A field the model holds at the file's value, and why.
+  String recordLocked(String verdict) =>
+      zh ? '锁定 · 文件称这一项为「$verdict」' : 'locked · the file calls this $verdict';
+  String get recordLockedNoControl =>
+      zh ? '锁定 · 这个字段在文件里没有可调项' : 'locked · no control in the file';
+
+  /// The explicit departure from measured data.
+  String get advancedUnlock => zh ? '解锁调整' : 'Unlock';
+  String get advancedUnlockTitle =>
+      zh ? '从量到的数据走开？' : 'Depart from measured data?';
+  String get advancedUnlockNote => zh
+      ? '这个字段是这支胶片量到的数。改动之后，印出来的相片会写明它离开了量到的数据。'
+      : 'This field is what this stock measured. A print made afterwards will say that it departed from measured data.';
+  String get advancedUnlockAction => zh ? '仍然调整' : 'Adjust anyway';
+  String get departedMeasured => zh ? '离开了量到的数据' : 'departs from measured data';
+
+  /// A recipe written against another version of the packed file: the values
+  /// are kept for review, and none of them is applied.
+  String get recipeStale => zh ? '配方已过期' : 'Recipe is stale';
+  String get recipeStaleNote => zh
+      ? '这份配方写在此前版本的文件上，里面的值不会用于渲染。文件现在是它自己的数。'
+      : 'This recipe was written against an earlier version of the file, so none of its values is applied. The print uses the file\'s own numbers.';
+  String recordedAgainst(String verdict) =>
+      zh ? '写入时 $verdict' : 'written against $verdict';
+  String fileNow(String verdict) =>
+      zh ? '现在 $verdict' : 'the file now $verdict';
+  String get noLongerFits => zh ? '不再适用' : 'no longer fits';
+  String get keepFitting => zh ? '让还能用的值生效' : 'Keep what still fits';
+  String get removeRecipe => zh ? '删除整份配方' : 'Remove the recipe';
 
   // -- the gallery ----------------------------------------------------------
 

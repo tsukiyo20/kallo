@@ -998,6 +998,7 @@ impl SseDecode for crate::api::print::PrintJob {
         let mut var_grainSeed = <u64>::sse_decode(deserializer);
         let mut var_halation = <bool>::sse_decode(deserializer);
         let mut var_couplers = <bool>::sse_decode(deserializer);
+        let mut var_tuning = <Vec<f64>>::sse_decode(deserializer);
         let mut var_gpu = <bool>::sse_decode(deserializer);
         let mut var_output = <String>::sse_decode(deserializer);
         return crate::api::print::PrintJob {
@@ -1019,6 +1020,7 @@ impl SseDecode for crate::api::print::PrintJob {
             grain_seed: var_grainSeed,
             halation: var_halation,
             couplers: var_couplers,
+            tuning: var_tuning,
             gpu: var_gpu,
             output: var_output,
         };
@@ -1491,6 +1493,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::print::PrintJob {
             self.grain_seed.into_into_dart().into_dart(),
             self.halation.into_into_dart().into_dart(),
             self.couplers.into_into_dart().into_dart(),
+            self.tuning.into_into_dart().into_dart(),
             self.gpu.into_into_dart().into_dart(),
             self.output.into_into_dart().into_dart(),
         ]
@@ -1878,6 +1881,7 @@ impl SseEncode for crate::api::print::PrintJob {
         <u64>::sse_encode(self.grain_seed, serializer);
         <bool>::sse_encode(self.halation, serializer);
         <bool>::sse_encode(self.couplers, serializer);
+        <Vec<f64>>::sse_encode(self.tuning, serializer);
         <bool>::sse_encode(self.gpu, serializer);
         <String>::sse_encode(self.output, serializer);
     }

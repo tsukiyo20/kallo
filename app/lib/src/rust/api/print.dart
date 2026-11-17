@@ -7,6 +7,7 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `tuning_from`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 /// Develop and print one frame, at the size the export asks for.
@@ -77,6 +78,13 @@ class PrintJob {
   /// Add DIR couplers.
   final bool couplers;
 
+  /// The scalars a stock recipe moves, in the order of [`Tuning::KEYS`].
+  ///
+  /// Empty is the file's own numbers, which is the render the app made
+  /// before a recipe existed. Eight values are the eight controls; anything
+  /// else is a programming mistake and is refused rather than guessed at.
+  final Float64List tuning;
+
   /// Render on the device.
   final bool gpu;
 
@@ -102,6 +110,7 @@ class PrintJob {
     required this.grainSeed,
     required this.halation,
     required this.couplers,
+    required this.tuning,
     required this.gpu,
     required this.output,
   });
@@ -126,6 +135,7 @@ class PrintJob {
       grainSeed.hashCode ^
       halation.hashCode ^
       couplers.hashCode ^
+      tuning.hashCode ^
       gpu.hashCode ^
       output.hashCode;
 
@@ -152,6 +162,7 @@ class PrintJob {
           grainSeed == other.grainSeed &&
           halation == other.halation &&
           couplers == other.couplers &&
+          tuning == other.tuning &&
           gpu == other.gpu &&
           output == other.output;
 }

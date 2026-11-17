@@ -15,8 +15,10 @@ import '../lab/chart.dart';
 import '../lab/clock.dart';
 import '../lab/model.dart';
 import '../lab/preview_bench.dart';
+import '../lab/recipe_store.dart';
 import '../lab/render_mode.dart';
 import '../lab/stock.dart';
+import '../lab/stock_recipe.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
 import '../lab/work_clock.dart';
@@ -29,6 +31,7 @@ import '../widgets/mobile/mobile_icon.dart';
 import '../widgets/mobile/mobile_sheet.dart';
 import '../widgets/shadow_box.dart';
 import '../widgets/stepper.dart';
+import '../widgets/stock_record.dart';
 import '../widgets/time_slider.dart';
 import '../widgets/wall.dart';
 import 'mobile/mobile_picker.dart';
@@ -505,6 +508,32 @@ class _DevelopStageState extends State<DevelopStage> {
     } else {
       await _changePhoto();
     }
+  }
+
+  /// Open the chosen stock's record.
+  ///
+  /// The controls live there and not on the bench: the shelf stays a shelf and
+  /// the bench still holds one print, one time and one strip. A departure is
+  /// written beside the stock as a recipe, and the next print — not the print
+  /// already on the strip — is the one it applies to.
+  Future<void> _openRecord(Stock stock) async {
+    await StockRecipes.ensureLoaded();
+    if (!mounted) {
+      return;
+    }
+    await showStockRecordSheet(
+      context,
+      stock: stock,
+      model: widget.catalogue.model,
+      recipe: StockRecipes.of(stock.id),
+      onRecipe: (StockRecipe? recipe) async {
+        if (recipe == null) {
+          await StockRecipes.remove(stock.id);
+        } else {
+          await StockRecipes.save(recipe);
+        }
+      },
+    );
   }
 
   void _setPreview(ui.Image image, {required bool owned}) {
@@ -1558,6 +1587,7 @@ class _DevelopStageState extends State<DevelopStage> {
                       ),
                       onFilm: (Stock film) => unawaited(_chooseFilm(film)),
                       onPaper: (Stock? paper) => unawaited(_choosePaper(paper)),
+                      onRecord: (Stock stock) => unawaited(_openRecord(stock)),
                     );
                   },
                 ),
