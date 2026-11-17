@@ -101,8 +101,9 @@ flutter run -d macos                    # or windows, linux, an iOS/Android devi
 ```
 
 [`app/README.md`](app/README.md) is the interface's rulebook; the data format is
-in [`data/README.md`](data/README.md). The CLI runs as
-`cargo run --release --bin kallo --`.
+in [`data/README.md`](data/README.md); what a person may adjust, and what stays
+locked, is in [`docs/tunable-parameters.md`](docs/tunable-parameters.md). The CLI
+runs as `cargo run --release --bin kallo --`.
 
 ## Repository
 
