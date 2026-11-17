@@ -109,14 +109,18 @@ id = "kodak_portra_400"
 [measured.grain]
 state = "placeholder"
 source = "the sheet prints a Print Grain Index and states that it cannot be compared to rms granularity, so the compiled placeholder is used"
-value = { strength = 1.0, size = 1.0 }
-range = { strength = [0.0, 3.0], size = [0.5, 2.0] }
+strength.value = 1.0
+strength.min = 0.0
+strength.max = 3.0
+size.value = 1.0
+size.min = 0.5
+size.max = 2.0
 [measured.dyes]
 state = "borrowed"
-borrowed_from = "vision3_500t"
 source = "the VISION3 500T digitisation, because this sheet prints one mid-scale neutral rather than three dyes"
-value = { saturation = 1.0 }
-range = { saturation = [0.0, 2.0] }
+saturation.value = 1.0
+saturation.min = 0.0
+saturation.max = 2.0
 ```
 
 ### A paper
@@ -136,13 +140,15 @@ state = "measured"
 source = "0.096 status density"
 ```
 
-`state` is required and closed-vocabulary; `source` is the old sentence with the
-verdict removed and is never reworded; `borrowed_from` names a borrow's stock.
-`value` and `range` exist only where a field has a control: `value` is the
-control's starting scalar — 1.0 on every stock today, because a file is its own
-default — and `range` is the interval a person may move within, written by the
-packer from the module definition so a per-stock tightening can later be a data
-change. A field with no control omits both keys; a `none` field has none.
+`state` is required and closed-vocabulary (a field the vocabulary cannot carry
+omits it and stays locked); `source` is the old sentence with the verdict
+removed and is never reworded; a borrow names the stock it borrows from in that
+sentence. A control is written as `<name>.value`, `<name>.min` and
+`<name>.max` under its field: `value` is the control's starting scalar — 1.0 on
+every stock today, because a file is its own default — and `min..max` is the
+interval a person may move within, written by the packer from the module
+definition so a per-stock tightening can later be a data change. A field with
+no control omits all three keys.
 
 The model's own placeholders — halation, couplers, interimage — are not in a
 stock file: the catalogue carries them once under `model`, in the same shape.
@@ -188,7 +194,7 @@ Dart list of fields, controls, ranges or lock rules is added.
 
 1. **The sentence survives.** The text after the verdict becomes `source`
    unchanged, including its particles, em dashes and caveats; the verdict becomes
-   `state`, and `borrowed_from` repeats the stock a borrow names.
+   `state`, and the sentence keeps the stock a borrow names.
 2. **Mixed lines split only where the parts are different components.** A row may
    carry the whole sentence twice with different states, or keep it on the row it
    describes best; a mixed line is not flattened into a half-true state.

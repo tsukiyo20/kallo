@@ -58,8 +58,8 @@ pub use curve::CharacteristicCurve;
 pub use densitometer::Densitometer;
 pub use development::DevelopmentParams;
 pub use emulsion::{
-    FILM_STOCKS, FilmProcess, FilmStock, PAPER_STOCKS, PaperEmulsion, PaperStock, Provenance,
-    film_stock, paper_stock,
+    FILM_STOCKS, FilmProcess, FilmStock, MeasuredField, MeasuredState, PAPER_STOCKS, PaperEmulsion,
+    PaperStock, Provenance, film_stock, paper_stock,
 };
 pub use grain::GrainField;
 pub use halation::{Halation, Halo};

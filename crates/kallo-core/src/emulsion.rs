@@ -88,6 +88,90 @@ impl Provenance {
     };
 }
 
+/// The verdict a stock file gives one of its numbers.
+///
+/// The order is the evidence order, and the catalogue exposes it as a grade so
+/// that a program can rank a field without knowing the words: a measured
+/// number outranks an estimate, which outranks a borrow, which outranks the
+/// model's placeholder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeasuredState {
+    /// Read from this stock's own sheet, patent or paper.
+    Measured,
+    /// Estimated from a printed chart rather than read off a table.
+    Estimate,
+    /// Another stock's measured set, borrowed because this sheet prints none.
+    Borrowed,
+    /// The model's stand-in; no measurement claims to exist.
+    Placeholder,
+    /// The component is absent: a reversal has no mask, a silver paper no dyes.
+    None,
+}
+
+impl MeasuredState {
+    /// The word the format and the catalogue use.
+    #[must_use]
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::Measured => "measured",
+            Self::Estimate => "estimate",
+            Self::Borrowed => "borrowed",
+            Self::Placeholder => "placeholder",
+            Self::None => "none",
+        }
+    }
+
+    /// The evidence grade, higher is stronger. `None` is not a grade.
+    #[must_use]
+    pub const fn grade(self) -> u8 {
+        match self {
+            Self::Measured => 3,
+            Self::Estimate => 2,
+            Self::Borrowed => 1,
+            Self::Placeholder => 0,
+            Self::None => 0,
+        }
+    }
+
+    /// Whether a field with this verdict is locked by default.
+    ///
+    /// A measured number is the stock; everything else is a claim the model
+    /// makes about it, and a user may move the ones that have a control.
+    #[must_use]
+    pub const fn is_measured(self) -> bool {
+        matches!(self, Self::Measured)
+    }
+}
+
+/// One adjustable scalar of a stock: a name, its default, and its interval.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Control {
+    /// The control's name within its module: `strength`, `size`, `sharpness`.
+    pub name: &'static str,
+    /// The file's own value, which renders as the unchanged stock.
+    pub value: f64,
+    /// The lowest value a recipe may set.
+    pub min: f64,
+    /// The highest value a recipe may set.
+    pub max: f64,
+}
+
+/// What one field of a stock admits to, and what may move.
+///
+/// A field without a `state` is a sentence the vocabulary could not classify;
+/// it stays locked, and the catalogue passes the sentence through whole.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MeasuredField {
+    /// The field's name: `curves`, `grain`, `dyes`, `white`.
+    pub field: &'static str,
+    /// The verdict, or `None` when the file did not give one.
+    pub state: Option<MeasuredState>,
+    /// The sentence after the verdict, unchanged.
+    pub source: &'static str,
+    /// The controls the field exposes; empty for a measured field.
+    pub controls: &'static [Control],
+}
+
 /// A film stock: one characteristic curve per colour layer.
 #[derive(Debug, Clone, Copy)]
 
@@ -168,14 +252,14 @@ pub struct FilmStock {
     pub reference_temp_c: f64,
     /// The sheet this film was read from.
     pub provenance: Provenance,
-    /// One line per field: what was measured, what was borrowed, what is a
-    /// placeholder, and what is absent.
+    /// The digest of the packed file this stock was read from.
+    pub digest: &'static str,
+    /// What each field admits to, with a control for every number that may move.
     ///
     /// The order is the model's — the curve first, the grain last — rather than
     /// the file's, because a person reading a film's record wants the film's
-    /// shape before its texture. Every sentence begins with its own verdict:
-    /// `measured: ...`, `borrowed: ...`, `placeholder: ...`, `none`.
-    pub measured: &'static [(&'static str, &'static str)],
+    /// shape before its texture.
+    pub measured: &'static [MeasuredField],
 }
 
 /// What a paper carries.
@@ -221,8 +305,10 @@ pub struct PaperStock {
     pub layers: &'static [[f64; GRID_LEN]; 3],
     /// The sheet this paper was read from.
     pub provenance: Provenance,
-    /// One line per field, as a film's: measured, borrowed, placeholder or none.
-    pub measured: &'static [(&'static str, &'static str)],
+    /// The digest of the packed file this stock was read from.
+    pub digest: &'static str,
+    /// What each field admits to; a paper has no controls today.
+    pub measured: &'static [MeasuredField],
 }
 
 const fn curve(d_min: f64, d_max: f64, gamma: f64, log_e0: f64) -> CharacteristicCurve {
@@ -299,8 +385,9 @@ mod tests {
             stock
                 .measured
                 .iter()
-                .find(|(name, _)| *name == field)
-                .map(|(_, text)| text.split(':').next().unwrap_or("").trim())
+                .find(|entry| entry.field == field)
+                .and_then(|entry| entry.state)
+                .map(MeasuredState::word)
                 .unwrap_or_else(|| panic!("{} says nothing about its {field}", stock.id))
         }
 
