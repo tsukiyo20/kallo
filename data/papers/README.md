@@ -9,12 +9,15 @@
 | `endura_premier_metallic.kalopaper` | KODAK PROFESSIONAL ENDURA Premier Metallic — its own sheet and spectra |
 | `fuji_crystal_archive_pearl.kalopaper` | FUJICOLOR CRYSTAL ARCHIVE DIGITAL PEARL — the first Fuji paper, and the first on a relative exposure axis |
 | `endura_premier.kalopaper` | KODAK PROFESSIONAL ENDURA Premier — the non-metallic sister of the metallic paper, and the contrastiest so far |
-| `polymax_ii_rc.kalopaper` | KODAK PROFESSIONAL POLYMAX II RC — black-and-white, and the only paper whose spectra are flat by necessity rather than measured |
+| `polymax_ii_rc.kalopaper` | KODAK PROFESSIONAL POLYMAX II RC — black-and-white, the first silver paper |
 | `endura_ultra.kalopaper` | KODAK PROFESSIONAL ULTRA ENDURA — E-4020, the higher-contrast professional paper of the Endura generation |
 | `ektacolor_edge.kalopaper` | KODAK EKTACOLOR EDGE — E-7020, the consumer paper with the wider gamut |
 | `royal_digital.kalopaper` | KODAK ROYAL Digital Paper — E-7021, the premium consumer paper of the same 2017 family |
 | `photo_book.kalopaper` | KODAK Photo Book Paper — E-7027, the thin-base paper with the highest D-max of that family |
 | `fuji_pdn.kalopaper` | FUJICOLOR CRYSTAL ARCHIVE PROFESSIONAL SUPER TYPE PDN — the second Fuji paper, and the first read from raster charts |
+| `multicontrast_premium.kalopaper` | AGFA MULTICONTRAST PREMIUM MCP 310 RC — the first Agfa paper, variable contrast on RC/PE base, Filter 2 carried |
+| `multicontrast_classic.kalopaper` | AGFA MULTICONTRAST CLASSIC MCC 111 — the fibre-base variable-contrast sister |
+| `brovira_speed.kalopaper` | AGFA BROVIRA-SPEED 310 RC — the first graded paper; grade 3 (normal) carried |
 
 A paper is a different file from a film on purpose: one characteristic curve
 instead of three, a target reflectance instead of a base density, no mask, no
@@ -24,12 +27,13 @@ grain and no blur. The format is specified in
 Both former placeholders are gone: `c41_paper` became the Fuji paper, and
 `bw_paper` became POLYMAX II RC. There are no invented papers left in the tree.
 
-A note on the black-and-white paper: the model's paper is trichrome by
-construction — three dye curves and three layer sensitivities feeding three
-density channels — and a silver paper is one neutral record. Its file therefore
-carries flat grey absorption and flat layer rows, with the reasoning in the
-stock's note. Graded printing (the eight PolyMax filter curves) is not modelled;
-the file carries the White Light curve, the softest of the nine.
+A note on the silver papers: the model's paper is trichrome by construction —
+three dye curves and three layer sensitivities feeding three density channels —
+and a silver paper is one neutral record. Its file therefore carries flat grey
+absorption and flat layer rows, with the reasoning in the stock's note. Graded
+printing is not modelled: POLYMAX II RC carries its White Light curve (one of
+the nine it draws), the two Agfa variable-contrast papers carry Filter 2, and
+BROVIRA-SPEED carries grade 3.
 
 ## The second shelf: the E-40xx and E-70xx sheets
 
@@ -71,24 +75,21 @@ their spectra to 0.003 but differ in curve (d_min 0.078 against 0.086, gamma
 3.94 against 3.84), and PHOTO BOOK differs in both (its magenta layer peak is
 0.99 against 0.87). They stay as three stocks, as PORTRA and SUPRA ENDURA have.
 
-## Sheets that were read and did not become papers
+## The third shelf: the Agfa black-and-white manual
 
-- **Crystal Archive Type II** (technical specs PDF) has the dye and sensitivity
-  charts but **no characteristic curves** at all. A paper without its H&D curve
-  is half a stock, so it is not here.
-- **Crystal Archive Digital Paper Type DPII** (AF3-212E) has all three charts.
-  Its curves and spectra agree with the Pearl sheet to within 0.005 of density
-  and 0.005 of normalised dye — the two sheets describe the same emulsion on
-  different surfaces, and the model has no surface. Adding it would have been a
-  duplicate with a different name.
-- **Crystal Archive Maxima** (AF3-0252E7, February 2022) and **Crystal Archive
-  Supreme** (TMS 2014-06) print the dye and sensitivity charts but no
-  characteristic curves: Fujifilm's newer bulletins replaced the H&D plot with
-  calibration data. They are half stocks under the same rule as Type II.
-- **Super Type C / Type II / DP** US bulletins are only findable as marketing
-  leaflets or dead links; the former `fujifilmusa.com/shared/bin` directory now
-  serves HTML for every path. A genuine AF3 PDF reached through the Wayback
-  Machine is the source for PDN.
+Three papers were added in November 2026, from the English edition of Agfa's
+black-and-white manual. They are the first papers from a maker other than Kodak
+and Fuji, and BROVIRA-SPEED is the first graded paper on the shelf:
+
+- **MULTICONTRAST PREMIUM MCP 310 RC** and **MULTICONTRAST CLASSIC MCC 111** are
+  variable-contrast papers; both carry their Filter 2 curve, the grade white
+  light exposes. MCP is RC/PE, MCC is fibre-base.
+- **BROVIRA-SPEED 310 RC** is a fixed-gradation paper in grades 1–4 (W, S, N,
+  H); grade 3 (normal) is the one carried.
+
+The dyes and layers are flat by necessity, like POLYMAX II RC: a silver paper is
+one neutral record. MCC's fit is the loosest on the shelf at an rms of 0.041,
+and its stock note says why.
 
 The licence is CC BY-SA 4.0, as for the films; the full text is in
 [`../films/LICENSE`](../films/LICENSE).

@@ -175,7 +175,15 @@ mod tests {
             .filter(|paper| paper.emulsion == PaperEmulsion::Silver)
             .map(|paper| paper.id)
             .collect();
-        assert_eq!(silver, ["polymax_ii_rc"]);
+        assert_eq!(
+            silver,
+            [
+                "brovira_speed",
+                "multicontrast_classic",
+                "multicontrast_premium",
+                "polymax_ii_rc"
+            ]
+        );
         assert!(
             PAPER_STOCKS
                 .iter()

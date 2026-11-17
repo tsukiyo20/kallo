@@ -69,6 +69,9 @@ fn stocks_lists_every_builtin() {
         "fuji_crystal_archive_pearl",
         "fuji_pdn",
         "polymax_ii_rc",
+        "multicontrast_premium",
+        "multicontrast_classic",
+        "brovira_speed",
     ] {
         assert!(text.contains(id), "{id} missing from:\n{text}");
     }
