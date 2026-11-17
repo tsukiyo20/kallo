@@ -13,7 +13,7 @@ enum MaterialsKind { film, paper }
 
 /// The shelf, laid on the bench.
 ///
-/// The shelf is not a chip wall: twenty-four films and six papers do not fit in
+/// The shelf is not a chip wall: twenty-four films and eleven papers do not fit in
 /// a card that also has to leave the print its room. So the card is a drawer
 /// with one half open at a time — the film half or the paper half — and each
 /// half is a flat list: a search field, the chemistry as the group heading, and
