@@ -33,7 +33,7 @@ the print reads the paper's reflectance back through CIE into sRGB.
 
 **The numbers are measured.** A film is a data file: characteristic curves,
 layer sensitivities, dye absorptions, the orange mask, MTF and grain. All 24
-films and 11 papers name the data sheet and page their numbers came from, and no
+films and 14 papers name the data sheet and page their numbers came from, and no
 digitised number lives in code — `kallo-core`'s build script generates the stock
 tables from [`data/`](data/README.md).
 
@@ -111,7 +111,7 @@ runs as `cargo run --release --bin kallo --`.
 |---|---|
 | [`crates/`](crates/) | the model and the `kallo` CLI |
 | [`app/`](app/) | the Flutter app; `app/rust/` links the model into it |
-| [`data/`](data/) | 24 films and 11 papers, every number traced to a data sheet |
+| [`data/`](data/) | 24 films and 14 papers, every number traced to a data sheet |
 | [`justfile`](justfile) | the local commands CI also runs |
 
 ## Licence
