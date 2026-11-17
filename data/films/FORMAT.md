@@ -30,6 +30,8 @@ before the first section.
 | `[curve.red]`, `[curve.green]`, `[curve.blue]` | `d_min`, `d_max`, `gamma`, `log_e0`, `transition` |
 | `[grid]` | `start_nm`, `step_nm`, `len` — 380, 5, 71 for version 1 |
 
+The `[measured]` table is a claim per field, not a comment: what becomes adjustable and what stays locked is designed in [`../../docs/tunable-parameters.md`](../../docs/tunable-parameters.md).
+
 ### Tables
 
 `tables` lists the tables that follow, in order. Each name fixes its row count,
