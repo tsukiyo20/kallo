@@ -6,7 +6,7 @@ measured stock, each in the file format its own sheet produced.
 | directory | what is in it |
 |---|---|
 | [`films/`](films/) | the published series — twenty-four films, each a directory with its `.kalofilm`, its report, its digitised points and its figures. Start at [`films/README.md`](films/README.md). |
-| [`papers/`](papers/) | six measured papers, one `.kalopaper` each. [`papers/README.md`](papers/README.md) says which and why. |
+| [`papers/`](papers/) | eleven measured papers, one `.kalopaper` each. [`papers/README.md`](papers/README.md) says which and why. |
 
 The program holds none of these numbers. `kallo-core`'s build script reads the
 `.kalofilm` and `.kalopaper` files at build time and generates the stock tables
