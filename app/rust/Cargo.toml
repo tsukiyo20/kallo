@@ -16,6 +16,10 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 flutter_rust_bridge = "=2.13.0"
 kallo-api = { path = "../../crates/kallo-api" }
+# The scalars a stock recipe moves. The app hands them over as eight numbers in
+# the order of `Tuning::KEYS`; the type itself is the model's, so the app does
+# not carry a second vocabulary for it.
+kallo-core = { path = "../../crates/kallo-core" }
 kallo-io = { path = "../../crates/kallo-io" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff"] }
 # The settings page names the processor as well as the card; sysinfo is the

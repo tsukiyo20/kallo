@@ -11,6 +11,7 @@ import 'short_hash.dart';
 import 'stock.dart';
 import 'strip.dart';
 import 'strip_store.dart';
+import 'tuning.dart';
 
 /// The width a print on the strip is rendered at.
 ///
@@ -31,6 +32,7 @@ Future<TestStrip> developTestPrint({
   required double minutes,
   Directory? folder,
   int width = stripWidth,
+  Tuning tuning = Tuning.identity,
   void Function(double)? onProgress,
 }) async {
   final String? photo = strip.photo;
@@ -58,6 +60,7 @@ Future<TestStrip> developTestPrint({
     output: output,
     spectral: strip.spectral,
     balanceFrom: strip.balanceFrom,
+    tuning: tuning,
     onProgress: onProgress == null
         ? null
         : (double value) => onProgress(value * 0.95),
@@ -177,6 +180,7 @@ Future<File> printTest({
   String? heatGlass,
   int? width,
   ExportFormat format = ExportFormat.png,
+  Tuning tuning = Tuning.identity,
 
   /// The edge this print carries, as its own name. A print of the same
   /// development with another edge is another sheet, and its file must not
@@ -218,6 +222,10 @@ Future<File> printTest({
       heatGlass,
       border,
       asked,
+      // A recipe is part of the print: two departures of one negative are two
+      // sheets, not one file that replaces the other. An identity tuning adds
+      // nothing, so a print made with no recipe keeps the name it has today.
+      if (!tuning.isIdentity) tuning.toList().join(','),
     ].join('|'),
   );
   final File output = File('${exports.path}${Platform.pathSeparator}$stem.png');
@@ -233,6 +241,7 @@ Future<File> printTest({
     printEv: printEv,
     filters: filters,
     heatGlass: heatGlass,
+    tuning: tuning,
     onProgress: onProgress == null
         ? null
         : (double value) => onProgress(value * 0.85),

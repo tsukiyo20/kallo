@@ -1401,6 +1401,7 @@ dependencies = [
  "flutter_rust_bridge",
  "image",
  "kallo-api",
+ "kallo-core",
  "kallo-io",
  "libc",
  "sysinfo",

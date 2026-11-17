@@ -35,6 +35,7 @@ class MaterialsCard extends StatefulWidget {
     required this.onKind,
     required this.onFilm,
     required this.onPaper,
+    this.onRecord,
     this.height,
   });
 
@@ -52,6 +53,11 @@ class MaterialsCard extends StatefulWidget {
 
   final ValueChanged<Stock> onFilm;
   final ValueChanged<Stock?> onPaper;
+
+  /// Open the chosen stock's record. The record is the sheet the `[measured]`
+  /// table has always promised, and the only place a control lives: the shelf
+  /// is still a shelf.
+  final ValueChanged<Stock>? onRecord;
 
   /// The most bench a card may take. Beyond this the shelf scrolls.
   static const double maxHeight = 340;
@@ -350,6 +356,10 @@ class _MaterialsCardState extends State<MaterialsCard> {
             title: stock.displayName,
             semanticLabel: stock.displayName,
             selected: chosen,
+            recordLabel: s.record,
+            onRecord: chosen && widget.onRecord != null
+                ? () => widget.onRecord!(stock)
+                : null,
             onTap: () => _films ? widget.onFilm(stock) : widget.onPaper(stock),
           ),
         ),
@@ -370,12 +380,20 @@ class KalloStockRow extends StatefulWidget {
     required this.title,
     required this.selected,
     required this.onTap,
+    this.onRecord,
+    this.recordLabel = '',
     this.semanticLabel,
   });
 
   final String title;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Open the chosen stock's record, when this row is the chosen one.
+  final VoidCallback? onRecord;
+
+  /// The record handle's word, in the human language.
+  final String recordLabel;
 
   /// What a screen reader says; the row's title may be only the product name.
   final String? semanticLabel;
@@ -429,6 +447,35 @@ class _KalloStockRowState extends State<KalloStockRow> {
                     ),
                   ),
                 ),
+                // The record handle answers the pointer rather than sitting in
+                // the shelf's default picture: the card is a drawer, opened to
+                // take a box, and the sheet behind the box is already there in
+                // the row that was taken.
+                if (widget.selected &&
+                    widget.onRecord != null &&
+                    _hover) ...<Widget>[
+                  const SizedBox(width: KalloSpace.step2),
+                  Semantics(
+                    button: true,
+                    label: widget.recordLabel,
+                    child: GestureDetector(
+                      onTap: widget.onRecord,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: KalloSpace.step1,
+                        ),
+                        child: Text(
+                          widget.recordLabel,
+                          style: KalloType.caption.copyWith(
+                            color: colors.inkMuted,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 if (widget.selected)
                   Padding(
                     padding: const EdgeInsets.only(left: KalloSpace.step2),

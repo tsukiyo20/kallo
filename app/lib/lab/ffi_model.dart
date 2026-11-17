@@ -14,6 +14,7 @@ import 'package:kallo/src/rust/frb_generated.dart';
 import 'chart.dart';
 import 'model.dart';
 import 'render_mode.dart';
+import 'tuning.dart';
 
 /// Load the model into this process.
 ///
@@ -64,6 +65,7 @@ class FfiModel implements Model {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    Tuning tuning = Tuning.identity,
     void Function(double)? onProgress,
   }) async {
     if (!RenderPreference.gpu) {
@@ -81,6 +83,7 @@ class FfiModel implements Model {
         printEv: printEv,
         filters: filters,
         heatGlass: heatGlass,
+        tuning: tuning,
         gpu: false,
         onProgress: onProgress,
       );
@@ -100,6 +103,7 @@ class FfiModel implements Model {
         printEv: printEv,
         filters: filters,
         heatGlass: heatGlass,
+        tuning: tuning,
         gpu: true,
         onProgress: onProgress,
       );
@@ -121,6 +125,7 @@ class FfiModel implements Model {
         printEv: printEv,
         filters: filters,
         heatGlass: heatGlass,
+        tuning: tuning,
         gpu: false,
         onProgress: onProgress,
       );
@@ -141,6 +146,7 @@ class FfiModel implements Model {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    Tuning tuning = Tuning.identity,
     void Function(double)? onProgress,
   }) async {
     final Stream<print_api.PrintStep> steps = print_api.makePrint(
@@ -158,6 +164,12 @@ class FfiModel implements Model {
         balanceFrom: balanceFrom,
         filters: filters,
         heatGlass: heatGlass,
+        // Eight numbers in `Tuning::KEYS` order, or empty for the file's own.
+        // The model builds its Tuning from the list, so the vocabulary is
+        // spelled once, in Rust.
+        tuning: Float64List.fromList(
+          tuning.isIdentity ? const <double>[] : tuning.toList(),
+        ),
         frameMm: 36,
         grain: true,
         grainSeed: BigInt.zero,

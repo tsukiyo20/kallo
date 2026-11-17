@@ -981,8 +981,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PrintJob dco_decode_print_job(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 20)
-      throw Exception('unexpected arr length: expect 20 but see ${arr.length}');
+    if (arr.length != 21)
+      throw Exception('unexpected arr length: expect 21 but see ${arr.length}');
     return PrintJob(
       input: dco_decode_String(arr[0]),
       film: dco_decode_String(arr[1]),
@@ -1002,8 +1002,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       grainSeed: dco_decode_u_64(arr[15]),
       halation: dco_decode_bool(arr[16]),
       couplers: dco_decode_bool(arr[17]),
-      gpu: dco_decode_bool(arr[18]),
-      output: dco_decode_String(arr[19]),
+      tuning: dco_decode_list_prim_f_64_strict(arr[18]),
+      gpu: dco_decode_bool(arr[19]),
+      output: dco_decode_String(arr[20]),
     );
   }
 
@@ -1551,6 +1552,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     final var_grainSeed = sse_decode_u_64(deserializer);
     final var_halation = sse_decode_bool(deserializer);
     final var_couplers = sse_decode_bool(deserializer);
+    final var_tuning = sse_decode_list_prim_f_64_strict(deserializer);
     final var_gpu = sse_decode_bool(deserializer);
     final var_output = sse_decode_String(deserializer);
     return PrintJob(
@@ -1572,6 +1574,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       grainSeed: var_grainSeed,
       halation: var_halation,
       couplers: var_couplers,
+      tuning: var_tuning,
       gpu: var_gpu,
       output: var_output,
     );
@@ -2088,6 +2091,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_64(self.grainSeed, serializer);
     sse_encode_bool(self.halation, serializer);
     sse_encode_bool(self.couplers, serializer);
+    sse_encode_list_prim_f_64_strict(self.tuning, serializer);
     sse_encode_bool(self.gpu, serializer);
     sse_encode_String(self.output, serializer);
   }

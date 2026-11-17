@@ -2,6 +2,7 @@
 
 use crate::frb_generated::StreamSink;
 use kallo_api::{render_image_with_progress, resolve, Exposure, RenderOptions, StockChoice};
+use kallo_core::Tuning;
 use kallo_io::save_with_progress;
 
 /// What a print asks for.
@@ -46,6 +47,12 @@ pub struct PrintJob {
     pub halation: bool,
     /// Add DIR couplers.
     pub couplers: bool,
+    /// The scalars a stock recipe moves, in the order of [`Tuning::KEYS`].
+    ///
+    /// Empty is the file's own numbers, which is the render the app made
+    /// before a recipe existed. Eight values are the eight controls; anything
+    /// else is a programming mistake and is refused rather than guessed at.
+    pub tuning: Vec<f64>,
     /// Render on the device.
     pub gpu: bool,
     /// Where the print goes.
@@ -111,6 +118,7 @@ pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), 
         ..StockChoice::default()
     };
     let selection = resolve(&choice).map_err(|error| error.to_string())?;
+    let tuning = tuning_from(&job.tuning)?;
 
     report("reading", 0.0);
     // A print is rendered at the size it is exported at; reading the photograph
@@ -139,6 +147,7 @@ pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), 
         grain_seed: job.grain_seed,
         halation: job.halation,
         couplers: job.couplers,
+        tuning,
         gpu: job.gpu,
         ..RenderOptions::default()
     };
@@ -165,4 +174,66 @@ pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), 
         backend: Some(backend),
     });
     Ok(())
+}
+
+/// The scalars a stock recipe moves, from the bridge's list.
+///
+/// Empty is the identity: the print is the file's own numbers, which is the
+/// render the app made before a recipe existed. Eight values are the eight
+/// controls in [`Tuning::KEYS`] order. Any other length, or a value that is not
+/// a finite number, is refused rather than applied to the wrong control.
+fn tuning_from(values: &[f64]) -> Result<Tuning, String> {
+    if values.is_empty() {
+        return Ok(Tuning::default());
+    }
+    if values.len() != Tuning::KEYS.len() {
+        return Err(format!(
+            "tuning has {} values; expected eight, in the order of `Tuning::KEYS`",
+            values.len()
+        ));
+    }
+    let mut tuning = Tuning::default();
+    for (key, value) in Tuning::KEYS.into_iter().zip(values) {
+        if !value.is_finite() {
+            return Err(format!("{key} = {value} is not a finite number"));
+        }
+        tuning.set(key, *value).map_err(|error| error.to_string())?;
+    }
+    Ok(tuning)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tuning_from;
+    use kallo_core::Tuning;
+
+    #[test]
+    fn an_empty_list_is_the_file() {
+        assert_eq!(tuning_from(&[]), Ok(Tuning::default()));
+        assert!(Tuning::default().is_identity());
+    }
+
+    #[test]
+    fn eight_values_map_in_the_model_key_order() {
+        // The bridge takes a list, so the order is the contract the app's
+        // `Tuning.toList` writes and this reader has to keep.
+        let values: Vec<f64> = (0..8).map(|index| 0.25 + index as f64).collect();
+        let tuning = tuning_from(&values).expect("eight values");
+        for (index, key) in Tuning::KEYS.into_iter().enumerate() {
+            assert_eq!(tuning.get(key), Some(values[index]), "{key}");
+        }
+    }
+
+    #[test]
+    fn a_list_that_is_not_eight_is_refused() {
+        assert!(tuning_from(&[1.0]).is_err());
+        assert!(tuning_from(&[1.0; 7]).is_err());
+        assert!(tuning_from(&[1.0; 9]).is_err());
+    }
+
+    #[test]
+    fn a_value_that_is_not_a_number_is_refused() {
+        assert!(tuning_from(&[f64::NAN; 8]).is_err());
+        assert!(tuning_from(&[f64::INFINITY; 8]).is_err());
+    }
 }

@@ -13,6 +13,7 @@ import 'package:kallo/lab/model.dart';
 import 'package:kallo/lab/print.dart';
 import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
+import 'package:kallo/lab/tuning.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/chambers.dart';
 import 'package:kallo/views/steps.dart';
@@ -81,6 +82,7 @@ class _CardModel extends ProcessModel {
     double printEv = 0,
     String filters = '',
     String? heatGlass,
+    Tuning tuning = Tuning.identity,
     void Function(double)? onProgress,
   }) async {
     output.writeAsBytesSync(bytes, flush: true);
