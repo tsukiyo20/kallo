@@ -24,9 +24,18 @@ const String _document = '''
         "retrieved": "2026-11-08",
         "checksum": "sha256:e83a"
       },
+      "stock_digest": "sha256:6c6f",
       "measured": [
-        {"field": "curves", "claim": "measured", "detail": "page 4, three curves"},
-        {"field": "grain", "claim": "placeholder", "detail": ""}
+        {"field": "curves", "claim": "measured", "detail": "page 4, three curves",
+         "state": "measured", "grade": 3, "source": "page 4, three curves",
+         "locked": true, "advanced_unlock": false, "controls": []},
+        {"field": "grain", "claim": "placeholder", "detail": "",
+         "state": "placeholder", "grade": 0, "source": "",
+         "locked": false, "advanced_unlock": false,
+         "controls": [
+           {"name": "strength", "value": 1.0, "min": 0.0, "max": 3.0},
+           {"name": "size", "value": 1.0, "min": 0.5, "max": 2.0}
+         ]}
       ]
     },
     {
@@ -49,6 +58,12 @@ const String _document = '''
       "label": "KODAK PROFESSIONAL POLYMAX II RC Paper, F surface",
       "emulsion": "silver"
     }
+  ],
+  "model": [
+    {"field": "halation", "claim": "placeholder", "detail": "typical",
+     "state": "placeholder", "grade": 0, "source": "typical",
+     "locked": false, "advanced_unlock": false,
+     "controls": [{"name": "strength", "value": 1.0, "min": 0.0, "max": 2.0}]}
   ]
 }
 ''';
@@ -74,6 +89,21 @@ void main() {
     // A field the file said one word about: the verdict is the whole line.
     expect(portra.measured.last.claim, 'placeholder');
     expect(portra.measured.last.detail, isEmpty);
+    expect(portra.stockDigest, 'sha256:6c6f');
+    final Measured grain = portra.measured.last;
+    expect(grain.verdict, 'placeholder');
+    expect(grain.grade, 0);
+    expect(grain.locked, isFalse);
+    expect(grain.controls.map((Control c) => c.name), <String>['strength', 'size']);
+    expect(grain.controls.first.value, 1.0);
+    expect(grain.controls.first.max, 3.0);
+    expect(portra.measured.first.locked, isTrue);
+    expect(portra.measured.first.advancedUnlock, isFalse);
+  });
+
+  test('the model carries its own placeholders once', () {
+    expect(catalogue.model.single.field, 'halation');
+    expect(catalogue.model.single.controls.single.max, 2.0);
   });
 
   test('the shelf groups the films by chemistry', () {

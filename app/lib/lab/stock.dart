@@ -146,11 +146,48 @@ class Measured {
     required this.field,
     required this.claim,
     required this.detail,
+    this.state,
+    this.grade,
+    this.source,
+    this.locked = true,
+    this.advancedUnlock = false,
+    this.controls = const <Control>[],
   });
 
   final String field;
+
+  /// The v1 reading of the line: the word before the colon, or empty when the
+  /// sentence is not one of the vocabulary's. Kept for older catalogues.
   final String claim;
+
+  /// The v1 sentence after the verdict, kept for older catalogues.
   final String detail;
+
+  /// The v2 verdict, or null when the file could not classify the field.
+  final String? state;
+
+  /// The evidence grade: measured 3, estimate 2, borrowed 1, placeholder 0.
+  /// Null for `none` and for an unclassified field, neither of which is a grade.
+  final int? grade;
+
+  /// The author's sentence on its own.
+  final String? source;
+
+  /// Whether the field is held at the file's value.
+  final bool locked;
+
+  /// Whether an explicit departure from measured data is offered.
+  final bool advancedUnlock;
+
+  /// The scalars a recipe may move for this field.
+  final List<Control> controls;
+
+  /// The verdict as one of the four words, from v2 when present and v1
+  /// otherwise. Empty when neither could say.
+  String get verdict => state ?? claim;
+
+  /// The author's sentence, from v2 when present and v1 otherwise.
+  String get sentence => source ?? detail;
 
   /// The verdicts the catalogue's vocabulary has words for.
   static const List<String> claims = <String>[
@@ -160,10 +197,47 @@ class Measured {
     'none',
   ];
 
-  static Measured fromJson(Map<String, dynamic> json) => Measured(
-    field: json['field'] as String? ?? '',
-    claim: json['claim'] as String? ?? '',
-    detail: json['detail'] as String? ?? '',
+  static Measured fromJson(Map<String, dynamic> json) {
+    final Object? controls = json['controls'];
+    return Measured(
+      field: json['field'] as String? ?? '',
+      claim: json['claim'] as String? ?? '',
+      detail: json['detail'] as String? ?? '',
+      state: json['state'] as String?,
+      grade: (json['grade'] as num?)?.toInt(),
+      source: json['source'] as String?,
+      locked: json['locked'] as bool? ?? true,
+      advancedUnlock: json['advanced_unlock'] as bool? ?? false,
+      controls: <Control>[
+        if (controls is List)
+          for (final Object? row in controls)
+            if (row is Map<String, dynamic>) Control.fromJson(row),
+      ],
+    );
+  }
+}
+
+/// One scalar a stock record exposes, with the interval it may take.
+class Control {
+  const Control({
+    required this.name,
+    required this.value,
+    required this.min,
+    required this.max,
+  });
+
+  final String name;
+
+  /// The file's own value, which renders the stock unchanged.
+  final double value;
+  final double min;
+  final double max;
+
+  static Control fromJson(Map<String, dynamic> json) => Control(
+    name: json['name'] as String? ?? '',
+    value: (json['value'] as num?)?.toDouble() ?? 0,
+    min: (json['min'] as num?)?.toDouble() ?? 0,
+    max: (json['max'] as num?)?.toDouble() ?? 0,
   );
 }
 
@@ -211,6 +285,7 @@ class Stock {
     this.referenceTempC = 0,
     this.provenance = const Provenance(),
     this.measured = const <Measured>[],
+    this.stockDigest = '',
   });
 
   final String id;
@@ -256,6 +331,10 @@ class Stock {
   /// One line per field: measured, borrowed, a placeholder, or absent.
   final List<Measured> measured;
 
+  /// The digest of the packed file this stock was read from; a recipe is bound
+  /// to it.
+  final String stockDigest;
+
   static Stock fromJson(Map<String, dynamic> json) {
     final Object? reference = json['reference'];
     final Map<String, dynamic>? measuredAt = reference is Map<String, dynamic>
@@ -290,6 +369,7 @@ class Stock {
           for (final Object? row in measured)
             if (row is Map<String, dynamic>) Measured.fromJson(row),
       ],
+      stockDigest: json['stock_digest'] as String? ?? '',
     );
   }
 }
@@ -301,10 +381,18 @@ class Stock {
 /// being written down here, because a shelf that showed a film the model did
 /// not have would be an interface lying about its own model.
 class Catalogue {
-  const Catalogue({required this.films, this.papers = const <Stock>[]});
+  const Catalogue({
+    required this.films,
+    this.papers = const <Stock>[],
+    this.model = const <Measured>[],
+  });
 
   final List<Stock> films;
   final List<Stock> papers;
+
+  /// The model's own placeholders — halation, couplers, interimage — which are
+  /// not any stock's data.
+  final List<Measured> model;
 
   /// What this build carries when the model does not answer: one film, and the
   /// paper every print is made on.
@@ -395,7 +483,16 @@ class Catalogue {
         for (final Object? row in json[key] as List)
           if (row is Map<String, dynamic>) Stock.fromJson(row),
     ];
-    return Catalogue(films: stocks('films'), papers: stocks('papers'));
+    final Object? model = json['model'];
+    return Catalogue(
+      films: stocks('films'),
+      papers: stocks('papers'),
+      model: <Measured>[
+        if (model is List)
+          for (final Object? row in model)
+            if (row is Map<String, dynamic>) Measured.fromJson(row),
+      ],
+    );
   }
 }
 
