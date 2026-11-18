@@ -200,8 +200,12 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
+    await tester.tap(find.byKey(const Key('record-data')));
+    await tester.pumpAndSettle();
 
-    final Finder measured = find.byKey(const Key('record-field-stock-curves'));
+    final Finder measured = find.byKey(
+      const Key('record-data-field-stock-curves'),
+    );
     expect(measured, findsOneWidget);
     expect(
       find.descendant(
@@ -217,10 +221,7 @@ void main() {
       findsNothing,
     );
     expect(
-      find.descendant(
-        of: measured,
-        matching: find.text('locked · the file calls this measured'),
-      ),
+      find.descendant(of: measured, matching: find.text('locked')),
       findsOneWidget,
     );
     // The placeholder field beside it is still adjustable.
@@ -236,7 +237,7 @@ void main() {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
 
     expect(find.byKey(const Key('record-model')), findsOneWidget);
-    expect(find.text("THE MODEL'S PLACEHOLDERS"), findsOneWidget);
+    expect(find.text('MODEL DEFAULTS'), findsOneWidget);
     expect(
       find.byKey(const Key('record-field-model-halation')),
       findsOneWidget,
@@ -340,8 +341,11 @@ void main() {
     );
     await _pump(tester, StockRecordSheet(stock: stock));
 
-    // Locked: no slider until the departure is confirmed.
+    // Locked: no slider until the departure is confirmed. The lock is stated
+    // with the data, so the data row is unfolded first.
     expect(find.byKey(const Key('record-slider-grain.strength')), findsNothing);
+    await tester.tap(find.byKey(const Key('record-data')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('record-unlock-stock-grain')));
     await tester.pumpAndSettle();
     expect(find.text('Depart from measured data?'), findsOneWidget);
@@ -387,6 +391,8 @@ void main() {
         onRecipe: (StockRecipe? recipe) async => saved = recipe,
       ),
     );
+    await tester.tap(find.byKey(const Key('record-data')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('record-unlock-stock-grain')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Adjust anyway'));
@@ -416,6 +422,8 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
+    await tester.tap(find.byKey(const Key('record-data')));
+    await tester.pumpAndSettle();
 
     expect(find.text('KODAK PROFESSIONAL PORTRA 400'), findsOneWidget);
     expect(find.text('Measured: the characteristic curves.'), findsOneWidget);
@@ -450,7 +458,7 @@ void main() {
 
     // The handle answers the pointer, so the shelf's default picture is the
     // picture it was before the record existed.
-    expect(find.text('Record'), findsNothing);
+    expect(find.text('Parameters'), findsNothing);
     final TestGesture pointer = await tester.createGesture(
       kind: PointerDeviceKind.mouse,
     );
@@ -460,9 +468,9 @@ void main() {
       tester.getCenter(find.byKey(const Key('film-kodak_portra_400'))),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Record'), findsOneWidget);
+    expect(find.text('Parameters'), findsOneWidget);
 
-    await tester.tap(find.text('Record'));
+    await tester.tap(find.text('Parameters'));
     await tester.pumpAndSettle();
     expect(opened?.id, 'kodak_portra_400');
   });
@@ -478,14 +486,14 @@ void main() {
     const KalloStrings zh = KalloStrings(true);
     // The catalogue's four words, as the record says them: the sheet's own
     // vocabulary, not a sentence about borrowing and measuring.
-    expect(zh.claim('measured'), '实测');
-    expect(zh.claim('estimate'), '估算');
-    expect(zh.claim('borrowed'), '借用');
-    expect(zh.claim('placeholder'), '占位');
+    expect(zh.claim('measured'), '实测值');
+    expect(zh.claim('estimate'), '估算值');
+    expect(zh.claim('borrowed'), '参照值');
+    expect(zh.claim('placeholder'), '默认值');
     expect(zh.claim('none'), '无');
-    expect(zh.measuredAndBorrowed, '实测与借用');
+    expect(zh.dataAndSources, '数据与出处');
     expect(zh.departedMeasured, '偏离实测数据');
-    expect(zh.recordLockedNoControl, '锁定 · 文件未提供可调项');
+    expect(zh.recordLockedNoControl, '文件未提供可调项');
   });
 
   testWidgets('the panel page reports a move before it commits it', (

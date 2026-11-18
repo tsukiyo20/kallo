@@ -333,7 +333,7 @@ class KalloStrings {
 
   String get theFilm => zh ? '胶片' : 'THE FILM';
   String get thePaper => zh ? '相纸' : 'THE PAPER';
-  String get measuredAndBorrowed => zh ? '实测与借用' : 'MEASURED AND BORROWED';
+  String get dataAndSources => zh ? '数据与出处' : 'DATA AND SOURCES';
   String get reference => zh ? '参考显影' : 'Reference';
   String get source => zh ? '出处' : 'Source';
 
@@ -345,10 +345,10 @@ class KalloStrings {
   /// vocabulary has; an empty claim is a sentence the four cannot carry, and it
   /// is shown as it stands.
   String claim(String claim) => switch (claim) {
-    'measured' => zh ? '实测' : 'measured',
-    'estimate' => zh ? '估算' : 'estimate',
-    'borrowed' => zh ? '借用' : 'borrowed',
-    'placeholder' => zh ? '占位' : 'placeholder',
+    'measured' => zh ? '实测值' : 'measured',
+    'estimate' => zh ? '估算值' : 'estimated',
+    'borrowed' => zh ? '参照值' : 'reference',
+    'placeholder' => zh ? '默认值' : 'default',
     'none' => zh ? '无' : 'none',
     _ => '',
   };
@@ -385,15 +385,18 @@ class KalloStrings {
 
   /// The sheet a stock's `[measured]` table has always promised, opened from
   /// the stock on the shelf. The number is a scalar a recipe may move.
-  String get record => zh ? '记录' : 'Record';
-  String get filmRecord => zh ? '胶片记录' : 'FILM RECORD';
-  String get recordOpen => zh ? '打开' : 'Open';
-  String get recordIdle => zh ? '文件原值' : "the file's values";
-  String recordChanges(int count) =>
-      zh ? '已改动 $count 项' : '$count change${count == 1 ? '' : 's'}';
+  String get record => zh ? '参数' : 'Parameters';
+  String get filmParameters => zh ? '胶片参数' : 'FILM PARAMETERS';
+  String get adjust => zh ? '调整' : 'Adjust';
+  String get recordDefaults => zh ? '默认值' : 'defaults';
+  String recordChanges(int count) => zh ? '已调整 $count 项' : '$count adjusted';
+  String get adjustable => zh ? '可调参数' : 'ADJUSTABLE';
+  String get noAdjustable =>
+      zh ? '这份文件没有开放可调项。' : 'This file offers nothing to adjust.';
+  String dataCount(int count) => zh ? '$count 项' : '$count rows';
   String get provenance => zh ? '出处' : 'PROVENANCE';
   String get publication => zh ? '文献' : 'Publication';
-  String get modelDefaults => zh ? '模型的占位值' : "THE MODEL'S PLACEHOLDERS";
+  String get modelDefaults => zh ? '模型默认值' : 'MODEL DEFAULTS';
 
   /// The name of one control, in the model's vocabulary.
   String controlName(String name) => switch (name) {
@@ -416,9 +419,10 @@ class KalloStrings {
 
   /// A field the model holds at the file's value, and why.
   String recordLocked(String verdict) =>
-      zh ? '锁定 · 文件标记为「$verdict」' : 'locked · the file calls this $verdict';
+      zh ? '$verdict · 已锁定' : 'locked · the file calls this $verdict';
+  String get locked => zh ? '已锁定' : 'locked';
   String get recordLockedNoControl =>
-      zh ? '锁定 · 文件未提供可调项' : 'locked · no control in the file';
+      zh ? '文件未提供可调项' : 'locked · no control in the file';
 
   /// The explicit departure from measured data.
   String get advancedUnlock => zh ? '解锁调整' : 'Unlock';
