@@ -176,6 +176,29 @@ abstract final class StockRecipes {
     return recipe.tuningFor(stock, model: model);
   }
 
+  /// The tuning a print carries: the film's recipe and the paper's, merged.
+  ///
+  /// A print is made of two stocks and each may have its own document. The two
+  /// recipes move different controls, so merging them is not a compromise: a
+  /// film's grain and a paper's contrast are both in the print.
+  static Tuning tuningForMaterials({
+    required Catalogue catalogue,
+    required String filmId,
+    required String? paperId,
+  }) {
+    final Stock? film = catalogue.film(filmId);
+    final Stock? paper = catalogue.paper(paperId ?? Stocks.paper);
+    return tuningFor(
+      film,
+      model: film == null ? const <Measured>[] : catalogue.modelFor(film),
+    ).mergedWith(
+      tuningFor(
+        paper,
+        model: paper == null ? const <Measured>[] : catalogue.modelFor(paper),
+      ),
+    );
+  }
+
   /// Forget what was read, so another folder or another test starts clean.
   static void reset() {
     _recipes.clear();

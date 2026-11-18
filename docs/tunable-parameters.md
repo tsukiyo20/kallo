@@ -35,9 +35,9 @@ beats **borrowed** (another stock's measured set), which beats **placeholder**
 
 - **A default is always the current value.** A control at its default renders the
   stock as the file compiled it; nothing on screen is a suggested replacement.
-- **Measured is locked by default; the unlock is explicit.** It asks the person
-  to confirm the departure, and the print made afterwards says so. Evidence
-  that cannot be read fails closed.
+- **Measured is locked.** The sheet's own number is not a suggestion: the record
+  lists it, says what it is, and offers no control for it. Evidence that cannot
+  be read fails closed.
 - **Only photographically meaningful scalars move.** No raw table becomes a
   slider: not the 71-point dye spectra, not the curves, not the layer
   sensitivities. The modules are grain strength and size, couplers, interimage,
@@ -69,8 +69,12 @@ gain, and VISION3 500T's MTF is borrowed from the compiled fit of its own sheet.
 The papers are different: every paper has a measured curve; the colour papers
 have measured dyes and layer sensitivities and the silver papers carry none (flat
 by necessity); and every paper's white is measured — the Pearl's is the toe of
-its own curve. There is nothing on the paper shelf to adjust, and the schema says
-so.
+its own curve. Those values are held for films and papers alike. A paper's record
+still opens two controls, because they are the model's and not the paper's: the
+**print's contrast** and **black level**, the darkroom's choices over the
+measured curve. They live in the catalogue's `model` section with
+`applies_to: "paper"`, which is also what keeps halation and the couplers off the
+paper's page.
 
 ## What moves, and what stays locked
 
@@ -84,12 +88,14 @@ so.
 | borrowed mask strength | the mask table | borrowed 7, measured 9, none 8 | open 7, locked 9, absent 8 |
 | borrowed blur sharpness | `sigma_um` | borrowed 8, measured 16 | open 8, locked 16 |
 | borrowed dye saturation | the dye tables | borrowed 15, measured 4, none 5 | open 15, locked 4, absent 5 |
+| print contrast | the paper's measured curve, as a slope | model placeholder on every paper | open, on papers |
+| print black level | the paper's measured curve, as a span | model placeholder on every paper | open, on papers |
 | everything else | — | curves, layers, measured dyes and mask, measured MTF, paper curve, dyes, layers and white, CL sensitivity | locked, no control |
 
 The couplers, interimage and halation numbers are not film facts; they are the
 model's own placeholders, the same for every stock, and belong under the
 catalogue's `model` section rather than in twenty-four files. The controls are few
-on purpose: eight scalars at most, each with a photographic name. Development
+on purpose: a small vocabulary of scalars, each with a photographic name. Development
 time and temperature are already a dimension of the model.
 
 ## The header, made readable
@@ -125,7 +131,8 @@ saturation.max = 2.0
 
 ### A paper
 
-A paper's record has no controls, because every value is measured or absent. It
+A paper's record has no controls, because every value is measured or absent; the
+print controls are the catalogue's `model` section and never the stock file. It
 keeps the shape, so a paper that later loses a measurement has a place to say so.
 
 ```toml
@@ -178,9 +185,15 @@ from the compiled stocks, and the keys the current app reads are kept (`field`,
     }]
   }],
   "papers": [],
-  "model": [{ "field": "halation", "state": "placeholder", "grade": 1,
-    "source": "the strengths describe a modern colour negative in general ...",
-    "controls": [{ "name": "strength", "value": 1.0, "min": 0.0, "max": 2.0 }] }]
+  "model": [
+    { "field": "halation", "applies_to": "film", "state": "placeholder",
+      "grade": 1, "source": "the strengths describe a modern colour negative ...",
+      "controls": [{ "name": "strength", "value": 1.0, "min": 0.0, "max": 2.0 }] },
+    { "field": "print", "applies_to": "paper", "state": "placeholder",
+      "grade": 0, "source": "the print's contrast and black level are the darkroom's ...",
+      "controls": [{ "name": "contrast", "value": 1.0, "min": 0.5, "max": 2.0 },
+                   { "name": "black", "value": 1.0, "min": 0.5, "max": 1.5 }] }
+  ]
 }
 ```
 
@@ -274,27 +287,30 @@ The controls live on the stock's record, not on the bench: the shelf is still a
 shelf and the bench still holds one print, one time and one strip. The record is
 the sheet the `[measured]` table has always promised, and on a window it is a
 page of the instrument panel beside the print, one tap from the panel's own
-`FILM PARAMETERS` line; a phone has no panel, so there it is a sheet over the
-bench. The page leads with the controls the file exposes; the data and its
-sources fold away behind one row, because a page that opens with a bibliography
-has buried the thing a person came for.
+`FILM PARAMETERS` and `PAPER PARAMETERS` lines; a phone has no panel, so there it
+is a sheet over the bench. The page is two lists. The first is the controls the
+file exposes; the second is the fields the file measured, held, each with the one
+word for what it is. There is no bibliography on the page: the sheet's own
+`source` and `[provenance]` stay in the catalogue for a program and for review,
+not in a slider's paragraph.
 
-The bench's preview is a print, so it carries the recipe: the panel reports a
+The bench's preview is a print, so it carries the recipes: the panel reports a
 control while it is still in hand, and the easel beside it renders that print
 from the decoded photograph rather than reading a file — a move and its picture
-are one gesture. A print already on the test strip is a developed sheet and does
-not change; the next development is the recipe's.
+are one gesture. Film and paper have one document each, and a print carries
+both; the options in `kallo-core` merge without a collision because the two
+documents move different controls. A print already on the test strip is a
+developed sheet and does not change; the next development, and the print step's
+proof, are the recipes'.
 
-Each control shows its name and current scalar with the physical default beside
-it (`grain, ×0.6; the file's 0.62 / 0.51 / 0.07 per µm²`), the grade as a badge
-in the model's words, the author's `source` sentence as it stands, reset and
-lock. Reset returns the control to the file; the lock is the model's decision
-drawn as a lock, not an app rule. A measured field with a control stays locked
-until the advanced unlock is confirmed — *this print will depart from measured
-data* — and the record and print step say it departed while the recipe exists.
-`none` fields say so rather than showing a disabled slider. The one approximate
-colour-film control is a single dye-density or saturation scalar on a borrowed
-dye set, labelled approximate because the model is not claiming this film's dyes.
+Each control shows its name and current scalar with the file's own value beside
+it (`strength, ×0.6; file ×1.0`), its interval, and reset once it has moved.
+Reset returns the control to the file. The lock is the model's decision, not an
+app rule: a measured field has no control at all, rather than a disabled slider
+with a confirmation in front of it. `none` fields are absent rather than shown
+disabled. The one approximate colour-film control is a single dye-density or
+saturation scalar on a borrowed dye set, labelled approximate because the model
+is not claiming this film's dyes.
 
 ## When a measurement arrives
 
@@ -327,8 +343,9 @@ compiles to the field it has today; fixed-frame pixel hashes are unchanged.
 
 **Phase (b) — the record and the recipe.** Add the recipe document and its
 reader/writer to the Rust API; add `--recipe`, `--set` and the stale behaviour;
-extend the app parser; add the record sheet, badges, sources, reset, lock,
-advanced unlock, recipe storage and stale review. Tests: a recipe round-trips; an
+extend the app parser; add the record page with its controls, its held list and
+the paper's print controls in the model section, reset, recipe storage and stale
+review. Tests: a recipe round-trips; an
 unknown control is rejected; a digest mismatch applies nothing; a measured field
 needs a departure confirmation; a default render is byte-identical to before the
 phase; the CLI report names every departure.

@@ -10,7 +10,7 @@
 //! a field here is the one place the vocabulary is spelled; the CLI, the recipe
 //! file and the app all go through [`Tuning::set`].
 
-/// The eight scalars a recipe may move, keyed by their catalogue name.
+/// The ten scalars a recipe may move, keyed by their catalogue name.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Tuning {
     /// Multiplies the developed grain density of every layer.
@@ -29,6 +29,10 @@ pub struct Tuning {
     pub couplers_strength: f64,
     /// Multiplies the cyan-sensitive layer's gain.
     pub interimage_strength: f64,
+    /// Multiplies the print's slope on the paper: above one is a harder print.
+    pub print_contrast: f64,
+    /// Scales the print's span from the paper's white to its deepest black.
+    pub print_black: f64,
 }
 
 impl Default for Tuning {
@@ -42,6 +46,8 @@ impl Default for Tuning {
             halation_strength: 1.0,
             couplers_strength: 1.0,
             interimage_strength: 1.0,
+            print_contrast: 1.0,
+            print_black: 1.0,
         }
     }
 }
@@ -63,7 +69,7 @@ impl std::fmt::Display for UnknownControl<'_> {
 
 impl Tuning {
     /// The control keys, in the catalogue's reading order.
-    pub const KEYS: [&'static str; 8] = [
+    pub const KEYS: [&'static str; 10] = [
         "grain.strength",
         "grain.size",
         "mask.strength",
@@ -72,6 +78,8 @@ impl Tuning {
         "halation.strength",
         "couplers.strength",
         "interimage.strength",
+        "print.contrast",
+        "print.black",
     ];
 
     /// Every key still at the file's own value.
@@ -92,6 +100,8 @@ impl Tuning {
             "halation.strength" => Some(self.halation_strength),
             "couplers.strength" => Some(self.couplers_strength),
             "interimage.strength" => Some(self.interimage_strength),
+            "print.contrast" => Some(self.print_contrast),
+            "print.black" => Some(self.print_black),
             _ => None,
         }
     }
@@ -107,6 +117,8 @@ impl Tuning {
             "halation.strength" => &mut self.halation_strength,
             "couplers.strength" => &mut self.couplers_strength,
             "interimage.strength" => &mut self.interimage_strength,
+            "print.contrast" => &mut self.print_contrast,
+            "print.black" => &mut self.print_black,
             _ => return Err(UnknownControl(key)),
         };
         *slot = value;

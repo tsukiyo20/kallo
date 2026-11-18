@@ -81,7 +81,7 @@ class PrintJob {
   /// The scalars a stock recipe moves, in the order of [`Tuning::KEYS`].
   ///
   /// Empty is the file's own numbers, which is the render the app made
-  /// before a recipe existed. Eight values are the eight controls; anything
+  /// before a recipe existed. A full list is one value per control; anything
   /// else is a programming mistake and is refused rather than guessed at.
   final Float64List tuning;
 

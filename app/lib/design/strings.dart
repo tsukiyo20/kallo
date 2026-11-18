@@ -367,6 +367,7 @@ class KalloStrings {
     'halation' => zh ? '光晕' : 'halation',
     'couplers' => zh ? '偶联' : 'couplers',
     'interimage' => zh ? '层间效应' : 'interimage',
+    'print' => zh ? '冲印' : 'print',
     _ => field,
   };
 
@@ -387,16 +388,17 @@ class KalloStrings {
   /// the stock on the shelf. The number is a scalar a recipe may move.
   String get record => zh ? '参数' : 'Parameters';
   String get filmParameters => zh ? '胶片参数' : 'FILM PARAMETERS';
+  String get paperParameters => zh ? '相纸参数' : 'PAPER PARAMETERS';
   String get adjust => zh ? '调整' : 'Adjust';
   String get recordDefaults => zh ? '默认值' : 'defaults';
   String recordChanges(int count) => zh ? '已调整 $count 项' : '$count adjusted';
   String get adjustable => zh ? '可调参数' : 'ADJUSTABLE';
   String get noAdjustable =>
       zh ? '这份文件没有开放可调项。' : 'This file offers nothing to adjust.';
-  String dataCount(int count) => zh ? '$count 项' : '$count rows';
-  String get provenance => zh ? '出处' : 'PROVENANCE';
-  String get publication => zh ? '文献' : 'Publication';
-  String get modelDefaults => zh ? '模型默认值' : 'MODEL DEFAULTS';
+
+  /// The fields the file measured and therefore holds: the lock is the data's
+  /// decision, so the page says which values are not the person's to move.
+  String get lockedParameters => zh ? '已锁定' : 'LOCKED';
 
   /// The name of one control, in the model's vocabulary.
   String controlName(String name) => switch (name) {
@@ -404,6 +406,8 @@ class KalloStrings {
     'size' => zh ? '尺寸' : 'size',
     'sharpness' => zh ? '锐度' : 'sharpness',
     'saturation' => zh ? '饱和度' : 'saturation',
+    'contrast' => zh ? '对比度' : 'contrast',
+    'black' => zh ? '黑位' : 'black',
     _ => name,
   };
 
@@ -417,21 +421,6 @@ class KalloStrings {
   String get recordReset => zh ? '还原' : 'Reset';
   String get recordResetAll => zh ? '全部还原' : 'Reset all';
 
-  /// A field the model holds at the file's value, and why.
-  String recordLocked(String verdict) =>
-      zh ? '$verdict · 已锁定' : 'locked · the file calls this $verdict';
-  String get locked => zh ? '已锁定' : 'locked';
-  String get recordLockedNoControl =>
-      zh ? '文件未提供可调项' : 'locked · no control in the file';
-
-  /// The explicit departure from measured data.
-  String get advancedUnlock => zh ? '解锁调整' : 'Unlock';
-  String get advancedUnlockTitle =>
-      zh ? '确认偏离实测数据？' : 'Depart from measured data?';
-  String get advancedUnlockNote => zh
-      ? '该字段是这只胶片的实测数据。调整后，此后印出的相片会注明它偏离了实测数据。'
-      : 'This field is what this stock measured. A print made afterwards will say that it departed from measured data.';
-  String get advancedUnlockAction => zh ? '仍要调整' : 'Adjust anyway';
   String get departedMeasured => zh ? '偏离实测数据' : 'departs from measured data';
 
   /// A recipe written against another version of the packed file: the values

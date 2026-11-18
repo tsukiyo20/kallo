@@ -185,14 +185,15 @@ class _PrintStageState extends State<PrintStage> {
       '${strip.photo}|${strip.stockId}|${strip.paperId}|'
       '${strip.tempC}|${strip.spectral}|${RenderPreference.mode.name}';
 
-  /// The departures the strip's stock recipe applies to the print on the easel.
+  /// The departures the strip's two recipes apply to the print on the easel.
   ///
   /// This step prints the negative the strip chose, so it previews the print
-  /// the stock's recipe would make: a departure on the record is visible here
-  /// before the sheet is printed, not only on the sheet.
-  Tuning get _tuning => StockRecipes.tuningFor(
-    widget.catalogue.film(widget.strip.stockId),
-    model: widget.catalogue.model,
+  /// the two records would make: a departure on either is visible here before
+  /// the sheet is printed, not only on the sheet.
+  Tuning get _tuning => StockRecipes.tuningForMaterials(
+    catalogue: widget.catalogue,
+    filmId: widget.strip.stockId,
+    paperId: widget.strip.paperId,
   );
 
   void _openBench() {

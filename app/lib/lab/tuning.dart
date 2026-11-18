@@ -1,4 +1,4 @@
-/// The eight scalars a stock recipe may move.
+/// The ten scalars a stock recipe may move.
 ///
 /// The catalogue says which fields expose a control and what interval each may
 /// take; this is the values themselves, as the model consumes them. Every field
@@ -8,8 +8,8 @@
 ///
 /// The order is `kallo_core::Tuning::KEYS` and the names are the catalogue's
 /// control keys: `grain.strength` is [grainStrength], and so on. The bridge
-/// takes the eight numbers as one list, so that order is the contract; nothing
-/// else in the app may reorder them.
+/// takes the values as one list, so that order is the contract; nothing else
+/// in the app may reorder them.
 class Tuning {
   const Tuning({
     this.grainStrength = 1.0,
@@ -20,12 +20,14 @@ class Tuning {
     this.halationStrength = 1.0,
     this.couplersStrength = 1.0,
     this.interimageStrength = 1.0,
+    this.printContrast = 1.0,
+    this.printBlack = 1.0,
   });
 
   /// The file's own numbers: a stock with no recipe applied.
   static const Tuning identity = Tuning();
 
-  /// The control keys, in the order the bridge takes the eight numbers.
+  /// The control keys, in the order the bridge takes the values.
   static const List<String> keys = <String>[
     'grain.strength',
     'grain.size',
@@ -35,6 +37,8 @@ class Tuning {
     'halation.strength',
     'couplers.strength',
     'interimage.strength',
+    'print.contrast',
+    'print.black',
   ];
 
   /// Multiplies the developed grain density of every layer.
@@ -61,7 +65,13 @@ class Tuning {
   /// Multiplies the cyan-sensitive layer's gain.
   final double interimageStrength;
 
-  /// The eight values, in the order of [keys].
+  /// Multiplies the print's slope on the paper: above one is a harder print.
+  final double printContrast;
+
+  /// Scales the print's span from the paper's white to its deepest black.
+  final double printBlack;
+
+  /// The values, in the order of [keys].
   List<double> toList() => <double>[
     grainStrength,
     grainSize,
@@ -71,6 +81,8 @@ class Tuning {
     halationStrength,
     couplersStrength,
     interimageStrength,
+    printContrast,
+    printBlack,
   ];
 
   /// Whether this is the file's own rendering.
@@ -82,7 +94,9 @@ class Tuning {
       dyeSaturation == 1.0 &&
       halationStrength == 1.0 &&
       couplersStrength == 1.0 &&
-      interimageStrength == 1.0;
+      interimageStrength == 1.0 &&
+      printContrast == 1.0 &&
+      printBlack == 1.0;
 
   /// The controls that depart from the file, keyed by their catalogue names.
   Map<String, double> get overrides {
@@ -103,6 +117,8 @@ class Tuning {
     'halation.strength' => halationStrength,
     'couplers.strength' => couplersStrength,
     'interimage.strength' => interimageStrength,
+    'print.contrast' => printContrast,
+    'print.black' => printBlack,
     _ => null,
   };
 
@@ -115,6 +131,8 @@ class Tuning {
     double? halationStrength,
     double? couplersStrength,
     double? interimageStrength,
+    double? printContrast,
+    double? printBlack,
   }) => Tuning(
     grainStrength: grainStrength ?? this.grainStrength,
     grainSize: grainSize ?? this.grainSize,
@@ -124,6 +142,8 @@ class Tuning {
     halationStrength: halationStrength ?? this.halationStrength,
     couplersStrength: couplersStrength ?? this.couplersStrength,
     interimageStrength: interimageStrength ?? this.interimageStrength,
+    printContrast: printContrast ?? this.printContrast,
+    printBlack: printBlack ?? this.printBlack,
   );
 
   /// This tuning with one control moved.
@@ -139,16 +159,50 @@ class Tuning {
     'halation.strength' => copyWith(halationStrength: value),
     'couplers.strength' => copyWith(couplersStrength: value),
     'interimage.strength' => copyWith(interimageStrength: value),
+    'print.contrast' => copyWith(printContrast: value),
+    'print.black' => copyWith(printBlack: value),
     _ => throw ArgumentError.value(key, 'key', 'the model has no such control'),
   };
 
-  /// The tuning for eight values in [keys] order.
+  /// This tuning with another's moved controls laid over it.
+  ///
+  /// A print carries two documents when both materials have recipes: the film's
+  /// and the paper's. Their controls are different keys, so a control the other
+  /// tuning left at the file's number keeps this one's value.
+  Tuning mergedWith(Tuning other) => Tuning(
+    grainStrength: other.grainStrength == 1.0
+        ? grainStrength
+        : other.grainStrength,
+    grainSize: other.grainSize == 1.0 ? grainSize : other.grainSize,
+    maskStrength: other.maskStrength == 1.0 ? maskStrength : other.maskStrength,
+    blurSharpness: other.blurSharpness == 1.0
+        ? blurSharpness
+        : other.blurSharpness,
+    dyeSaturation: other.dyeSaturation == 1.0
+        ? dyeSaturation
+        : other.dyeSaturation,
+    halationStrength: other.halationStrength == 1.0
+        ? halationStrength
+        : other.halationStrength,
+    couplersStrength: other.couplersStrength == 1.0
+        ? couplersStrength
+        : other.couplersStrength,
+    interimageStrength: other.interimageStrength == 1.0
+        ? interimageStrength
+        : other.interimageStrength,
+    printContrast: other.printContrast == 1.0
+        ? printContrast
+        : other.printContrast,
+    printBlack: other.printBlack == 1.0 ? printBlack : other.printBlack,
+  );
+
+  /// The tuning for values in [keys] order.
   static Tuning fromList(List<double> values) {
     if (values.length != keys.length) {
       throw ArgumentError.value(
         values,
         'values',
-        'tuning is eight numbers, in the order of Tuning.keys',
+        'tuning is ${keys.length} numbers, in the order of Tuning.keys',
       );
     }
     return Tuning(
@@ -160,6 +214,8 @@ class Tuning {
       halationStrength: values[5],
       couplersStrength: values[6],
       interimageStrength: values[7],
+      printContrast: values[8],
+      printBlack: values[9],
     );
   }
 
@@ -183,7 +239,9 @@ class Tuning {
           other.dyeSaturation == dyeSaturation &&
           other.halationStrength == halationStrength &&
           other.couplersStrength == couplersStrength &&
-          other.interimageStrength == interimageStrength;
+          other.interimageStrength == interimageStrength &&
+          other.printContrast == printContrast &&
+          other.printBlack == printBlack;
 
   @override
   int get hashCode => Object.hash(
@@ -195,6 +253,8 @@ class Tuning {
     halationStrength,
     couplersStrength,
     interimageStrength,
+    printContrast,
+    printBlack,
   );
 
   @override

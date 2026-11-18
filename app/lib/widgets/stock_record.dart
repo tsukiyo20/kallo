@@ -9,19 +9,16 @@ import '../design/tokens.dart';
 import '../lab/stock.dart';
 import '../lab/stock_recipe.dart';
 import 'button.dart';
-import 'mobile/mobile_icon.dart';
-import 'mobile/mobile_sheet.dart';
 import 'shadow_box.dart';
 
-/// Open one stock's parameters: the controls its `[measured]` table exposes,
-/// and the data behind them.
+/// Open one stock's parameters: the controls it exposes, and the fields it
+/// holds.
 ///
 /// It is a route over the window, not a Material dialog: the barrier is the
 /// window's own ink at a low alpha, and the card is the surface plane with a
-/// hairline. The sheet leads with the controls the file exposes; the data and
-/// its sources fold away behind one row. Moving a control does not touch the
-/// stock file; it writes a departure, and the departure is committed back
-/// through [onRecipe] so the next print can use it.
+/// hairline. Moving a control does not touch the stock file; it writes a
+/// departure, and the departure is committed back through [onRecipe] so the
+/// next print can use it.
 Future<void> showStockRecordSheet(
   BuildContext context, {
   required Stock stock,
@@ -82,8 +79,8 @@ class StockRecordSheet extends StatelessWidget {
 
   final Stock stock;
 
-  /// The catalogue's own placeholders: halation, the couplers, the interimage
-  /// strength.
+  /// The catalogue's placeholders that belong to this stock's half of the
+  /// shelf, already filtered by the caller.
   final List<Measured> model;
 
   /// The departures already written beside this stock, when there are any.
@@ -180,14 +177,19 @@ class StockRecordSheet extends StatelessWidget {
   }
 }
 
-/// The body of a stock's record: the fields it admits to, and the controls it
-/// exposes.
+/// The body of a stock's record: the controls it exposes, and the fields it
+/// holds at the file's value.
 ///
 /// The controls are the file's, not the app's: every interval and every default
 /// comes from the catalogue. The identity is the file's own rendering, which is
 /// why a control at its default changes nothing; a departure is kept in a stock
 /// recipe beside the file and is applied only while the file it was written
 /// against is still the file on disk.
+///
+/// The page is two lists: what may move, and what is measured and therefore
+/// held. The data behind a number is not a paragraph here — the file's own sheet
+/// already says what it measured, and a person opening the record came to move
+/// a print, not to read a bibliography.
 ///
 /// The same body is a sheet over the window and the instrument panel's own
 /// page: the sheet commits every change as it happens, and the panel also
@@ -207,9 +209,9 @@ class StockRecordBody extends StatefulWidget {
 
   final Stock stock;
 
-  /// The catalogue's own placeholders: halation, the couplers, the interimage
-  /// strength. They are not any stock's data, so they appear once, in their
-  /// own section.
+  /// The catalogue's own placeholders that belong to this stock's half of the
+  /// shelf: halation and the couplers for a film, the print's contrast and
+  /// black level for a paper.
   final List<Measured> model;
 
   /// The departures already written beside this stock, when there are any.
@@ -237,15 +239,6 @@ class StockRecordBody extends StatefulWidget {
 class _StockRecordBodyState extends State<StockRecordBody> {
   StockRecipe? _recipe;
 
-  /// Measured fields a person explicitly unlocked this session. The unlock is
-  /// the model's decision and asks first; it is not kept in the recipe.
-  final Set<String> _unlocked = <String>{};
-
-  /// Whether the data and its sources are unfolded. They are the record's
-  /// evidence, not its controls: a page that opens with a bibliography has
-  /// buried the thing a person came for.
-  bool _dataOpen = false;
-
   @override
   void initState() {
     super.initState();
@@ -266,6 +259,28 @@ class _StockRecordBodyState extends State<StockRecordBody> {
         stockDigest: widget.stock.stockDigest,
       );
 
+  /// A field offers a control that can be moved now.
+  bool _controllable(Measured field) =>
+      field.controls.isNotEmpty && !field.locked;
+
+  List<Measured> get _movable => <Measured>[
+    if (!_stale)
+      for (final Measured field in widget.stock.measured)
+        if (_controllable(field)) field,
+  ];
+
+  List<Measured> get _movableModel => <Measured>[
+    if (!_stale)
+      for (final Measured field in widget.model)
+        if (_controllable(field)) field,
+  ];
+
+  /// The fields the file measured, and therefore holds at its own value.
+  List<Measured> get _held => <Measured>[
+    for (final Measured field in widget.stock.measured)
+      if (field.locked && field.verdict != 'none') field,
+  ];
+
   double _valueOf(Measured field, Control control, {required bool inModel}) {
     if (_stale) {
       return control.value;
@@ -283,9 +298,6 @@ class _StockRecordBodyState extends State<StockRecordBody> {
     final String key = controlKey(field, control);
     return (inModel ? _recipe!.model : _recipe!.overrides).containsKey(key);
   }
-
-  String _fieldId(Measured field, {required bool inModel}) =>
-      '${inModel ? 'model' : 'stock'}:${field.field}';
 
   void _remember(StockRecipe recipe) => _keep(recipe, commit: true);
 
@@ -334,20 +346,6 @@ class _StockRecordBodyState extends State<StockRecordBody> {
     _remember(_base().cleared());
   }
 
-  Future<void> _unlock(Measured field, {required bool inModel}) async {
-    final KalloStrings s = _s;
-    final bool confirmed = await showKalloConfirm(
-      context,
-      title: s.advancedUnlockTitle,
-      message: s.advancedUnlockNote,
-      confirm: s.advancedUnlockAction,
-    );
-    if (!mounted || !confirmed) {
-      return;
-    }
-    setState(() => _unlocked.add(_fieldId(field, inModel: inModel)));
-  }
-
   /// Keep the departures that still fit the file, and bind them to the digest
   /// the file has now. The rest are dropped, not silently: they were shown.
   void _keepFitting() {
@@ -384,10 +382,9 @@ class _StockRecordBodyState extends State<StockRecordBody> {
   Widget build(BuildContext context) {
     final KalloColors colors = KalloScope.colorsOf(context);
     final KalloStrings s = _s;
-    final List<Measured> adjustable = <Measured>[
-      for (final Measured field in widget.stock.measured)
-        if (!_stale && _controllable(field, inModel: false)) field,
-    ];
+    final List<Measured> movable = _movable;
+    final List<Measured> model = _movableModel;
+    final List<Measured> held = _held;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -398,7 +395,7 @@ class _StockRecordBodyState extends State<StockRecordBody> {
           const SizedBox(height: KalloSpace.step5),
         ] else ...<Widget>[
           _sectionLabel(colors, s.adjustable),
-          if (adjustable.isEmpty)
+          if (movable.isEmpty && model.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: KalloSpace.step3),
               child: Text(
@@ -406,61 +403,23 @@ class _StockRecordBodyState extends State<StockRecordBody> {
                 style: KalloType.small.copyWith(color: colors.inkFaint),
               ),
             )
-          else
-            for (final Measured field in adjustable)
+          else ...<Widget>[
+            for (final Measured field in movable)
               _controlField(colors, s, field, inModel: false),
-          _modelSection(colors, s),
+            for (final Measured field in model)
+              _controlField(colors, s, field, inModel: true),
+          ],
+          if (held.isNotEmpty) ...<Widget>[
+            const SizedBox(height: KalloSpace.step5),
+            Container(height: 1, color: colors.hairline),
+            const SizedBox(height: KalloSpace.step4),
+            _sectionLabel(colors, s.lockedParameters),
+            const SizedBox(height: KalloSpace.step1),
+            for (final Measured field in held) _heldRow(colors, s, field),
+          ],
         ],
-        const SizedBox(height: KalloSpace.step5),
-        _dataSection(colors, s),
         const SizedBox(height: KalloSpace.step5),
         _footer(colors, s),
-      ],
-    );
-  }
-
-  /// Whether a field offers a control that can be moved now.
-  bool _controllable(Measured field, {required bool inModel}) {
-    if (field.controls.isEmpty) {
-      return false;
-    }
-    return !field.locked ||
-        _unlocked.contains(_fieldId(field, inModel: inModel)) ||
-        _departsFrom(field, inModel: inModel);
-  }
-
-  /// The label, the note, and where the numbers came from.
-  Widget _about(KalloColors colors, KalloStrings s) {
-    final Provenance provenance = widget.stock.provenance;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Text(
-          widget.stock.label,
-          style: KalloType.small.copyWith(color: colors.inkFaint),
-        ),
-        if (widget.stock.note.isNotEmpty) ...<Widget>[
-          const SizedBox(height: KalloSpace.step2),
-          Text(
-            widget.stock.note,
-            style: KalloType.body.copyWith(color: colors.inkMuted),
-          ),
-        ],
-        if (!provenance.isEmpty) ...<Widget>[
-          const SizedBox(height: KalloSpace.step4),
-          _sectionLabel(colors, s.provenance),
-          const SizedBox(height: KalloSpace.step2),
-          Text(
-            <String>[
-              if (provenance.publication.isNotEmpty)
-                '${s.publication} ${provenance.publication}',
-              if (provenance.page.isNotEmpty) s.page(provenance.page),
-              if (provenance.retrieved.isNotEmpty)
-                s.readOn(provenance.retrieved),
-            ].join('   ·   '),
-            style: KalloType.data.copyWith(color: colors.inkMuted),
-          ),
-        ],
       ],
     );
   }
@@ -589,84 +548,13 @@ class _StockRecordBodyState extends State<StockRecordBody> {
     _remember(recipe.withoutOverride(change.key, inModel: change.inModel));
   }
 
-  /// The model's own defaults, once, in their own section.
-  Widget _modelSection(KalloColors colors, KalloStrings s) {
-    if (widget.model.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Column(
-      key: const Key('record-model'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        const SizedBox(height: KalloSpace.step5),
-        _sectionLabel(colors, s.modelDefaults),
-        for (final Measured field in widget.model)
-          if (_controllable(field, inModel: true))
-            _controlField(colors, s, field, inModel: true),
-      ],
-    );
-  }
-
-  /// The data behind the controls, folded away: what each field is, where it
-  /// came from, and why it is held.
-  Widget _dataSection(KalloColors colors, KalloStrings s) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            key: const Key('record-data'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() => _dataOpen = !_dataOpen),
-            child: Row(
-              children: <Widget>[
-                Text(
-                  s.dataAndSources,
-                  style: KalloType.caption.copyWith(
-                    color: colors.inkFaint,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  s.dataCount(widget.stock.measured.length),
-                  style: KalloType.small.copyWith(color: colors.inkFaint),
-                ),
-                const SizedBox(width: KalloSpace.step2),
-                AnimatedRotation(
-                  turns: _dataOpen ? 0.25 : 0,
-                  duration: KalloMotion.quick,
-                  curve: KalloMotion.enter,
-                  child: KalloGlyphView(
-                    KalloGlyph.chevronRight,
-                    size: 9,
-                    color: colors.inkFaint,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_dataOpen) ...<Widget>[
-          const SizedBox(height: KalloSpace.step4),
-          _about(colors, s),
-          const SizedBox(height: KalloSpace.step4),
-          for (final Measured field in widget.stock.measured)
-            _dataField(colors, s, field, inModel: false),
-        ],
-      ],
-    );
-  }
-
-  /// One field's controls: the thing a person opened this page for.
+  /// One field whose value may move: the controls, and nothing else.
   Widget _controlField(
     KalloColors colors,
     KalloStrings s,
     Measured field, {
     required bool inModel,
   }) {
-    final String verdict = s.claim(field.verdict);
     return Container(
       key: Key('record-field-${inModel ? 'model' : 'stock'}-${field.field}'),
       padding: const EdgeInsets.symmetric(vertical: KalloSpace.step3),
@@ -676,17 +564,9 @@ class _StockRecordBodyState extends State<StockRecordBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Text(
-                s.field(field.field),
-                style: KalloType.title.copyWith(color: colors.ink),
-              ),
-              if (verdict.isNotEmpty) ...<Widget>[
-                const SizedBox(width: KalloSpace.step2),
-                _badge(colors, verdict),
-              ],
-            ],
+          Text(
+            s.field(field.field),
+            style: KalloType.title.copyWith(color: colors.ink),
           ),
           for (final Control control in field.controls) ...<Widget>[
             const SizedBox(height: KalloSpace.step2),
@@ -697,144 +577,35 @@ class _StockRecordBodyState extends State<StockRecordBody> {
     );
   }
 
-  /// One field of the data: what it is, where it came from, and why it is
-  /// held. The sentence lives here and not above the sliders: a page that
-  /// opens with a bibliography has buried the thing a person came for.
-  Widget _dataField(
-    KalloColors colors,
-    KalloStrings s,
-    Measured field, {
-    required bool inModel,
-  }) {
+  /// One field the file measured: the name, and the word for what it is.
+  ///
+  /// It carries no control, because the lock is the data's and not a disabled
+  /// slider: a value the sheet measured is not a suggestion.
+  Widget _heldRow(KalloColors colors, KalloStrings s, Measured field) {
     final String verdict = s.claim(field.verdict);
-    final String sentence = field.sentence;
-    final bool unlocked =
-        !field.locked ||
-        _unlocked.contains(_fieldId(field, inModel: inModel)) ||
-        _departsFrom(field, inModel: inModel);
-    final bool offered =
-        !_stale &&
-        field.advancedUnlock &&
-        field.controls.isNotEmpty &&
-        !unlocked;
     return Container(
-      key: Key(
-        'record-data-field-${inModel ? 'model' : 'stock'}-${field.field}',
-      ),
-      padding: const EdgeInsets.symmetric(vertical: KalloSpace.step3),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.hairline)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      key: Key('record-locked-${field.field}'),
+      padding: const EdgeInsets.symmetric(vertical: KalloSpace.step2),
+      child: Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Text(
-                s.field(field.field),
-                style: KalloType.title.copyWith(color: colors.ink),
-              ),
-              if (verdict.isNotEmpty) ...<Widget>[
-                const SizedBox(width: KalloSpace.step2),
-                _badge(colors, verdict),
-              ],
-            ],
-          ),
-          if (sentence.isNotEmpty) ...<Widget>[
-            const SizedBox(height: KalloSpace.step1),
-            Text(
-              sentence,
+          Expanded(
+            child: Text(
+              s.field(field.field),
               style: KalloType.small.copyWith(color: colors.inkMuted),
             ),
-          ],
-          if (field.locked && !unlocked) ...<Widget>[
-            const SizedBox(height: KalloSpace.step2),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: _lockLine(colors, _lockText(s, field, verdict)),
-                ),
-                if (offered)
-                  GestureDetector(
-                    key: Key(
-                      'record-unlock-${inModel ? 'model' : 'stock'}-${field.field}',
-                    ),
-                    onTap: () => unawaited(_unlock(field, inModel: inModel)),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: KalloSpace.step2,
-                      ),
-                      child: Text(
-                        s.advancedUnlock,
-                        style: KalloType.small.copyWith(color: colors.accent),
-                      ),
-                    ),
-                  ),
-              ],
+          ),
+          if (verdict.isNotEmpty)
+            Text(
+              verdict,
+              style: KalloType.caption.copyWith(
+                color: colors.inkFaint,
+                letterSpacing: 0.6,
+              ),
             ),
-          ],
         ],
       ),
     );
   }
-
-  /// Whether the recipe already holds a deliberate move of this field.
-  ///
-  /// An advanced unlock is asked once. Reopening the record finds the departure
-  /// it was confirmed for, so the control it moved is still the control it is,
-  /// and the print still says it left the measurement.
-  bool _departsFrom(Measured field, {required bool inModel}) {
-    final StockRecipe? recipe = _recipe;
-    if (recipe == null || _stale || !field.advancedUnlock) {
-      return false;
-    }
-    final Map<String, RecipeOverride> departures = inModel
-        ? recipe.model
-        : recipe.overrides;
-    for (final Control control in field.controls) {
-      final RecipeOverride? departure = departures[controlKey(field, control)];
-      if (departure != null && departure.against == 'measured') {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /// Why a field is held at the file's value.
-  ///
-  /// The catalogue closes the lock; the sheet only says which reason it closed
-  /// for. A measured field is locked because it is the stock's own measurement,
-  /// a field with no control because the file exposes nothing to move.
-  String _lockText(KalloStrings s, Measured field, String verdict) {
-    // The badge already names what the data is; the lock line only has to say
-    // that it is held there.
-    if (field.verdict == 'measured') {
-      return s.locked;
-    }
-    if (field.controls.isEmpty) {
-      return s.recordLockedNoControl;
-    }
-    return s.recordLocked(verdict.isEmpty ? field.verdict : verdict);
-  }
-
-  Widget _lockLine(KalloColors colors, String text) =>
-      Text(text, style: KalloType.small.copyWith(color: colors.inkFaint));
-
-  Widget _badge(KalloColors colors, String verdict) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: colors.fill,
-      borderRadius: BorderRadius.circular(KalloRadius.control - 3),
-    ),
-    child: Text(
-      verdict,
-      style: KalloType.caption.copyWith(
-        color: colors.inkMuted,
-        letterSpacing: 0.4,
-      ),
-    ),
-  );
 
   Widget _control(
     KalloColors colors,

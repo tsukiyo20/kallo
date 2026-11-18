@@ -78,7 +78,53 @@ Stock _stock() => Stock(
   ],
 );
 
-/// The catalogue's own placeholders, once, in their own section.
+/// A colour paper: everything it carries is measured, and the print's two
+/// controls are the model's placeholders.
+Stock _paper() => const Stock(
+  id: 'endura_premier',
+  short: 'ENDURA PREMIER',
+  label: 'KODAK PROFESSIONAL ENDURA Premier Paper, RA-4',
+  emulsion: PaperEmulsion.colour,
+  stockDigest: 'sha256:70d4',
+  measured: <Measured>[
+    Measured(
+      field: 'curve',
+      claim: 'measured',
+      detail: 'E-4070 page 4',
+      state: 'measured',
+      grade: 3,
+      source: 'E-4070 page 4',
+    ),
+    Measured(
+      field: 'dyes',
+      claim: 'measured',
+      detail: 'E-4070 page 5',
+      state: 'measured',
+      grade: 3,
+      source: 'E-4070 page 5',
+    ),
+  ],
+);
+
+/// The model's print controls, which belong to the paper's half of the shelf.
+const List<Measured> _paperModel = <Measured>[
+  Measured(
+    field: 'print',
+    claim: 'placeholder',
+    detail: 'the darkroom\'s choices over a measured curve',
+    state: 'placeholder',
+    grade: 0,
+    source: 'the darkroom\'s choices over a measured curve',
+    locked: false,
+    appliesTo: 'paper',
+    controls: <Control>[
+      Control(name: 'contrast', value: 1, min: 0.5, max: 2),
+      Control(name: 'black', value: 1, min: 0.5, max: 1.5),
+    ],
+  ),
+];
+
+/// The catalogue's own placeholders for a film.
 const List<Measured> _model = <Measured>[
   Measured(
     field: 'halation',
@@ -196,17 +242,17 @@ void main() {
     expect(saved.last, isNull, reason: 'the recipe is gone');
   });
 
-  testWidgets('a measured field has no control and says why', (
+  testWidgets('a measured field is held, with no control and its word', (
     WidgetTester tester,
   ) async {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
-    await tester.tap(find.byKey(const Key('record-data')));
-    await tester.pumpAndSettle();
 
-    final Finder measured = find.byKey(
-      const Key('record-data-field-stock-curves'),
-    );
+    final Finder measured = find.byKey(const Key('record-locked-curves'));
     expect(measured, findsOneWidget);
+    expect(
+      find.descendant(of: measured, matching: find.text('measured')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: measured,
@@ -220,10 +266,6 @@ void main() {
       ),
       findsNothing,
     );
-    expect(
-      find.descendant(of: measured, matching: find.text('locked')),
-      findsOneWidget,
-    );
     // The placeholder field beside it is still adjustable.
     expect(
       find.byKey(const Key('record-slider-grain.strength')),
@@ -231,13 +273,11 @@ void main() {
     );
   });
 
-  testWidgets('the model placeholders render once, as their own section', (
+  testWidgets('the model placeholders join the adjustable list', (
     WidgetTester tester,
   ) async {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
 
-    expect(find.byKey(const Key('record-model')), findsOneWidget);
-    expect(find.text('MODEL DEFAULTS'), findsOneWidget);
     expect(
       find.byKey(const Key('record-field-model-halation')),
       findsOneWidget,
@@ -246,6 +286,26 @@ void main() {
       find.byKey(const Key('record-slider-halation.strength')),
       findsOneWidget,
     );
+    // One list of what may move, not two sections with their own vocabularies.
+    expect(find.text('MODEL DEFAULTS'), findsNothing);
+  });
+
+  testWidgets('a paper opens the print controls and holds its measurements', (
+    WidgetTester tester,
+  ) async {
+    await _pump(
+      tester,
+      StockRecordSheet(stock: _paper(), model: _paperModel),
+    );
+
+    expect(
+      find.byKey(const Key('record-slider-print.contrast')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('record-slider-print.black')), findsOneWidget);
+    expect(find.byKey(const Key('record-locked-curve')), findsOneWidget);
+    expect(find.byKey(const Key('record-locked-dyes')), findsOneWidget);
+    expect(find.text('LOCKED'), findsOneWidget);
   });
 
   testWidgets('a stale recipe is a review and applies nothing', (
@@ -315,7 +375,7 @@ void main() {
     expect(_readout(tester, 'grain.strength'), '×0.6');
   });
 
-  testWidgets('an advanced unlock asks before a measured field moves', (
+  testWidgets('a measured field offers no unlock', (
     WidgetTester tester,
   ) async {
     final Stock stock = Stock(
@@ -341,96 +401,26 @@ void main() {
     );
     await _pump(tester, StockRecordSheet(stock: stock));
 
-    // Locked: no slider until the departure is confirmed. The lock is stated
-    // with the data, so the data row is unfolded first.
+    // The lock is the data's: a measured number is not a slider with a
+    // confirmation in front of it.
     expect(find.byKey(const Key('record-slider-grain.strength')), findsNothing);
-    await tester.tap(find.byKey(const Key('record-data')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('record-unlock-stock-grain')));
-    await tester.pumpAndSettle();
-    expect(find.text('Depart from measured data?'), findsOneWidget);
-
-    await tester.tap(find.text('Adjust anyway'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const Key('record-slider-grain.strength')),
-      findsOneWidget,
-    );
+    expect(find.text('Unlock'), findsNothing);
+    expect(find.byKey(const Key('record-locked-grain')), findsOneWidget);
   });
 
-  testWidgets('an advanced unlock is remembered by the recipe', (
-    WidgetTester tester,
-  ) async {
-    const Stock measured = Stock(
-      id: 'kodak_portra_400',
-      short: 'PORTRA 400',
-      label: 'KODAK PROFESSIONAL PORTRA 400',
-      stockDigest: 'sha256:6c6f',
-      measured: <Measured>[
-        Measured(
-          field: 'grain',
-          claim: 'measured',
-          detail: 'a measurement',
-          state: 'measured',
-          grade: 3,
-          source: 'a measurement',
-          locked: true,
-          advancedUnlock: true,
-          controls: <Control>[
-            Control(name: 'strength', value: 1, min: 0, max: 3),
-          ],
-        ),
-      ],
-    );
-    StockRecipe? saved;
-    await _pump(
-      tester,
-      StockRecordSheet(
-        stock: measured,
-        onRecipe: (StockRecipe? recipe) async => saved = recipe,
-      ),
-    );
-    await tester.tap(find.byKey(const Key('record-data')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('record-unlock-stock-grain')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Adjust anyway'));
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const Key('record-slider-grain.strength')),
-      const Offset(120, 0),
-    );
-    await tester.pumpAndSettle();
-    expect(saved, isNotNull);
-    expect(saved!.overrides['grain.strength']?.against, 'measured');
-
-    // Reopen the record with the recipe it wrote: the departure it was
-    // confirmed for is still a control, at the value that was chosen.
-    await tester.pumpWidget(
-      _window(StockRecordSheet(stock: measured, recipe: saved)),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('record-slider-grain.strength')),
-      findsOneWidget,
-    );
-    expect(_readout(tester, 'grain.strength'), isNot('×1.0'));
-  });
-
-  testWidgets('the record shows the label, the note and its provenance', (
+  testWidgets('the record leaves the data sheet out of the page', (
     WidgetTester tester,
   ) async {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
-    await tester.tap(find.byKey(const Key('record-data')));
-    await tester.pumpAndSettle();
 
-    expect(find.text('KODAK PROFESSIONAL PORTRA 400'), findsOneWidget);
-    expect(find.text('Measured: the characteristic curves.'), findsOneWidget);
+    // The stock's note and provenance are the file's, not the page's: what a
+    // person opens here is the controls.
+    expect(find.text('Measured: the characteristic curves.'), findsNothing);
     expect(
-      find.text('Publication E-4050   ·   page 4   ·   read 2026-11-08'),
-      findsOneWidget,
+      find.textContaining('Publication E-4050'),
+      findsNothing,
     );
+    expect(find.text('DATA AND SOURCES'), findsNothing);
   });
 
   testWidgets('the chosen stock row carries the record handle', (
@@ -491,9 +481,14 @@ void main() {
     expect(zh.claim('borrowed'), '参照值');
     expect(zh.claim('placeholder'), '默认值');
     expect(zh.claim('none'), '无');
-    expect(zh.dataAndSources, '数据与出处');
+    expect(zh.adjustable, '可调参数');
+    expect(zh.lockedParameters, '已锁定');
+    expect(zh.filmParameters, '胶片参数');
+    expect(zh.paperParameters, '相纸参数');
+    expect(zh.controlName('contrast'), '对比度');
+    expect(zh.controlName('black'), '黑位');
+    expect(zh.field('print'), '冲印');
     expect(zh.departedMeasured, '偏离实测数据');
-    expect(zh.recordLockedNoControl, '文件未提供可调项');
   });
 
   testWidgets('the panel page reports a move before it commits it', (

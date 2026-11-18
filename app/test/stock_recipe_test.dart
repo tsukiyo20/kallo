@@ -270,6 +270,68 @@ void main() {
     );
   });
 
+  test('a print carries the film\'s recipe and the paper\'s together', () async {
+    final Directory support = Directory.systemTemp.createTempSync(
+      'kallo-support-',
+    );
+    addTearDown(() {
+      Settings.useDirectory(null);
+      StockRecipes.reset();
+      support.deleteSync(recursive: true);
+    });
+    Settings.useDirectory(support);
+    StockRecipes.reset();
+    await StockRecipes.ensureLoaded();
+
+    final Stock film = _stock();
+    const Stock paper = Stock(
+      id: 'endura_premier',
+      short: 'ENDURA PREMIER',
+      label: 'KODAK PROFESSIONAL ENDURA Premier Paper',
+      emulsion: PaperEmulsion.colour,
+      stockDigest: 'sha256:70d4',
+    );
+    final Measured print = Measured(
+      field: 'print',
+      claim: 'placeholder',
+      detail: '',
+      state: 'placeholder',
+      grade: 0,
+      source: '',
+      locked: false,
+      appliesTo: 'paper',
+      controls: const <Control>[
+        Control(name: 'contrast', value: 1, min: 0.5, max: 2),
+      ],
+    );
+    final Catalogue catalogue = Catalogue(
+      films: <Stock>[film],
+      papers: const <Stock>[paper],
+      model: <Measured>[print],
+    );
+
+    await StockRecipes.save(_recipe());
+    await StockRecipes.save(
+      const StockRecipe(
+        stock: 'endura_premier',
+        stockDigest: 'sha256:70d4',
+        model: <String, RecipeOverride>{
+          'print.contrast': RecipeOverride(value: 1.25, against: 'placeholder'),
+        },
+      ),
+    );
+    await StockRecipes.ensureLoaded();
+
+    final Tuning tuning = StockRecipes.tuningForMaterials(
+      catalogue: catalogue,
+      filmId: 'kodak_portra_400',
+      paperId: 'endura_premier',
+    );
+    expect(tuning.grainStrength, 0.6);
+    expect(tuning.printContrast, 1.25);
+    expect(tuning.isIdentity, isFalse);
+  });
+
   test('the app remembers a recipe in the support folder', () async {
     final Directory support = Directory.systemTemp.createTempSync(
       'kallo-support-',

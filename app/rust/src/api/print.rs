@@ -50,7 +50,7 @@ pub struct PrintJob {
     /// The scalars a stock recipe moves, in the order of [`Tuning::KEYS`].
     ///
     /// Empty is the file's own numbers, which is the render the app made
-    /// before a recipe existed. Eight values are the eight controls; anything
+    /// before a recipe existed. A full list is one value per control; anything
     /// else is a programming mistake and is refused rather than guessed at.
     pub tuning: Vec<f64>,
     /// Render on the device.
@@ -179,8 +179,8 @@ pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), 
 /// The scalars a stock recipe moves, from the bridge's list.
 ///
 /// Empty is the identity: the print is the file's own numbers, which is the
-/// render the app made before a recipe existed. Eight values are the eight
-/// controls in [`Tuning::KEYS`] order. Any other length, or a value that is not
+/// render the app made before a recipe existed. A full list is one value per
+/// control in [`Tuning::KEYS`] order. Any other length, or a value that is not
 /// a finite number, is refused rather than applied to the wrong control.
 pub(crate) fn tuning_from(values: &[f64]) -> Result<Tuning, String> {
     if values.is_empty() {
@@ -188,8 +188,9 @@ pub(crate) fn tuning_from(values: &[f64]) -> Result<Tuning, String> {
     }
     if values.len() != Tuning::KEYS.len() {
         return Err(format!(
-            "tuning has {} values; expected eight, in the order of `Tuning::KEYS`",
-            values.len()
+            "tuning has {} values; expected {}, in the order of `Tuning::KEYS`",
+            values.len(),
+            Tuning::KEYS.len()
         ));
     }
     let mut tuning = Tuning::default();
@@ -214,26 +215,28 @@ mod tests {
     }
 
     #[test]
-    fn eight_values_map_in_the_model_key_order() {
+    fn every_control_maps_in_the_model_key_order() {
         // The bridge takes a list, so the order is the contract the app's
         // `Tuning.toList` writes and this reader has to keep.
-        let values: Vec<f64> = (0..8).map(|index| 0.25 + index as f64).collect();
-        let tuning = tuning_from(&values).expect("eight values");
+        let values: Vec<f64> = (0..Tuning::KEYS.len())
+            .map(|index| 0.25 + index as f64)
+            .collect();
+        let tuning = tuning_from(&values).expect("one value per key");
         for (index, key) in Tuning::KEYS.into_iter().enumerate() {
             assert_eq!(tuning.get(key), Some(values[index]), "{key}");
         }
     }
 
     #[test]
-    fn a_list_that_is_not_eight_is_refused() {
+    fn a_list_that_is_not_one_per_control_is_refused() {
         assert!(tuning_from(&[1.0]).is_err());
-        assert!(tuning_from(&[1.0; 7]).is_err());
-        assert!(tuning_from(&[1.0; 9]).is_err());
+        assert!(tuning_from(&vec![1.0; Tuning::KEYS.len() - 1]).is_err());
+        assert!(tuning_from(&vec![1.0; Tuning::KEYS.len() + 1]).is_err());
     }
 
     #[test]
     fn a_value_that_is_not_a_number_is_refused() {
-        assert!(tuning_from(&[f64::NAN; 8]).is_err());
-        assert!(tuning_from(&[f64::INFINITY; 8]).is_err());
+        assert!(tuning_from(&vec![f64::NAN; Tuning::KEYS.len()]).is_err());
+        assert!(tuning_from(&vec![f64::INFINITY; Tuning::KEYS.len()]).is_err());
     }
 }
