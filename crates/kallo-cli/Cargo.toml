@@ -28,9 +28,9 @@ default = ["gpu", "raw"]
 # largest single speed-up on the table. It drags wgpu and about two hundred
 # crates into the build, which is the price of that.
 gpu = ["dep:kallo-gpu"]
-# Camera raw decoding, through `kallo-raw` and FlashRaw. On by default: the
-# decoder is MIT/Apache-2.0, and a photographer who is handed a film simulator
-# will point it at a raw. Build without default features for a binary that only
+# Camera raw decoding, through `kallo-raw` and FlashRaw, a third-party crate
+# under a permissive licence. On by default: a photographer who is handed a
+# film simulator will point it at a raw. Build without default features for a binary that only
 # reads ordinary images.
 raw = ["dep:kallo-raw"]
 

@@ -23,6 +23,8 @@ ignore = [
 ]
 
 [licenses]
+# The licences a *dependency* may carry. Kallo's own licence is
+# GPL-3.0-or-later (see LICENSE); nothing in this list licenses Kallo.
 # Permissive only. If a dependency needs an addition, add it here with a
 # comment explaining why, in the same commit that adds the dependency.
 allow = [

@@ -33,4 +33,4 @@ Then update the hashes above, and keep the two licence files.
 `LICENSE-flutter-agent-plugins` (BSD-3-Clause, The Flutter Authors) and
 `LICENSE-dart-lang-skills` (BSD-3-Clause, the Dart project authors) cover these
 files and are retained as their terms require. The rest of this repository is
-MIT or Apache-2.0.
+GPL-3.0-or-later; see [`LICENSE`](../../LICENSE).

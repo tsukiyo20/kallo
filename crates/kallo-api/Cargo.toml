@@ -15,7 +15,8 @@ publish.workspace = true
 default = ["gpu", "raw"]
 # Render on the device when there is one. The CLI's report names the backend.
 gpu = ["dep:kallo-gpu"]
-# Read camera raws. The decoder is MIT/Apache-2.0, so this is a default.
+# Read camera raws. The decoder is a permissive third-party crate, so this
+# is a default.
 raw = ["dep:kallo-raw"]
 
 [dependencies]
