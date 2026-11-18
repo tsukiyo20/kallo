@@ -473,4 +473,67 @@ void main() {
     await _pump(tester, StockRecordSheet(stock: _stock(), model: _model));
     expect(find.byKey(const Key('record-done')), findsOneWidget);
   });
+
+  test('the record names the evidence in its own words', () {
+    const KalloStrings zh = KalloStrings(true);
+    // The catalogue's four words, as the record says them: the sheet's own
+    // vocabulary, not a sentence about borrowing and measuring.
+    expect(zh.claim('measured'), '实测');
+    expect(zh.claim('estimate'), '估算');
+    expect(zh.claim('borrowed'), '借用');
+    expect(zh.claim('placeholder'), '占位');
+    expect(zh.claim('none'), '无');
+    expect(zh.measuredAndBorrowed, '实测与借用');
+    expect(zh.departedMeasured, '偏离实测数据');
+    expect(zh.recordLockedNoControl, '锁定 · 文件未提供可调项');
+  });
+
+  testWidgets('the panel page reports a move before it commits it', (
+    WidgetTester tester,
+  ) async {
+    final List<StockRecipe?> moving = <StockRecipe?>[];
+    final List<StockRecipe?> committed = <StockRecipe?>[];
+    await _pump(
+      tester,
+      StockRecordBody(
+        stock: _stock(),
+        model: _model,
+        onChanged: moving.add,
+        onRecipe: (StockRecipe? recipe) async => committed.add(recipe),
+      ),
+    );
+
+    await tester.drag(
+      find.byKey(const Key('record-slider-grain.strength')),
+      const Offset(120, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(moving, isNotEmpty, reason: 'the bench draws the move in hand');
+    expect(committed, isNotEmpty, reason: 'the document is written at the end');
+    expect(moving.last!.overrides['grain.strength']?.value, greaterThan(1));
+    expect(committed.last, moving.last);
+  });
+
+  testWidgets('the panel page has no Done of its own', (
+    WidgetTester tester,
+  ) async {
+    await _pump(
+      tester,
+      StockRecordBody(
+        stock: _stock(),
+        model: _model,
+        recipe: StockRecipe(
+          stock: 'kodak_portra_400',
+          stockDigest: 'sha256:6c6f',
+          overrides: <String, RecipeOverride>{
+            'grain.strength': const RecipeOverride(value: 2),
+          },
+        ),
+        showDone: false,
+      ),
+    );
+    expect(find.byKey(const Key('record-done')), findsNothing);
+    expect(find.byKey(const Key('record-reset-all')), findsOneWidget);
+  });
 }

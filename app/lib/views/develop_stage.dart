@@ -151,6 +151,12 @@ class _DevelopStageState extends State<DevelopStage> {
   String? _benchKey;
   final Map<double, GlobalKey> _stripKeys = <double, GlobalKey>{};
 
+  /// Whether the instrument panel is the stock's record instead of the
+  /// curves. The record is a page of the panel, not a sheet over the bench:
+  /// the print stays beside the controls that move it.
+  bool _recordOpen = false;
+  Stock? _recordStock;
+
   @override
   void initState() {
     super.initState();
@@ -213,6 +219,8 @@ class _DevelopStageState extends State<DevelopStage> {
       _curves.clear();
       _chartCache.clear();
       _compareOn = false;
+      _recordOpen = false;
+      _recordStock = null;
       _minutes = widget.strip.latest?.minutes ?? 9;
       _showPrint(_minutes);
       _openBench();
@@ -228,6 +236,8 @@ class _DevelopStageState extends State<DevelopStage> {
       _chart = null;
       _curves.clear();
       _chartCache.clear();
+      _recordOpen = false;
+      _recordStock = null;
       final Future<void>? materials = _previewBench?.setMaterials(
         film: widget.strip.stockId,
         paper: widget.strip.paperId ?? Stocks.paper,
@@ -534,33 +544,93 @@ class _DevelopStageState extends State<DevelopStage> {
   /// written beside the stock as a recipe, and the next print — and the bench's
   /// preview of it — is the one it applies to. A print already on the strip is
   /// a sheet; it does not change.
+  ///
+  /// On a window the record is a page of the instrument panel, so the print
+  /// stays beside the controls that move it. A phone has no panel to put it in:
+  /// there the same record is a sheet over the bench.
   Future<void> _openRecord(Stock stock) async {
     await StockRecipes.ensureLoaded();
     if (!mounted) {
       return;
     }
-    final Tuning before = _tuningFor(widget.strip);
-    await showStockRecordSheet(
-      context,
-      stock: stock,
-      model: widget.catalogue.model,
-      recipe: StockRecipes.of(stock.id),
-      onRecipe: (StockRecipe? recipe) async {
-        if (recipe == null) {
-          await StockRecipes.remove(stock.id);
-        } else {
-          await StockRecipes.save(recipe);
-        }
-      },
-    );
-    if (!mounted) {
+    if (KalloLayout.isCompact(context)) {
+      final Tuning before = _tuningFor(widget.strip);
+      await showStockRecordSheet(
+        context,
+        stock: stock,
+        model: widget.catalogue.model,
+        recipe: StockRecipes.of(stock.id),
+        onRecipe: (StockRecipe? recipe) async {
+          if (recipe == null) {
+            await StockRecipes.remove(stock.id);
+          } else {
+            await StockRecipes.save(recipe);
+          }
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      if (_tuningFor(widget.strip) != before) {
+        _schedule();
+      }
       return;
     }
-    // The recipe is a document beside the stock, not a bench state: the bench
-    // reads it again when the record closes, so the easel shows the print this
-    // departure would make instead of the print the last one did.
-    if (_tuningFor(widget.strip) != before) {
-      _schedule();
+    // The shelf goes away under the panel: the record is about the stock, and
+    // the print beside it is what a move changes.
+    setState(() {
+      _cardOpen = false;
+      _recordOpen = true;
+      _recordStock = stock;
+    });
+  }
+
+  /// Close the record and give the panel back to the curves.
+  void _closeRecord() {
+    if (!_recordOpen) {
+      return;
+    }
+    setState(() {
+      _recordOpen = false;
+      _recordStock = null;
+    });
+  }
+
+  /// A control is moving: the bench draws with the recipe as it stands.
+  ///
+  /// The recipe is a document beside the stock, but the bench reads it from
+  /// memory while the slider is in hand: the print under the pointer is the
+  /// move, and the file is written when the move ends.
+  void _recordChanged(StockRecipe? recipe) {
+    final Stock? stock = _recordStock;
+    if (stock == null) {
+      return;
+    }
+    StockRecipes.stage(recipe, stockId: stock.id);
+    _schedule();
+  }
+
+  /// A move has ended: keep the recipe as the document beside the stock.
+  Future<void> _recordCommitted(StockRecipe? recipe) async {
+    final Stock? stock = _recordStock;
+    if (stock == null) {
+      return;
+    }
+    if (recipe == null) {
+      await StockRecipes.remove(stock.id);
+    } else {
+      await StockRecipes.save(recipe);
+    }
+  }
+
+  /// Escape steps back one layer: the record, then the shelf, then the wipe.
+  void _escape() {
+    if (_recordOpen) {
+      _closeRecord();
+    } else if (_cardOpen) {
+      _closeCard();
+    } else if (_compareOn) {
+      _toggleCompare();
     }
   }
 
@@ -940,10 +1010,7 @@ class _DevelopStageState extends State<DevelopStage> {
     }
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        if (_cardOpen)
-          const SingleActivator(LogicalKeyboardKey.escape): _closeCard,
-        if (!_cardOpen && _compareOn)
-          const SingleActivator(LogicalKeyboardKey.escape): _toggleCompare,
+        const SingleActivator(LogicalKeyboardKey.escape): _escape,
       },
       child: Focus(
         autofocus: true,
@@ -1901,178 +1968,326 @@ class _DevelopStageState extends State<DevelopStage> {
   }
 
   Widget _panel(KalloColors colors, KalloStrings s) {
-    final FilmChart? chart = _currentChart;
-    final FilmCurve? curve = _currentCurve;
-    final TestPrint? exact = _printAt(_minutes);
-    final double? first = widget.strip.balanceFrom;
+    final bool record = _recordOpen && _recordStock != null;
     return DecoratedBox(
       decoration: BoxDecoration(color: colors.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          if (record) ...<Widget>[
+            _recordHeader(colors, s),
+            Container(height: 1, color: colors.hairline),
+          ],
           Expanded(
             child: SingleChildScrollView(
               // Stacked under the bench on a phone, the panel no longer sits
               // under the floating capsule; its text starts at its own edge.
               padding: EdgeInsets.fromLTRB(
                 20,
-                (MediaQuery.sizeOf(context).width < 700 ? 0 : widget.topInset) +
-                    18,
+                record
+                    ? 14
+                    : (MediaQuery.sizeOf(context).width < 700
+                              ? 0
+                              : widget.topInset) +
+                          18,
                 20,
                 12,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  KalloStepper(
-                    label: '${s.temperature}  ·  °C',
-                    value: widget.strip.tempC.toStringAsFixed(1),
-                    width: 264,
-                    onMinus: _busy || widget.strip.tempC <= _tempLow
-                        ? null
-                        : () => unawaited(_changeTemperature(-_tempStep)),
-                    onPlus: _busy || widget.strip.tempC >= _tempHigh
-                        ? null
-                        : () => unawaited(_changeTemperature(_tempStep)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    s.temperatureNote,
-                    style: KalloType.small.copyWith(color: colors.inkFaint),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(height: 1, color: colors.hairline),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        s.filmCurve,
-                        style: KalloType.caption.copyWith(
-                          color: colors.inkFaint,
-                          letterSpacing: 0.7,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'log E →',
-                        style: KalloType.folio.copyWith(color: colors.inkFaint),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_series.isEmpty)
-                    Text(
-                      s.noCurve,
-                      style: KalloType.small.copyWith(color: colors.inkFaint),
-                    )
-                  else
-                    KalloCurves(
-                      series: _series,
-                      selected: _selectedCurve,
-                      xs: _xs,
-                      height: 104,
-                    ),
-                  if (curve != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    _Fact(label: s.gamma, value: _triple(curve.gamma)),
-                    _Fact(label: s.dMax, value: _triple(curve.dMax)),
-                  ] else if (chart != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    _Fact(label: s.gamma, value: _triple(chart.gamma)),
-                    _Fact(label: s.dMax, value: _triple(chart.dMax)),
-                  ],
-                  const SizedBox(height: 18),
-                  Container(height: 1, color: colors.hairline),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        s.paperCurve,
-                        style: KalloType.caption.copyWith(
-                          color: colors.inkFaint,
-                          letterSpacing: 0.7,
-                        ),
-                      ),
-                      const SizedBox(width: KalloSpace.step2),
-                      Expanded(
-                        child: Text(
-                          stockDisplayName(
-                            _paper?.short ?? widget.strip.paperLabel,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.right,
-                          style: KalloType.folio.copyWith(
-                            color: colors.inkFaint,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  if (_paper != null)
-                    KalloCurves(
-                      series: <List<double>>[_paper!.density],
-                      xs: _paper!.logE,
-                      height: 54,
-                    )
-                  else
-                    Text(
-                      s.noCurve,
-                      style: KalloType.small.copyWith(color: colors.inkFaint),
-                    ),
-                ],
-              ),
+              child: record ? _recordPage(colors, s) : _panelBody(colors, s),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: colors.hairline)),
-            ),
+          _panelFooter(colors, s),
+        ],
+      ),
+    );
+  }
+
+  /// The record, as the panel's own page: the stock's fields and the controls
+  /// a recipe may move. The bench stays beside them, so a move is a print.
+  Widget _recordPage(KalloColors colors, KalloStrings s) {
+    final Stock stock = _recordStock!;
+    return StockRecordBody(
+      key: const Key('record-panel-body'),
+      stock: stock,
+      model: widget.catalogue.model,
+      recipe: StockRecipes.of(stock.id),
+      onChanged: _recordChanged,
+      onRecipe: _recordCommitted,
+      showDone: false,
+    );
+  }
+
+  /// The record's own header: which stock, and the way back to the curves.
+  Widget _recordHeader(KalloColors colors, KalloStrings s) {
+    final Stock? stock = _recordStock;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        (MediaQuery.sizeOf(context).width < 700 ? 0 : widget.topInset) + 18,
+        12,
+        10,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  first == null
-                      ? s.testStripNote
-                      : s.exposureOf(darkroomClock(first)),
-                  style: KalloType.small.copyWith(color: colors.inkFaint),
-                ),
-                const SizedBox(height: KalloSpace.step2),
-                KalloButton(
-                  key: const Key('develop-action'),
-                  label: _busy
-                      ? s.developing
-                      : '${exact == null ? s.developStep : s.redevelop}  '
-                            '${darkroomClock(_minutes)}',
-                  onTap: _busy ? null : _develop,
-                  filled: true,
-                  height: 36,
-                  progress: _progress,
-                ),
-                if (exact != null) ...<Widget>[
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.center,
-                    child: _Quiet(
-                      label: s.removePrint,
-                      onTap: _busy ? null : _remove,
-                    ),
+                  s.filmRecord,
+                  style: KalloType.caption.copyWith(
+                    color: colors.inkFaint,
+                    letterSpacing: 1.4,
                   ),
-                ],
-                if (_error != null) ...<Widget>[
-                  const SizedBox(height: KalloSpace.step2),
-                  Text(
-                    _error!,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: KalloType.small.copyWith(color: colors.accent),
-                  ),
-                ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  stock?.displayName ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: KalloType.title.copyWith(color: colors.ink),
+                ),
               ],
             ),
           ),
+          const SizedBox(width: KalloSpace.step2),
+          _Quiet(label: s.close, onTap: _closeRecord),
+        ],
+      ),
+    );
+  }
+
+  /// The way into the stock's record, always in the panel.
+  Widget _recordEntry(KalloColors colors, KalloStrings s) {
+    final Stock? film = widget.catalogue.film(widget.strip.stockId);
+    if (film == null) {
+      return const SizedBox.shrink();
+    }
+    final StockRecipe? recipe = StockRecipes.of(film.id);
+    final bool stale = recipe?.isStaleFor(film) ?? false;
+    final int moved = recipe == null
+        ? 0
+        : recipe.overrides.length + recipe.model.length;
+    final bool departs =
+        recipe != null &&
+        <RecipeOverride>[
+          ...recipe.overrides.values,
+          ...recipe.model.values,
+        ].any((RecipeOverride it) => it.against == 'measured');
+    final String note = stale
+        ? s.recipeStale
+        : moved == 0
+        ? s.recordIdle
+        : '${s.recordChanges(moved)}'
+              "${departs ? '  ·  ${s.departedMeasured}' : ''}";
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        key: const Key('record-entry'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => unawaited(_openRecord(film)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Text(
+                  s.filmRecord,
+                  style: KalloType.caption.copyWith(
+                    color: colors.inkFaint,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  s.recordOpen,
+                  style: KalloType.small.copyWith(
+                    color: colors.accent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                KalloGlyphView(
+                  KalloGlyph.chevronRight,
+                  size: 9,
+                  color: colors.accent,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              film.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KalloType.title.copyWith(color: colors.ink),
+            ),
+            const SizedBox(height: 3),
+            Text(note, style: KalloType.small.copyWith(color: colors.inkFaint)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The panel's usual page: the developer's temperature and the two curves.
+  Widget _panelBody(KalloColors colors, KalloStrings s) {
+    final FilmChart? chart = _currentChart;
+    final FilmCurve? curve = _currentCurve;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _recordEntry(colors, s),
+        const SizedBox(height: 16),
+        Container(height: 1, color: colors.hairline),
+        const SizedBox(height: 14),
+        KalloStepper(
+          label: '${s.temperature}  ·  °C',
+          value: widget.strip.tempC.toStringAsFixed(1),
+          width: 264,
+          onMinus: _busy || widget.strip.tempC <= _tempLow
+              ? null
+              : () => unawaited(_changeTemperature(-_tempStep)),
+          onPlus: _busy || widget.strip.tempC >= _tempHigh
+              ? null
+              : () => unawaited(_changeTemperature(_tempStep)),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          s.temperatureNote,
+          style: KalloType.small.copyWith(color: colors.inkFaint),
+        ),
+        const SizedBox(height: 16),
+        Container(height: 1, color: colors.hairline),
+        const SizedBox(height: 14),
+        Row(
+          children: <Widget>[
+            Text(
+              s.filmCurve,
+              style: KalloType.caption.copyWith(
+                color: colors.inkFaint,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'log E →',
+              style: KalloType.folio.copyWith(color: colors.inkFaint),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_series.isEmpty)
+          Text(
+            s.noCurve,
+            style: KalloType.small.copyWith(color: colors.inkFaint),
+          )
+        else
+          KalloCurves(
+            series: _series,
+            selected: _selectedCurve,
+            xs: _xs,
+            height: 104,
+          ),
+        if (curve != null) ...<Widget>[
+          const SizedBox(height: 8),
+          _Fact(label: s.gamma, value: _triple(curve.gamma)),
+          _Fact(label: s.dMax, value: _triple(curve.dMax)),
+        ] else if (chart != null) ...<Widget>[
+          const SizedBox(height: 8),
+          _Fact(label: s.gamma, value: _triple(chart.gamma)),
+          _Fact(label: s.dMax, value: _triple(chart.dMax)),
+        ],
+        const SizedBox(height: 18),
+        Container(height: 1, color: colors.hairline),
+        const SizedBox(height: 14),
+        Row(
+          children: <Widget>[
+            Text(
+              s.paperCurve,
+              style: KalloType.caption.copyWith(
+                color: colors.inkFaint,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const SizedBox(width: KalloSpace.step2),
+            Expanded(
+              child: Text(
+                stockDisplayName(_paper?.short ?? widget.strip.paperLabel),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: KalloType.folio.copyWith(color: colors.inkFaint),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (_paper != null)
+          KalloCurves(
+            series: <List<double>>[_paper!.density],
+            xs: _paper!.logE,
+            height: 54,
+          )
+        else
+          Text(
+            s.noCurve,
+            style: KalloType.small.copyWith(color: colors.inkFaint),
+          ),
+      ],
+    );
+  }
+
+  /// The one action that belongs to the bench: develop this time at this
+  /// recipe.
+  Widget _panelFooter(KalloColors colors, KalloStrings s) {
+    final TestPrint? exact = _printAt(_minutes);
+    final double? first = widget.strip.balanceFrom;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.hairline)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            first == null
+                ? s.testStripNote
+                : s.exposureOf(darkroomClock(first)),
+            style: KalloType.small.copyWith(color: colors.inkFaint),
+          ),
+          const SizedBox(height: KalloSpace.step2),
+          KalloButton(
+            key: const Key('develop-action'),
+            label: _busy
+                ? s.developing
+                : '${exact == null ? s.developStep : s.redevelop}  '
+                      '${darkroomClock(_minutes)}',
+            onTap: _busy ? null : _develop,
+            filled: true,
+            height: 36,
+            progress: _progress,
+          ),
+          if (exact != null) ...<Widget>[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.center,
+              child: _Quiet(
+                label: s.removePrint,
+                onTap: _busy ? null : _remove,
+              ),
+            ),
+          ],
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: KalloSpace.step2),
+            Text(
+              _error!,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: KalloType.small.copyWith(color: colors.accent),
+            ),
+          ],
         ],
       ),
     );

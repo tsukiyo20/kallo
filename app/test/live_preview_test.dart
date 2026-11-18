@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/design/scope.dart';
@@ -247,38 +246,32 @@ void main() {
     await _settlePreview(tester);
     expect(model.session!.tunings.last.grainStrength, 0.5);
 
-    // The shelf lies on the bench, and the chosen stock's record opens.
-    await tester.tap(find.byKey(const Key('materials-film')));
+    // The record has a page in the instrument panel, one tap from the bench.
+    expect(find.byKey(const Key('record-entry')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('record-entry')));
     await tester.pumpAndSettle();
-    final TestGesture pointer = await tester.createGesture(
-      kind: PointerDeviceKind.mouse,
-    );
-    await pointer.addPointer(location: Offset.zero);
-    addTearDown(pointer.removePointer);
-    await pointer.moveTo(
-      tester.getCenter(find.byKey(const Key('film-vision3_500t'))),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('记录'));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('record-panel-body')), findsOneWidget);
 
-    // Moving a control writes the recipe; closing the record is what puts the
-    // new print on the easel.
+    // The easel stays beside the controls: moving one prints again without
+    // closing the record.
+    final int before = model.session!.tunings.length;
     await tester.drag(
       find.byKey(const Key('record-slider-grain.strength')),
       const Offset(120, 0),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('record-done')));
-    await tester.pumpAndSettle();
     // The bench waits a moment before rendering the next frame.
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(
       model.opened,
       hasLength(1),
       reason: 'the photograph was not read again for a departure',
+    );
+    expect(
+      model.session!.tunings.length,
+      greaterThan(before),
+      reason: 'the easel printed while the control was still moving',
     );
     final Tuning applied = model.session!.tunings.last;
     expect(
@@ -286,5 +279,11 @@ void main() {
       greaterThan(0.5),
       reason: 'the easel printed the departure the record wrote',
     );
+    // The panel closes from its own header, and the page the record replaced
+    // comes back.
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('record-panel-body')), findsNothing);
+    expect(find.byKey(const Key('record-entry')), findsOneWidget);
   });
 }

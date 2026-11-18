@@ -65,21 +65,143 @@ Future<void> showStockRecordSheet(
   );
 }
 
-/// The record of one stock: its label, its note, where its numbers came from,
-/// the fields it admits to, and the controls it exposes.
+/// The record of one stock, as a sheet over the window.
 ///
-/// The controls are the file's, not the app's: every interval and every default
-/// comes from the catalogue. The identity is the file's own rendering, which is
-/// why a control at its default changes nothing; a departure is kept in a stock
-/// recipe beside the file and is applied only while the file it was written
-/// against is still the file on disk.
-class StockRecordSheet extends StatefulWidget {
+/// The sheet is the same body the inspector shows, in a card: a phone has no
+/// side panel, so the record comes over the bench there. The panel is the
+/// desktop's way in and reads the body directly.
+class StockRecordSheet extends StatelessWidget {
   const StockRecordSheet({
     super.key,
     required this.stock,
     this.model = const <Measured>[],
     this.recipe,
     this.onRecipe,
+  });
+
+  final Stock stock;
+
+  /// The catalogue's own placeholders: halation, the couplers, the interimage
+  /// strength.
+  final List<Measured> model;
+
+  /// The departures already written beside this stock, when there are any.
+  final StockRecipe? recipe;
+
+  /// Called when the recipe changes, with the document to keep. Null means the
+  /// stock is back at the file's values and its recipe should be removed.
+  final Future<void> Function(StockRecipe? recipe)? onRecipe;
+
+  @override
+  Widget build(BuildContext context) {
+    final KalloColors colors = KalloScope.colorsOf(context);
+    final KalloStrings s = KalloStrings.of(context);
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(KalloSpace.step5),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
+            child: KalloShadowBox(
+              kind: KalloShadowKind.sheet,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(KalloRadius.sheet),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    _header(context, colors, s),
+                    Container(height: 1, color: colors.hairline),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(
+                          KalloSpace.step5 + 2,
+                          KalloSpace.step4,
+                          KalloSpace.step5 + 2,
+                          KalloSpace.step5,
+                        ),
+                        child: StockRecordBody(
+                          stock: stock,
+                          model: model,
+                          recipe: recipe,
+                          onRecipe: onRecipe,
+                          onDone: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context, KalloColors colors, KalloStrings s) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        KalloSpace.step5 + 2,
+        KalloSpace.step4,
+        KalloSpace.step4,
+        KalloSpace.step4,
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              stock.displayName,
+              style: KalloType.display.copyWith(color: colors.ink),
+            ),
+          ),
+          GestureDetector(
+            key: const Key('record-close'),
+            onTap: () => Navigator.of(context).pop(),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(KalloSpace.step2),
+              child: Text(
+                s.close,
+                style: KalloType.caption.copyWith(
+                  color: colors.inkMuted,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The body of a stock's record: the fields it admits to, and the controls it
+/// exposes.
+///
+/// The controls are the file's, not the app's: every interval and every default
+/// comes from the catalogue. The identity is the file's own rendering, which is
+/// why a control at its default changes nothing; a departure is kept in a stock
+/// recipe beside the file and is applied only while the file it was written
+/// against is still the file on disk.
+///
+/// The same body is a sheet over the window and the instrument panel's own
+/// page: the sheet commits every change as it happens, and the panel also
+/// reports a move while the slider is still in hand, so the bench beside it can
+/// draw the print the move would make.
+class StockRecordBody extends StatefulWidget {
+  const StockRecordBody({
+    super.key,
+    required this.stock,
+    this.model = const <Measured>[],
+    this.recipe,
+    this.onChanged,
+    this.onRecipe,
+    this.showDone = true,
+    this.onDone,
   });
 
   final Stock stock;
@@ -92,15 +214,26 @@ class StockRecordSheet extends StatefulWidget {
   /// The departures already written beside this stock, when there are any.
   final StockRecipe? recipe;
 
-  /// Called when the recipe changes, with the document to keep. Null means the
-  /// stock is back at the file's values and its recipe should be removed.
+  /// Called on every move, before the move is committed: the bench draws with
+  /// the recipe as it stands. Null where there is no bench beside the record.
+  final void Function(StockRecipe? recipe)? onChanged;
+
+  /// Called when the recipe is final, with the document to keep. Null means
+  /// the stock is back at the file's values and its recipe should be removed.
   final Future<void> Function(StockRecipe? recipe)? onRecipe;
 
+  /// Whether the body ends with its own Done action. A sheet does; the
+  /// inspector closes the page from its own header.
+  final bool showDone;
+
+  /// What the Done action does.
+  final VoidCallback? onDone;
+
   @override
-  State<StockRecordSheet> createState() => _StockRecordSheetState();
+  State<StockRecordBody> createState() => _StockRecordBodyState();
 }
 
-class _StockRecordSheetState extends State<StockRecordSheet> {
+class _StockRecordBodyState extends State<StockRecordBody> {
   StockRecipe? _recipe;
 
   /// Measured fields a person explicitly unlocked this session. The unlock is
@@ -148,11 +281,7 @@ class _StockRecordSheetState extends State<StockRecordSheet> {
   String _fieldId(Measured field, {required bool inModel}) =>
       '${inModel ? 'model' : 'stock'}:${field.field}';
 
-  void _remember(StockRecipe recipe) {
-    final StockRecipe? next = recipe.isEmpty ? null : recipe;
-    setState(() => _recipe = next);
-    unawaited(widget.onRecipe?.call(next) ?? Future<void>.value());
-  }
+  void _remember(StockRecipe recipe) => _keep(recipe, commit: true);
 
   void _move(
     Measured field,
@@ -165,7 +294,19 @@ class _StockRecordSheetState extends State<StockRecordSheet> {
       RecipeOverride(value: value, against: field.verdict),
       inModel: inModel,
     );
+    _keep(next, commit: false);
+  }
+
+  /// Keep a change. A slider still in hand is reported but not written: the
+  /// bench beside the record draws with it, and the document waits for the
+  /// move to end.
+  void _keep(StockRecipe recipe, {required bool commit}) {
+    final StockRecipe? next = recipe.isEmpty ? null : recipe;
     setState(() => _recipe = next);
+    widget.onChanged?.call(next);
+    if (commit) {
+      unawaited(widget.onRecipe?.call(next) ?? Future<void>.value());
+    }
   }
 
   void _commit() =>
@@ -237,95 +378,22 @@ class _StockRecordSheetState extends State<StockRecordSheet> {
   Widget build(BuildContext context) {
     final KalloColors colors = KalloScope.colorsOf(context);
     final KalloStrings s = _s;
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(KalloSpace.step5),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
-            child: KalloShadowBox(
-              kind: KalloShadowKind.sheet,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(KalloRadius.sheet),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    _header(colors, s),
-                    Container(height: 1, color: colors.hairline),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(
-                          KalloSpace.step5 + 2,
-                          KalloSpace.step4,
-                          KalloSpace.step5 + 2,
-                          KalloSpace.step5,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            _about(colors, s),
-                            if (_stale) ...<Widget>[
-                              const SizedBox(height: KalloSpace.step4),
-                              _staleReview(colors, s),
-                            ],
-                            const SizedBox(height: KalloSpace.step5),
-                            _sectionLabel(colors, s.measuredAndBorrowed),
-                            for (final Measured field in widget.stock.measured)
-                              _field(colors, s, field, inModel: false),
-                            _modelSection(colors, s),
-                            const SizedBox(height: KalloSpace.step5),
-                            _footer(colors, s),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _header(KalloColors colors, KalloStrings s) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        KalloSpace.step5 + 2,
-        KalloSpace.step4,
-        KalloSpace.step4,
-        KalloSpace.step4,
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              widget.stock.displayName,
-              style: KalloType.display.copyWith(color: colors.ink),
-            ),
-          ),
-          GestureDetector(
-            key: const Key('record-close'),
-            onTap: () => Navigator.of(context).pop(),
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.all(KalloSpace.step2),
-              child: Text(
-                s.close,
-                style: KalloType.caption.copyWith(
-                  color: colors.inkMuted,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _about(colors, s),
+        if (_stale) ...<Widget>[
+          const SizedBox(height: KalloSpace.step4),
+          _staleReview(colors, s),
         ],
-      ),
+        const SizedBox(height: KalloSpace.step5),
+        _sectionLabel(colors, s.measuredAndBorrowed),
+        for (final Measured field in widget.stock.measured)
+          _field(colors, s, field, inModel: false),
+        _modelSection(colors, s),
+        const SizedBox(height: KalloSpace.step5),
+        _footer(colors, s),
+      ],
     );
   }
 
@@ -736,13 +804,14 @@ class _StockRecordSheetState extends State<StockRecordSheet> {
                 height: 30,
               ),
             const Spacer(),
-            KalloButton(
-              key: const Key('record-done'),
-              label: s.done,
-              onTap: () => Navigator.of(context).pop(),
-              filled: true,
-              height: 30,
-            ),
+            if (widget.showDone)
+              KalloButton(
+                key: const Key('record-done'),
+                label: s.done,
+                onTap: widget.onDone,
+                filled: true,
+                height: 30,
+              ),
           ],
         ),
         if (departed) ...<Widget>[

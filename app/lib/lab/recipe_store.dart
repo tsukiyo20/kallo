@@ -129,6 +129,16 @@ abstract final class StockRecipes {
 
   static StockRecipe? of(String stockId) => _recipes[stockId];
 
+  /// Remember a recipe in memory only, for a bench that is drawing while a
+  /// control is still in hand. [save] is what makes it a document on disk.
+  static void stage(StockRecipe? recipe, {required String stockId}) {
+    if (recipe == null || recipe.isEmpty) {
+      _recipes.remove(stockId);
+    } else {
+      _recipes[recipe.stock] = recipe;
+    }
+  }
+
   /// Remember a recipe and write it beside the stock it belongs to.
   static Future<void> save(StockRecipe recipe) async {
     _recipes[recipe.stock] = recipe;

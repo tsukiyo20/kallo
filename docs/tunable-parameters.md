@@ -272,14 +272,15 @@ report.
 
 The controls live on the stock's record, not on the bench: the shelf is still a
 shelf and the bench still holds one print, one time and one strip. The record is
-the sheet the `[measured]` table has always promised, opened from the stock in the
-shelf, and on a phone from the Details sheet.
+the sheet the `[measured]` table has always promised, and on a window it is a
+page of the instrument panel beside the print, one tap from the panel's own
+`FILM RECORD` line; a phone has no panel, so there it is a sheet over the bench.
 
-The bench's preview is a print, so it carries the recipe: a departure written on
-the record is on the easel when the record closes, and the frame is rendered
-again from the decoded photograph rather than read from the file. A print already
-on the test strip is a developed sheet and does not change; the next development
-is the recipe's.
+The bench's preview is a print, so it carries the recipe: the panel reports a
+control while it is still in hand, and the easel beside it renders that print
+from the decoded photograph rather than reading a file — a move and its picture
+are one gesture. A print already on the test strip is a developed sheet and does
+not change; the next development is the recipe's.
 
 Each control shows its name and current scalar with the physical default beside
 it (`grain, ×0.6; the file's 0.62 / 0.51 / 0.07 per µm²`), the grade as a badge
