@@ -253,6 +253,18 @@ void main() {
       isFalse,
       reason: 'the departures were part of the print',
     );
+
+    // The paper's recipe is the same path: contrast is a print control, and
+    // the same session prints it on the same negative.
+    await session.setTuning(
+      tuning: Tuning.identity.copyWith(printContrast: 1.4),
+    );
+    final ui.Image harder = await session.frame(minutes: 6);
+    final ByteData harderBytes = (await harder.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    ))!;
+    harder.dispose();
+    expect(_samePixels(plainBytes, harderBytes), isFalse);
   }, timeout: const Timeout(Duration(minutes: 5)));
 
   test('the print curve is drawn under the enlarger', () async {

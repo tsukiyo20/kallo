@@ -70,6 +70,41 @@ Stock _film() => const Stock(
   ],
 );
 
+/// The paper the strip is printed on, all of whose measurements are locked.
+const Stock _paper = Stock(
+  id: 'endura_premier',
+  short: 'ENDURA PREMIER',
+  label: 'KODAK PROFESSIONAL ENDURA Premier Paper, RA-4',
+  emulsion: PaperEmulsion.colour,
+  stockDigest: 'sha256:70d4',
+  measured: <Measured>[
+    Measured(
+      field: 'curve',
+      claim: 'measured',
+      detail: 'E-4070 page 4',
+      state: 'measured',
+      grade: 3,
+      source: 'E-4070 page 4',
+    ),
+  ],
+);
+
+/// The model's print controls, which open on the paper's record.
+const Measured _print = Measured(
+  field: 'print',
+  claim: 'placeholder',
+  detail: 'the darkroom\'s choices',
+  state: 'placeholder',
+  grade: 0,
+  source: 'the darkroom\'s choices',
+  locked: false,
+  appliesTo: 'paper',
+  controls: <Control>[
+    Control(name: 'contrast', value: 1, min: 0.5, max: 2),
+    Control(name: 'black', value: 1, min: 0.5, max: 1.5),
+  ],
+);
+
 final Catalogue _catalogue = Catalogue(films: <Stock>[_film()]);
 
 /// A one-pixel picture; the test is about which recipe is asked for, not about
@@ -247,8 +282,8 @@ void main() {
     expect(model.session!.tunings.last.grainStrength, 0.5);
 
     // The record has a page in the instrument panel, one tap from the bench.
-    expect(find.byKey(const Key('record-entry')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('record-entry')));
+    expect(find.byKey(const Key('film-record-entry')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('film-record-entry')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('record-panel-body')), findsOneWidget);
 
@@ -284,6 +319,71 @@ void main() {
     await tester.tap(find.text('关闭'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('record-panel-body')), findsNothing);
-    expect(find.byKey(const Key('record-entry')), findsOneWidget);
+    expect(find.byKey(const Key('film-record-entry')), findsOneWidget);
+  });
+
+  testWidgets('the paper\'s controls reach the easel beside the film\'s', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final Catalogue catalogue = Catalogue(
+      films: <Stock>[_film()],
+      papers: const <Stock>[_paper],
+      model: const <Measured>[_print],
+    );
+    final _Model model = _Model(card);
+    Model.useLinked(model);
+
+    await tester.pumpWidget(
+      _window(
+        DevelopStage(
+          strip: const TestStrip(
+            photo: '/photographs/uji.jpg',
+            paperId: 'endura_premier',
+          ),
+          catalogue: catalogue,
+          onChoosePhoto: () {},
+          onFilm: (Stock _) {},
+          onPaper: (Stock? _) {},
+          onTemperature: (double _) {},
+          onDevelop: (_, {onProgress}) async {},
+          onRemove: (_) async {},
+        ),
+      ),
+    );
+    await _settlePreview(tester);
+    // The film's recipe was written before the bench opened; the paper has none.
+    expect(model.session!.tunings.last.grainStrength, 0.5);
+    expect(model.session!.tunings.last.printContrast, 1.0);
+
+    // The panel offers the paper's record beside the film's.
+    expect(find.byKey(const Key('paper-record-entry')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('paper-record-entry')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('record-panel-body')), findsOneWidget);
+    expect(find.text('相纸参数'), findsOneWidget);
+
+    // The paper's measured curve is held; the print's contrast is a control.
+    expect(find.byKey(const Key('record-locked-curve')), findsOneWidget);
+    expect(
+      find.byKey(const Key('record-slider-print.contrast')),
+      findsOneWidget,
+    );
+    final int before = model.session!.tunings.length;
+    await tester.drag(
+      find.byKey(const Key('record-slider-print.contrast')),
+      const Offset(120, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(model.opened, hasLength(1));
+    expect(model.session!.tunings.length, greaterThan(before));
+    expect(model.session!.tunings.last.printContrast, greaterThan(1));
+    // The two documents are one print: the film's departure did not go away.
+    expect(model.session!.tunings.last.grainStrength, 0.5);
   });
 }

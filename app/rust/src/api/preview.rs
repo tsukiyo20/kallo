@@ -26,7 +26,7 @@ pub struct PreviewJob {
     pub spectral: bool,
     /// The scalars a stock recipe moves, in the order of `Tuning::KEYS`.
     ///
-    /// Empty is the file's own numbers; eight values are the eight controls.
+    /// Empty is the file's own numbers; a full list is one value per control.
     /// A preview is the print the model would make, so the recipe crosses the
     /// same way it does for a print.
     pub tuning: Vec<f64>,

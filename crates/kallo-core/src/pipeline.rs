@@ -217,6 +217,7 @@ impl RenderParams {
             channels,
             base_density: self.film.base_density,
             paper,
+            target_mid_reflectance: self.paper.target_mid_reflectance,
             print_shift,
             print,
             scan: self
@@ -303,6 +304,9 @@ pub struct PreparedRender {
     channels: [CharacteristicCurve; 3],
     base_density: [f64; 3],
     paper: CharacteristicCurve,
+    /// The print's mid-grey target, kept so a recipe that moves the paper can
+    /// move the enlarger's shift with it and keep the mid grey where it was.
+    target_mid_reflectance: f64,
     print_shift: [f64; 3],
     exposure_shift: f64,
     /// The live spectral model, when no table was baked.
@@ -349,6 +353,7 @@ impl PreparedRender {
     #[must_use]
     pub fn printed_like(mut self, reference: &Self) -> Self {
         self.paper = reference.paper;
+        self.target_mid_reflectance = reference.target_mid_reflectance;
         self.print_shift = reference.print_shift;
         self.print = reference.print.clone();
         self.scan = reference.scan.clone();
@@ -357,8 +362,9 @@ impl PreparedRender {
 
     /// Move the scalars a stock recipe may depart on.
     ///
-    /// The identity tuning returns `self` untouched, so a render with no recipe
-    /// is the same arithmetic it was before. A departure is not re-balanced:
+    /// The film's mask and dyes move here; the paper's contrast and black
+    /// level move alongside them. The identity tuning returns `self` untouched,
+    /// so a render with no recipe is the same arithmetic it was before. A departure is not re-balanced:
     /// the enlarger was set for the stock, and a print whose mask or dyes were
     /// moved after that is a print an operator would fix with a test strip, not
     /// one this model silently re-solves.
@@ -378,6 +384,32 @@ impl PreparedRender {
             };
             self.print = Some(print.with_dye_saturation(tuning.dye_saturation));
         }
+        self.with_paper(tuning)
+    }
+
+    /// The paper's two darkroom numbers: contrast and the black level.
+    ///
+    /// Both are departures from the paper's measured curve, so the enlarger's
+    /// shift moves with the curve: the balance keeps a mid grey at the paper's
+    /// target, and a harder print is a slope and not a new print that happens to
+    /// be balanced. The identity leaves the curve bit-identical.
+    fn with_paper(mut self, tuning: &crate::tuning::Tuning) -> Self {
+        if tuning.print_contrast == 1.0 && tuning.print_black == 1.0 {
+            return self;
+        }
+        let mut paper = self.paper;
+        if tuning.print_black != 1.0 {
+            let span = paper.span();
+            paper.d_max = paper.d_min + span * tuning.print_black;
+        }
+        if tuning.print_contrast != 1.0 {
+            paper.gamma *= tuning.print_contrast;
+        }
+        let target_density = -self.target_mid_reflectance.log10();
+        let before = self.paper.log_exposure_at(target_density);
+        let after = paper.log_exposure_at(target_density);
+        self.print_shift = self.print_shift.map(|shift| shift + after - before);
+        self.paper = paper;
         self
     }
 
@@ -1071,6 +1103,60 @@ mod tests {
         // print: the paper's curve stands between them, and it must not be
         // bypassed.
         assert!(darker[0] < solved[0] * 0.95);
+    }
+
+    /// The paper's contrast and black level are darkroom numbers: moving them
+    /// keeps the mid grey the enlarger was balanced on and moves the tones
+    /// around it.
+    #[test]
+    fn the_paper_tuning_keeps_its_mid_grey_and_moves_the_tones() {
+        let tuned = |contrast: f64, black: f64| {
+            let tuning = crate::tuning::Tuning {
+                print_contrast: contrast,
+                print_black: black,
+                ..Default::default()
+            };
+            RenderParams::default().prepare().with_tuning(&tuning)
+        };
+
+        let mid = [0.18, 0.18, 0.18];
+        let base = RenderParams::default().prepare().render_pixel(mid);
+        let harder = tuned(1.5, 1.0).render_pixel(mid);
+        for channel in 0..3 {
+            assert!(
+                (harder[channel] - base[channel]).abs() < 1e-9,
+                "channel {channel}: {harder:?} should stay at {base:?}"
+            );
+        }
+
+        // More contrast: the highlight brightens and the shadow darkens.
+        let highlight = [0.4, 0.4, 0.4];
+        let shadow = [0.08, 0.08, 0.08];
+        let plain_highlight = RenderParams::default().prepare().render_pixel(highlight);
+        let plain_shadow = RenderParams::default().prepare().render_pixel(shadow);
+        let hard_highlight = tuned(1.5, 1.0).render_pixel(highlight);
+        let hard_shadow = tuned(1.5, 1.0).render_pixel(shadow);
+        for channel in 0..3 {
+            assert!(
+                hard_highlight[channel] > plain_highlight[channel],
+                "channel {channel}: {hard_highlight:?} should be brighter than {plain_highlight:?}"
+            );
+            assert!(
+                hard_shadow[channel] < plain_shadow[channel],
+                "channel {channel}: {hard_shadow:?} should be darker than {plain_shadow:?}"
+            );
+        }
+
+        // A lower black level cannot print as deep a black.
+        let deep = [0.0025, 0.0025, 0.0025];
+        let plain_deep = RenderParams::default().prepare().render_pixel(deep);
+        let light_deep = tuned(1.0, 0.5).render_pixel(deep);
+        for channel in 0..3 {
+            assert!(
+                light_deep[channel] > plain_deep[channel],
+                "channel {channel}: {light_deep:?} should be lighter than {plain_deep:?}"
+            );
+        }
     }
 
     /// A colour pack is a spectrum in the light path, so it turns on the stage

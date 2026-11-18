@@ -62,8 +62,15 @@ const String _document = '''
   "model": [
     {"field": "halation", "claim": "placeholder", "detail": "typical",
      "state": "placeholder", "grade": 0, "source": "typical",
-     "locked": false, "advanced_unlock": false,
-     "controls": [{"name": "strength", "value": 1.0, "min": 0.0, "max": 2.0}]}
+     "applies_to": "film", "locked": false, "advanced_unlock": false,
+     "controls": [{"name": "strength", "value": 1.0, "min": 0.0, "max": 2.0}]},
+    {"field": "print", "claim": "placeholder", "detail": "the darkroom's choices",
+     "state": "placeholder", "grade": 0, "source": "the darkroom's choices",
+     "applies_to": "paper", "locked": false, "advanced_unlock": false,
+     "controls": [
+       {"name": "contrast", "value": 1.0, "min": 0.5, "max": 2.0},
+       {"name": "black", "value": 1.0, "min": 0.5, "max": 1.5}
+     ]}
   ]
 }
 ''';
@@ -102,8 +109,26 @@ void main() {
   });
 
   test('the model carries its own placeholders once', () {
-    expect(catalogue.model.single.field, 'halation');
-    expect(catalogue.model.single.controls.single.max, 2.0);
+    expect(catalogue.model, hasLength(2));
+    expect(catalogue.model.first.field, 'halation');
+    expect(catalogue.model.first.controls.single.max, 2.0);
+    expect(catalogue.model.last.field, 'print');
+    expect(catalogue.model.last.appliesTo, 'paper');
+  });
+
+  test('a stock opens only the placeholders of its own half of the shelf', () {
+    final Stock film = catalogue.film('kodak_portra_400')!;
+    final Stock paper = catalogue.paper('fuji_crystal_archive_pearl')!;
+    expect(catalogue.modelFor(film).map((Measured m) => m.field), <String>[
+      'halation',
+    ]);
+    expect(catalogue.modelFor(paper).map((Measured m) => m.field), <String>[
+      'print',
+    ]);
+    expect(
+      catalogue.modelFor(paper).single.controls.map((Control c) => c.name),
+      <String>['contrast', 'black'],
+    );
   });
 
   test('the shelf groups the films by chemistry', () {

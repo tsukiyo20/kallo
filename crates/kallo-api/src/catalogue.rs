@@ -147,29 +147,58 @@ fn measured(rows: &[MeasuredField]) -> Vec<Value> {
 /// The model's own placeholders, which are not any stock's data.
 ///
 /// The couplers, interimage and halation values are compiled behaviour for a
-/// colour negative in general; no stock file carries them, so the catalogue
-/// carries them once.
+/// colour negative in general; the print's contrast and black level are the
+/// darkroom's two choices over a paper whose curve is measured. No stock file
+/// carries them, so the catalogue carries them once, and `applies_to` says
+/// which half of the shelf may open them.
 fn model() -> Vec<Value> {
-    [
-        ("halation", "the strengths describe a modern colour negative in general; the reflection width is geometry"),
-        ("couplers", "the inhibition matrix is the compiled typical pair, not this stock's couplers"),
-        ("interimage", "the interimage strength is the compiled typical value for colour negative in general"),
-    ]
-    .into_iter()
-    .map(|(field, source)| {
-        json!({
-            "field": field,
-            "claim": "placeholder",
-            "detail": source,
-            "state": "placeholder",
-            "grade": MeasuredState::Placeholder.grade(),
-            "source": source,
-            "locked": false,
-            "advanced_unlock": false,
-            "controls": [{ "name": "strength", "value": 1.0, "min": 0.0, "max": 2.0 }],
+    let film: [(&str, &str); 3] = [
+        (
+            "halation",
+            "the strengths describe a modern colour negative in general; the reflection width is geometry",
+        ),
+        (
+            "couplers",
+            "the inhibition matrix is the compiled typical pair, not this stock's couplers",
+        ),
+        (
+            "interimage",
+            "the interimage strength is the compiled typical value for colour negative in general",
+        ),
+    ];
+    let mut rows: Vec<Value> = film
+        .into_iter()
+        .map(|(field, source)| {
+            json!({
+                "field": field,
+                "claim": "placeholder",
+                "detail": source,
+                "state": "placeholder",
+                "grade": MeasuredState::Placeholder.grade(),
+                "source": source,
+                "applies_to": "film",
+                "locked": false,
+                "advanced_unlock": false,
+                "controls": [{ "name": "strength", "value": 1.0, "min": 0.0, "max": 2.0 }],
+            })
         })
-    })
-    .collect()
+        .collect();
+    rows.push(json!({
+        "field": "print",
+        "claim": "placeholder",
+        "detail": "the print's contrast and black level are the darkroom's choices over a measured paper curve, which stays locked",
+        "state": "placeholder",
+        "grade": MeasuredState::Placeholder.grade(),
+        "source": "the print's contrast and black level are the darkroom's choices over a measured paper curve, which stays locked",
+        "applies_to": "paper",
+        "locked": false,
+        "advanced_unlock": false,
+        "controls": [
+            { "name": "contrast", "value": 1.0, "min": 0.5, "max": 2.0 },
+            { "name": "black", "value": 1.0, "min": 0.5, "max": 1.5 },
+        ],
+    }));
+    rows
 }
 
 /// The catalogue as one document for a caller that speaks JSON.
@@ -298,10 +327,21 @@ mod tests {
             .iter()
             .map(|entry| entry["field"].as_str().expect("a field"))
             .collect();
-        assert_eq!(fields, ["halation", "couplers", "interimage"]);
+        assert_eq!(fields, ["halation", "couplers", "interimage", "print"]);
         for entry in model {
             assert_eq!(entry["locked"], false);
             assert_eq!(entry["controls"][0]["value"], 1.0);
+            let applies = entry["applies_to"].as_str().expect("a shelf half");
+            assert!(applies == "film" || applies == "paper", "{applies}");
         }
+        // The paper's two controls are the print's, not the stock's.
+        let print = &model[3];
+        let names: Vec<&str> = print["controls"]
+            .as_array()
+            .expect("controls")
+            .iter()
+            .map(|control| control["name"].as_str().expect("a name"))
+            .collect();
+        assert_eq!(names, ["contrast", "black"]);
     }
 }

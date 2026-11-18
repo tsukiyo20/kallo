@@ -274,14 +274,17 @@ class _DevelopStageState extends State<DevelopStage> {
   String _materialsKeyFor(TestStrip strip) =>
       '${strip.stockId}|${strip.paperId}|${strip.tempC}';
 
-  /// The departures the strip's stock recipe applies to the print on the easel.
+  /// The departures the strip's two recipes apply to the print on the easel.
   ///
   /// The bench previews the print the next development would make, so it
-  /// carries the same recipe: a departure written on the stock's record is
-  /// visible on the easel, not only in the sheet that comes off it.
-  Tuning _tuningFor(TestStrip strip) => StockRecipes.tuningFor(
-    widget.catalogue.film(strip.stockId),
-    model: widget.catalogue.model,
+  /// carries the same recipes: a departure written on a stock's record is
+  /// visible on the easel, not only in the sheet that comes off it. Film and
+  /// paper move different controls, so the two documents merge without a
+  /// collision.
+  Tuning _tuningFor(TestStrip strip) => StockRecipes.tuningForMaterials(
+    catalogue: widget.catalogue,
+    filmId: strip.stockId,
+    paperId: strip.paperId,
   );
 
   /// The session is the strip's, not the time's: changing the ruler does not
@@ -558,7 +561,7 @@ class _DevelopStageState extends State<DevelopStage> {
       await showStockRecordSheet(
         context,
         stock: stock,
-        model: widget.catalogue.model,
+        model: widget.catalogue.modelFor(stock),
         recipe: StockRecipes.of(stock.id),
         onRecipe: (StockRecipe? recipe) async {
           if (recipe == null) {
@@ -2009,7 +2012,7 @@ class _DevelopStageState extends State<DevelopStage> {
     return StockRecordBody(
       key: const Key('record-panel-body'),
       stock: stock,
-      model: widget.catalogue.model,
+      model: widget.catalogue.modelFor(stock),
       recipe: StockRecipes.of(stock.id),
       onChanged: _recordChanged,
       onRecipe: _recordCommitted,
@@ -2020,6 +2023,7 @@ class _DevelopStageState extends State<DevelopStage> {
   /// The record's own header: which stock, and the way back to the curves.
   Widget _recordHeader(KalloColors colors, KalloStrings s) {
     final Stock? stock = _recordStock;
+    final bool paper = stock?.emulsion != null;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -2035,7 +2039,7 @@ class _DevelopStageState extends State<DevelopStage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  s.filmParameters,
+                  paper ? s.paperParameters : s.filmParameters,
                   style: KalloType.caption.copyWith(
                     color: colors.inkFaint,
                     letterSpacing: 1.4,
@@ -2058,14 +2062,20 @@ class _DevelopStageState extends State<DevelopStage> {
     );
   }
 
-  /// The way into the stock's record, always in the panel.
-  Widget _recordEntry(KalloColors colors, KalloStrings s) {
-    final Stock? film = widget.catalogue.film(widget.strip.stockId);
-    if (film == null) {
-      return const SizedBox.shrink();
-    }
-    final StockRecipe? recipe = StockRecipes.of(film.id);
-    final bool stale = recipe?.isStaleFor(film) ?? false;
+  /// The way into a stock's record, always in the panel.
+  ///
+  /// A print is made of two stocks, so the panel offers both records side by
+  /// side: the film's controls and the paper's are different documents, and a
+  /// paper's print controls are no more hidden than the film's grain.
+  Widget _parametersEntry(
+    KalloColors colors,
+    KalloStrings s, {
+    required Stock stock,
+    required String label,
+    required Key key,
+  }) {
+    final StockRecipe? recipe = StockRecipes.of(stock.id);
+    final bool stale = recipe?.isStaleFor(stock) ?? false;
     final int moved = recipe == null
         ? 0
         : recipe.overrides.length + recipe.model.length;
@@ -2084,16 +2094,16 @@ class _DevelopStageState extends State<DevelopStage> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        key: const Key('record-entry'),
+        key: key,
         behavior: HitTestBehavior.opaque,
-        onTap: () => unawaited(_openRecord(film)),
+        onTap: () => unawaited(_openRecord(stock)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Row(
               children: <Widget>[
                 Text(
-                  s.filmParameters,
+                  label,
                   style: KalloType.caption.copyWith(
                     color: colors.inkFaint,
                     letterSpacing: 1.4,
@@ -2117,7 +2127,7 @@ class _DevelopStageState extends State<DevelopStage> {
             ),
             const SizedBox(height: 6),
             Text(
-              film.displayName,
+              stock.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: KalloType.title.copyWith(color: colors.ink),
@@ -2130,14 +2140,33 @@ class _DevelopStageState extends State<DevelopStage> {
     );
   }
 
-  /// The panel's usual page: the developer's temperature and the two curves.
+  /// The panel's usual page: the two materials' records, the developer's
+  /// temperature and the two curves.
   Widget _panelBody(KalloColors colors, KalloStrings s) {
     final FilmChart? chart = _currentChart;
     final FilmCurve? curve = _currentCurve;
+    final Stock? film = widget.catalogue.film(widget.strip.stockId);
+    final Stock? paper = widget.catalogue.paper(widget.strip.paperId ?? '');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _recordEntry(colors, s),
+        if (film != null)
+          _parametersEntry(
+            colors,
+            s,
+            stock: film,
+            label: s.filmParameters,
+            key: const Key('film-record-entry'),
+          ),
+        if (film != null && paper != null) const SizedBox(height: KalloSpace.step4),
+        if (paper != null)
+          _parametersEntry(
+            colors,
+            s,
+            stock: paper,
+            label: s.paperParameters,
+            key: const Key('paper-record-entry'),
+          ),
         const SizedBox(height: 16),
         Container(height: 1, color: colors.hairline),
         const SizedBox(height: 14),

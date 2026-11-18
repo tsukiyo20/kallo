@@ -151,6 +151,7 @@ class Measured {
     this.source,
     this.locked = true,
     this.advancedUnlock = false,
+    this.appliesTo = '',
     this.controls = const <Control>[],
   });
 
@@ -178,6 +179,11 @@ class Measured {
 
   /// Whether an explicit departure from measured data is offered.
   final bool advancedUnlock;
+
+  /// Which half of the shelf the model's placeholder belongs to: `film`,
+  /// `paper`, or empty when it belongs to both. It is only set on the
+  /// catalogue's `model` section; a stock's own field is that stock's.
+  final String appliesTo;
 
   /// The scalars a recipe may move for this field.
   final List<Control> controls;
@@ -208,6 +214,7 @@ class Measured {
       source: json['source'] as String?,
       locked: json['locked'] as bool? ?? true,
       advancedUnlock: json['advanced_unlock'] as bool? ?? false,
+      appliesTo: json['applies_to'] as String? ?? '',
       controls: <Control>[
         if (controls is List)
           for (final Object? row in controls)
@@ -414,6 +421,19 @@ class Catalogue {
       }
     }
     return null;
+  }
+
+  /// The model placeholders that belong to this stock's half of the shelf.
+  ///
+  /// A film's record opens the film's placeholders and a paper's the print's:
+  /// halation is a property of the negative, contrast and black level of the
+  /// print. An entry with no `applies_to` belongs to both.
+  List<Measured> modelFor(Stock stock) {
+    final String kind = stock.emulsion == null ? 'film' : 'paper';
+    return <Measured>[
+      for (final Measured field in model)
+        if (field.appliesTo.isEmpty || field.appliesTo == kind) field,
+    ];
   }
 
   Stock? paper(String id) {
