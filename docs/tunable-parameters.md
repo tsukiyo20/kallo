@@ -274,7 +274,10 @@ The controls live on the stock's record, not on the bench: the shelf is still a
 shelf and the bench still holds one print, one time and one strip. The record is
 the sheet the `[measured]` table has always promised, and on a window it is a
 page of the instrument panel beside the print, one tap from the panel's own
-`FILM RECORD` line; a phone has no panel, so there it is a sheet over the bench.
+`FILM PARAMETERS` line; a phone has no panel, so there it is a sheet over the
+bench. The page leads with the controls the file exposes; the data and its
+sources fold away behind one row, because a page that opens with a bibliography
+has buried the thing a person came for.
 
 The bench's preview is a print, so it carries the recipe: the panel reports a
 control while it is still in hand, and the easel beside it renders that print

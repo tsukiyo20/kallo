@@ -2035,7 +2035,7 @@ class _DevelopStageState extends State<DevelopStage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  s.filmRecord,
+                  s.filmParameters,
                   style: KalloType.caption.copyWith(
                     color: colors.inkFaint,
                     letterSpacing: 1.4,
@@ -2078,7 +2078,7 @@ class _DevelopStageState extends State<DevelopStage> {
     final String note = stale
         ? s.recipeStale
         : moved == 0
-        ? s.recordIdle
+        ? s.recordDefaults
         : '${s.recordChanges(moved)}'
               "${departs ? '  ·  ${s.departedMeasured}' : ''}";
     return MouseRegion(
@@ -2093,7 +2093,7 @@ class _DevelopStageState extends State<DevelopStage> {
             Row(
               children: <Widget>[
                 Text(
-                  s.filmRecord,
+                  s.filmParameters,
                   style: KalloType.caption.copyWith(
                     color: colors.inkFaint,
                     letterSpacing: 1.4,
@@ -2101,7 +2101,7 @@ class _DevelopStageState extends State<DevelopStage> {
                 ),
                 const Spacer(),
                 Text(
-                  s.recordOpen,
+                  s.adjust,
                   style: KalloType.small.copyWith(
                     color: colors.accent,
                     fontWeight: FontWeight.w500,
