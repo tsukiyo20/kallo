@@ -13,9 +13,25 @@ import 'package:kallo/lab/print.dart';
 import 'package:kallo/lab/render_device.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/lab/strip_develop.dart';
+import 'package:kallo/lab/tuning.dart';
 import 'package:kallo/main.dart';
 import 'package:kallo/views/steps.dart';
 import 'package:kallo/widgets/time_slider.dart';
+
+/// Whether two frames hold the same bytes.
+bool _samePixels(ByteData a, ByteData b) {
+  final Uint8List left = a.buffer.asUint8List(a.offsetInBytes, a.lengthInBytes);
+  final Uint8List right = b.buffer.asUint8List(
+    b.offsetInBytes,
+    b.lengthInBytes,
+  );
+  for (int i = 0; i < left.length; i++) {
+    if (left[i] != right[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /// The test strip, through the linked model.
 ///
@@ -192,6 +208,51 @@ void main() {
       'further $renders ms, cached ${cachedWatch.elapsedMilliseconds} ms',
     );
     expect(renders, hasLength(6));
+  }, timeout: const Timeout(Duration(minutes: 5)));
+
+  /// A recipe is a print: the session renders the same negative again, with
+  /// the departures, and the frame it hands back is that sheet.
+  test('a bench session prints the recipe it is told', () async {
+    final bool loaded = await loadLinkedModel();
+    expect(loaded, isTrue, reason: 'the dynamic library should load');
+    final Model model = Model.find();
+    final File photograph = File('../../file-test/DSCF0989.JPG');
+    expect(photograph.existsSync(), isTrue, reason: 'the test photograph');
+
+    PreviewSession? session;
+    addTearDown(() => session?.dispose());
+    session = await model.openPreview(
+      photograph: photograph,
+      stock: 'vision3_500t',
+      paper: 'portra_endura',
+      tempC: 20,
+      width: 380,
+    );
+    expect(session, isNotNull);
+
+    final ui.Image plain = await session!.frame(minutes: 6);
+    final ByteData plainBytes = (await plain.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    ))!;
+    plain.dispose();
+
+    // The mask is a borrowed measurement on this stock, so it is a control a
+    // recipe can move: the same negative and the same time, another sheet.
+    await session.setTuning(
+      tuning: Tuning.identity.copyWith(maskStrength: 1.5),
+    );
+    final ui.Image departed = await session.frame(minutes: 6);
+    final ByteData departedBytes = (await departed.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    ))!;
+    departed.dispose();
+
+    expect(departedBytes.lengthInBytes, plainBytes.lengthInBytes);
+    expect(
+      _samePixels(plainBytes, departedBytes),
+      isFalse,
+      reason: 'the departures were part of the print',
+    );
   }, timeout: const Timeout(Duration(minutes: 5)));
 
   test('the print curve is drawn under the enlarger', () async {

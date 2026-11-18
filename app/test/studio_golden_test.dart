@@ -101,6 +101,7 @@ class _CardModel extends ProcessModel {
     required double tempC,
     required int width,
     bool spectral = false,
+    Tuning tuning = Tuning.identity,
   }) async => _CardPreviewSession(card);
 
   @override
@@ -215,6 +216,9 @@ class _CardPreviewSession implements PreviewSession {
     required String paper,
     required double tempC,
   }) async {}
+
+  @override
+  Future<void> setTuning({required Tuning tuning}) async {}
 
   @override
   void dispose() {}

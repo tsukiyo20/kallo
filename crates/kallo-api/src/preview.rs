@@ -21,7 +21,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
-use kallo_core::Metering;
+use kallo_core::{Metering, Tuning};
 use kallo_io::{Image, InputEncoding, resize_to_width, to_rgba8};
 
 use crate::error::Error;
@@ -53,6 +53,12 @@ pub struct PreviewRequest {
     pub width: u32,
     /// Expose through the spectral path.
     pub spectral: bool,
+    /// The scalars a stock recipe moves; the identity by default.
+    ///
+    /// A preview is the print the model would make, so the recipe is part of
+    /// it: a bench that drew the file's own numbers while the print used a
+    /// departure would be two renders, not one picture and its sheet.
+    pub tuning: Tuning,
     /// Width of the film frame the image represents, in millimetres.
     pub frame_mm: f64,
     /// Add grain.
@@ -162,6 +168,8 @@ pub struct PreviewSession {
     image: Image,
     /// The frame's metered offset, solved once on the image the bench shows.
     metered_ev: f64,
+    /// The recipe the session prints with.
+    tuning: Tuning,
     frame_mm: f64,
     grain: bool,
     halation: bool,
@@ -223,6 +231,7 @@ impl PreviewSession {
             choice,
             image: image.clone(),
             metered_ev,
+            tuning: request.tuning,
             frame_mm: request.frame_mm,
             grain: request.grain,
             halation: request.halation,
@@ -282,6 +291,7 @@ impl PreviewSession {
             grain: self.grain,
             halation: self.halation,
             couplers: self.couplers,
+            tuning: self.tuning,
             gpu: self.gpu,
             ..RenderOptions::default()
         };
@@ -316,6 +326,21 @@ impl PreviewSession {
         Ok(())
     }
 
+    /// Point the session at another recipe without touching the photograph.
+    ///
+    /// The tuning is a choice about the print — the departures a stock recipe
+    /// writes — and not about the photograph: the decode and the meter belong
+    /// to the negative, and moving a control leaves them alone. The frames the
+    /// old recipe made are not this recipe's prints, so they are dropped; a
+    /// frame asked for at the same setting after this call is rendered again.
+    pub fn set_tuning(&mut self, tuning: Tuning) {
+        if self.tuning == tuning {
+            return;
+        }
+        self.tuning = tuning;
+        self.cache().clear();
+    }
+
     /// How many frames are held, for the tests that care that the cache works.
     #[cfg(test)]
     fn held(&self) -> usize {
@@ -335,6 +360,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    use kallo_core::Tuning;
     use kallo_io::{Image, save};
 
     use super::{PreviewRequest, PreviewSession};
@@ -373,6 +399,7 @@ mod tests {
             temp_c: 20.0,
             width: 5,
             spectral: false,
+            tuning: Tuning::default(),
             frame_mm: 36.0,
             grain: false,
             halation: false,
@@ -401,6 +428,7 @@ mod tests {
             grain: session.grain,
             halation: session.halation,
             couplers: session.couplers,
+            tuning: session.tuning,
             gpu: false,
             ..RenderOptions::default()
         };
@@ -510,6 +538,57 @@ mod tests {
             1,
             "the frame the last box made is not served again"
         );
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// A recipe is a choice about the print and not about the photograph.
+    #[test]
+    fn a_recipe_changes_the_print_the_session_makes() {
+        let (path, _) = photograph();
+        let mut departure = request(&path);
+        departure
+            .tuning
+            .set("mask.strength", 0.5)
+            .expect("a known control");
+        let plain = PreviewSession::open(request(&path)).expect("the plain session");
+        let recipe = PreviewSession::open(departure).expect("the recipe session");
+        let plain_frame = plain
+            .frame(6.0, 0.0, None, "", None)
+            .expect("the plain frame");
+        let recipe_frame = recipe
+            .frame(6.0, 0.0, None, "", None)
+            .expect("the recipe frame");
+        assert_ne!(
+            plain_frame, recipe_frame,
+            "a moved mask is another print at the same time"
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn another_recipe_keeps_the_photograph_and_drops_the_frame() {
+        let (path, _) = photograph();
+        let mut session = PreviewSession::open(request(&path)).expect("the session");
+        let before = session.frame(6.0, 0.0, None, "", None).expect("the frame");
+        assert_eq!(session.held(), 1);
+        let mut tuning = Tuning::default();
+        tuning.set("mask.strength", 0.5).expect("a known control");
+        session.set_tuning(tuning);
+        let after = session
+            .frame(6.0, 0.0, None, "", None)
+            .expect("the recipe's frame");
+        assert_ne!(before, after, "the same time under another recipe");
+        assert_eq!(
+            session.held(),
+            1,
+            "the frame the last recipe made is not served again"
+        );
+        session.set_tuning(Tuning::default());
+        let back = session
+            .frame(6.0, 0.0, None, "", None)
+            .expect("the file's frame again");
+        assert_eq!(before, back, "the file's numbers are the print they were");
+        assert_eq!(session.tuning, Tuning::default());
         let _ = std::fs::remove_file(path);
     }
 

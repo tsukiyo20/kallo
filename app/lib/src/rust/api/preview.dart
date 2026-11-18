@@ -36,6 +36,13 @@ abstract class PreviewSession implements RustOpaqueInterface {
     required String paper,
     required double tempC,
   });
+
+  /// Point the session at another recipe.
+  ///
+  /// The photograph is already decoded and the print's materials are the
+  /// same; moving a control is a new recipe for the same negative, and the
+  /// frames the old one made are dropped.
+  Future<void> setTuning({required List<double> tuning});
 }
 
 /// One preview frame, ready to become a texture.
@@ -88,6 +95,13 @@ class PreviewJob {
   /// Expose through the spectral path.
   final bool spectral;
 
+  /// The scalars a stock recipe moves, in the order of `Tuning::KEYS`.
+  ///
+  /// Empty is the file's own numbers; eight values are the eight controls.
+  /// A preview is the print the model would make, so the recipe crosses the
+  /// same way it does for a print.
+  final Float64List tuning;
+
   /// Width of the film frame the image represents, in millimetres.
   final double frameMm;
 
@@ -110,6 +124,7 @@ class PreviewJob {
     required this.tempC,
     required this.width,
     required this.spectral,
+    required this.tuning,
     required this.frameMm,
     required this.grain,
     required this.halation,
@@ -125,6 +140,7 @@ class PreviewJob {
       tempC.hashCode ^
       width.hashCode ^
       spectral.hashCode ^
+      tuning.hashCode ^
       frameMm.hashCode ^
       grain.hashCode ^
       halation.hashCode ^
@@ -142,6 +158,7 @@ class PreviewJob {
           tempC == other.tempC &&
           width == other.width &&
           spectral == other.spectral &&
+          tuning == other.tuning &&
           frameMm == other.frameMm &&
           grain == other.grain &&
           halation == other.halation &&

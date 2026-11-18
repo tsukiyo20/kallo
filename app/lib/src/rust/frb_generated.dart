@@ -74,7 +74,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 244465266;
+  int get rustContentHash => -1576575994;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -104,6 +104,11 @@ abstract class RustLibApi extends BaseApi {
     required String film,
     required String paper,
     required double tempC,
+  });
+
+  Future<void> crateApiPreviewPreviewSessionSetTuning({
+    required PreviewSession that,
+    required List<double> tuning,
   });
 
   Future<String> crateApiCatalogueCatalogue();
@@ -285,6 +290,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiPreviewPreviewSessionSetTuning({
+    required PreviewSession that,
+    required List<double> tuning,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPreviewSession(
+            that,
+            serializer,
+          );
+          sse_encode_list_prim_f_64_loose(tuning, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPreviewPreviewSessionSetTuningConstMeta,
+        argValues: [that, tuning],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPreviewPreviewSessionSetTuningConstMeta =>
+      const TaskConstMeta(
+        debugName: "PreviewSession_set_tuning",
+        argNames: ["that", "tuning"],
+      );
+
+  @override
   Future<String> crateApiCatalogueCatalogue() {
     return handler.executeNormal(
       NormalTask(
@@ -293,7 +336,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -320,7 +363,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -348,7 +391,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -382,7 +425,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 8,
             port: port_,
           );
         },
@@ -412,7 +455,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 9,
             port: port_,
           );
         },
@@ -446,7 +489,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 10,
             port: port_,
           );
         },
@@ -476,7 +519,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 11,
             port: port_,
           );
         },
@@ -507,7 +550,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 11,
+              funcId: 12,
               port: port_,
             );
           },
@@ -539,7 +582,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 13,
             port: port_,
           );
         },
@@ -570,7 +613,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 13,
+              funcId: 14,
               port: port_,
             );
           },
@@ -608,7 +651,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 15,
             port: port_,
           );
         },
@@ -925,8 +968,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PreviewJob dco_decode_preview_job(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 11)
-      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return PreviewJob(
       input: dco_decode_String(arr[0]),
       film: dco_decode_String(arr[1]),
@@ -934,11 +977,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       tempC: dco_decode_f_64(arr[3]),
       width: dco_decode_u_32(arr[4]),
       spectral: dco_decode_bool(arr[5]),
-      frameMm: dco_decode_f_64(arr[6]),
-      grain: dco_decode_bool(arr[7]),
-      halation: dco_decode_bool(arr[8]),
-      couplers: dco_decode_bool(arr[9]),
-      gpu: dco_decode_bool(arr[10]),
+      tuning: dco_decode_list_prim_f_64_strict(arr[6]),
+      frameMm: dco_decode_f_64(arr[7]),
+      grain: dco_decode_bool(arr[8]),
+      halation: dco_decode_bool(arr[9]),
+      couplers: dco_decode_bool(arr[10]),
+      gpu: dco_decode_bool(arr[11]),
     );
   }
 
@@ -1467,6 +1511,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     final var_tempC = sse_decode_f_64(deserializer);
     final var_width = sse_decode_u_32(deserializer);
     final var_spectral = sse_decode_bool(deserializer);
+    final var_tuning = sse_decode_list_prim_f_64_strict(deserializer);
     final var_frameMm = sse_decode_f_64(deserializer);
     final var_grain = sse_decode_bool(deserializer);
     final var_halation = sse_decode_bool(deserializer);
@@ -1479,6 +1524,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       tempC: var_tempC,
       width: var_width,
       spectral: var_spectral,
+      tuning: var_tuning,
       frameMm: var_frameMm,
       grain: var_grain,
       halation: var_halation,
@@ -2035,6 +2081,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_64(self.tempC, serializer);
     sse_encode_u_32(self.width, serializer);
     sse_encode_bool(self.spectral, serializer);
+    sse_encode_list_prim_f_64_strict(self.tuning, serializer);
     sse_encode_f_64(self.frameMm, serializer);
     sse_encode_bool(self.grain, serializer);
     sse_encode_bool(self.halation, serializer);
@@ -2227,4 +2274,12 @@ class PreviewSessionImpl extends RustOpaque implements PreviewSession {
     paper: paper,
     tempC: tempC,
   );
+
+  /// Point the session at another recipe.
+  ///
+  /// The photograph is already decoded and the print's materials are the
+  /// same; moving a control is a new recipe for the same negative, and the
+  /// frames the old one made are dropped.
+  Future<void> setTuning({required List<double> tuning}) => RustLib.instance.api
+      .crateApiPreviewPreviewSessionSetTuning(that: this, tuning: tuning);
 }

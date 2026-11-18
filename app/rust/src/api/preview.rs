@@ -7,6 +7,8 @@
 use flutter_rust_bridge::frb;
 use kallo_api::preview::{PreviewRequest, PreviewSession as CoreSession};
 
+use super::print::tuning_from;
+
 /// What a preview session is opened on.
 #[derive(Debug, Clone)]
 pub struct PreviewJob {
@@ -22,6 +24,12 @@ pub struct PreviewJob {
     pub width: u32,
     /// Expose through the spectral path.
     pub spectral: bool,
+    /// The scalars a stock recipe moves, in the order of `Tuning::KEYS`.
+    ///
+    /// Empty is the file's own numbers; eight values are the eight controls.
+    /// A preview is the print the model would make, so the recipe crosses the
+    /// same way it does for a print.
+    pub tuning: Vec<f64>,
     /// Width of the film frame the image represents, in millimetres.
     pub frame_mm: f64,
     /// Add grain.
@@ -54,6 +62,7 @@ pub struct PreviewSession {
 impl PreviewSession {
     /// Read the photograph once and meter it.
     pub fn open(job: PreviewJob) -> Result<PreviewSession, String> {
+        let tuning = tuning_from(&job.tuning)?;
         let request = PreviewRequest {
             input: job.input.into(),
             encoding: kallo_io::InputEncoding::Srgb,
@@ -62,6 +71,7 @@ impl PreviewSession {
             temp_c: job.temp_c,
             width: job.width,
             spectral: job.spectral,
+            tuning,
             frame_mm: job.frame_mm,
             grain: job.grain,
             halation: job.halation,
@@ -94,6 +104,16 @@ impl PreviewSession {
         self.inner
             .set_materials(&film, &paper, temp_c)
             .map_err(|error| error.to_string())
+    }
+
+    /// Point the session at another recipe.
+    ///
+    /// The photograph is already decoded and the print's materials are the
+    /// same; moving a control is a new recipe for the same negative, and the
+    /// frames the old one made are dropped.
+    pub fn set_tuning(&mut self, tuning: Vec<f64>) -> Result<(), String> {
+        self.inner.set_tuning(tuning_from(&tuning)?);
+        Ok(())
     }
 
     /// The print this session would make at one setting.

@@ -633,6 +633,7 @@ class _StudioState extends State<Studio> {
           '${widget.strip.paperId}-${widget.strip.tempC}',
         ),
         strip: widget.strip,
+        catalogue: widget.catalogue,
         paperName:
             widget.catalogue.paper(widget.strip.paperId ?? '')?.displayName ??
             widget.strip.paperLabel ??

@@ -104,6 +104,7 @@ Future<ui.Image> previewTestPrint({
   required double minutes,
   Directory? folder,
   int width = 760,
+  Tuning tuning = Tuning.identity,
 }) async {
   final String? photo = strip.photo;
   if (photo == null) {
@@ -124,6 +125,7 @@ Future<ui.Image> previewTestPrint({
     output: output,
     spectral: strip.spectral,
     balanceFrom: strip.balanceFrom,
+    tuning: tuning,
   );
   return decode(output, width: width);
 }
@@ -139,6 +141,7 @@ Future<ui.Image> previewFinalPrint({
   String? heatGlass,
   Directory? folder,
   int width = 760,
+  Tuning tuning = Tuning.identity,
 }) async {
   final String? photo = strip.photo;
   if (photo == null) {
@@ -161,6 +164,7 @@ Future<ui.Image> previewFinalPrint({
     printEv: printEv,
     filters: filters,
     heatGlass: heatGlass,
+    tuning: tuning,
   );
   return decode(output, width: width);
 }

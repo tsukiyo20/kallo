@@ -18,9 +18,11 @@ import '../lab/model.dart';
 import '../lab/preview_bench.dart';
 import '../lab/render_mode.dart';
 import '../lab/print_request.dart';
+import '../lab/recipe_store.dart';
 import '../lab/stock.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
+import '../lab/tuning.dart';
 import '../lab/work_clock.dart';
 import '../widgets/border_tray.dart';
 import '../widgets/button.dart';
@@ -45,6 +47,7 @@ class PrintStage extends StatefulWidget {
   const PrintStage({
     super.key,
     required this.strip,
+    required this.catalogue,
     required this.paperName,
     required this.exports,
     required this.onPrint,
@@ -57,6 +60,11 @@ class PrintStage extends StatefulWidget {
   });
 
   final TestStrip strip;
+
+  /// What the model carries. The final print previews the recipe its stock
+  /// holds, so the bench needs the shelf it reads the recipe against.
+  final Catalogue catalogue;
+
   final String paperName;
   final Directory? exports;
 
@@ -177,6 +185,16 @@ class _PrintStageState extends State<PrintStage> {
       '${strip.photo}|${strip.stockId}|${strip.paperId}|'
       '${strip.tempC}|${strip.spectral}|${RenderPreference.mode.name}';
 
+  /// The departures the strip's stock recipe applies to the print on the easel.
+  ///
+  /// This step prints the negative the strip chose, so it previews the print
+  /// the stock's recipe would make: a departure on the record is visible here
+  /// before the sheet is printed, not only on the sheet.
+  Tuning get _tuning => StockRecipes.tuningFor(
+    widget.catalogue.film(widget.strip.stockId),
+    model: widget.catalogue.model,
+  );
+
   void _openBench() {
     final String key = _benchKeyFor(widget.strip);
     if (_benchKey == key) {
@@ -185,7 +203,12 @@ class _PrintStageState extends State<PrintStage> {
     _benchKey = key;
     _previewBench?.dispose();
     final TestStrip strip = widget.strip;
-    _previewBench = PreviewBench(open: () => _openPreview(strip));
+    _previewBench = PreviewBench(
+      open: () => _openPreview(strip),
+      // The recipe is read again before every frame, so a record closed in the
+      // develop step is already the print this step previews.
+      tuning: () => _tuning,
+    );
     _previewBench!.warm();
   }
 
@@ -203,6 +226,7 @@ class _PrintStageState extends State<PrintStage> {
         tempC: strip.tempC,
         width: 760,
         spectral: strip.spectral,
+        tuning: _tuning,
       );
     } on Object catch (error) {
       Model.log('the preview session could not be opened: $error');
@@ -327,6 +351,7 @@ class _PrintStageState extends State<PrintStage> {
           printEv: printEv,
           filters: filters,
           heatGlass: glass,
+          tuning: _tuning,
         );
       }
       final ui.Image rendered = image;
