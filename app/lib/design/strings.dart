@@ -356,6 +356,7 @@ class KalloStrings {
   /// A field of a stock's record. Technical, so it translates only where the
   /// Chinese has a word of its own for it.
   String field(String field) => switch (field) {
+    'curve' => zh ? '曲线' : 'curve',
     'curves' => zh ? '曲线' : 'curves',
     'layers' => zh ? '感光层' : 'layers',
     'dyes' => zh ? '染料' : 'dyes',
@@ -363,7 +364,7 @@ class KalloStrings {
     'grain' => zh ? '颗粒' : 'grain',
     'mtf' => zh ? '锐度' : 'MTF',
     'cl_layer' => zh ? '抑制层' : 'CL layer',
-    'white' => zh ? '白' : 'white',
+    'white' => zh ? '白点' : 'white',
     'halation' => zh ? '光晕' : 'halation',
     'couplers' => zh ? '偶联' : 'couplers',
     'interimage' => zh ? '层间效应' : 'interimage',
