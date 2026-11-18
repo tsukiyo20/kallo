@@ -38,6 +38,13 @@ abstract class PreviewSession {
     required double tempC,
   }) async {}
 
+  /// Print with another recipe without reading the photograph again.
+  ///
+  /// The departures a stock's recipe writes are choices about the print too:
+  /// the negative and the meter stay, and the frames the last recipe made are
+  /// dropped. A model that cannot hold a session has nothing to change.
+  Future<void> setTuning({required Tuning tuning}) async {}
+
   /// Let the model free the decoded photograph and the frames it kept.
   void dispose();
 }
@@ -102,6 +109,9 @@ abstract class Model {
 
   /// Open a bench session on this photograph.
   ///
+  /// The session prints with `tuning`, the departures the stock's recipe holds
+  /// — the bench previews the print the next development would make — and
+  /// [PreviewSession.setTuning] keeps it in step while a person writes one.
   /// Null when the model cannot hold one: the subprocess has no memory between
   /// calls, so its previews are made the old way, one render at a time.
   Future<PreviewSession?> openPreview({
@@ -111,6 +121,7 @@ abstract class Model {
     required double tempC,
     required int width,
     bool spectral = false,
+    Tuning tuning = Tuning.identity,
   }) async => null;
 
   /// Print the contact proof: the ladder on one sheet, exposed once.
@@ -332,6 +343,7 @@ class ProcessModel implements Model {
     required double tempC,
     required int width,
     bool spectral = false,
+    Tuning tuning = Tuning.identity,
   }) async => null;
 
   @override

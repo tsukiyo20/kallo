@@ -21,6 +21,7 @@ import '../lab/stock.dart';
 import '../lab/stock_recipe.dart';
 import '../lab/strip.dart';
 import '../lab/strip_develop.dart';
+import '../lab/tuning.dart';
 import '../lab/work_clock.dart';
 import '../widgets/button.dart';
 import '../widgets/curves.dart';
@@ -263,6 +264,16 @@ class _DevelopStageState extends State<DevelopStage> {
   String _materialsKeyFor(TestStrip strip) =>
       '${strip.stockId}|${strip.paperId}|${strip.tempC}';
 
+  /// The departures the strip's stock recipe applies to the print on the easel.
+  ///
+  /// The bench previews the print the next development would make, so it
+  /// carries the same recipe: a departure written on the stock's record is
+  /// visible on the easel, not only in the sheet that comes off it.
+  Tuning _tuningFor(TestStrip strip) => StockRecipes.tuningFor(
+    widget.catalogue.film(strip.stockId),
+    model: widget.catalogue.model,
+  );
+
   /// The session is the strip's, not the time's: changing the ruler does not
   /// touch it. A material or a temperature is the same session with another
   /// print; a photograph, or the engine, is another session.
@@ -274,7 +285,12 @@ class _DevelopStageState extends State<DevelopStage> {
     _benchKey = key;
     _previewBench?.dispose();
     final TestStrip strip = widget.strip;
-    _previewBench = PreviewBench(open: () => _openPreview(strip));
+    _previewBench = PreviewBench(
+      open: () => _openPreview(strip),
+      // Read again before every frame: a recipe written while the session is
+      // open is the recipe the next frame is printed with.
+      tuning: () => _tuningFor(widget.strip),
+    );
     _previewBench!.warm();
   }
 
@@ -292,6 +308,7 @@ class _DevelopStageState extends State<DevelopStage> {
         tempC: strip.tempC,
         width: 760,
         spectral: strip.spectral,
+        tuning: _tuningFor(strip),
       );
     } on Object catch (error) {
       Model.log('the preview session could not be opened: $error');
@@ -514,13 +531,15 @@ class _DevelopStageState extends State<DevelopStage> {
   ///
   /// The controls live there and not on the bench: the shelf stays a shelf and
   /// the bench still holds one print, one time and one strip. A departure is
-  /// written beside the stock as a recipe, and the next print — not the print
-  /// already on the strip — is the one it applies to.
+  /// written beside the stock as a recipe, and the next print — and the bench's
+  /// preview of it — is the one it applies to. A print already on the strip is
+  /// a sheet; it does not change.
   Future<void> _openRecord(Stock stock) async {
     await StockRecipes.ensureLoaded();
     if (!mounted) {
       return;
     }
+    final Tuning before = _tuningFor(widget.strip);
     await showStockRecordSheet(
       context,
       stock: stock,
@@ -534,6 +553,15 @@ class _DevelopStageState extends State<DevelopStage> {
         }
       },
     );
+    if (!mounted) {
+      return;
+    }
+    // The recipe is a document beside the stock, not a bench state: the bench
+    // reads it again when the record closes, so the easel shows the print this
+    // departure would make instead of the print the last one did.
+    if (_tuningFor(widget.strip) != before) {
+      _schedule();
+    }
   }
 
   void _setPreview(ui.Image image, {required bool owned}) {
@@ -676,6 +704,7 @@ class _DevelopStageState extends State<DevelopStage> {
           model: model,
           strip: widget.strip,
           minutes: minutes,
+          tuning: _tuningFor(widget.strip),
         );
       }
       final ui.Image rendered = image;

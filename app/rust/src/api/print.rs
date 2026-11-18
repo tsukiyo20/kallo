@@ -182,7 +182,7 @@ pub fn make_print(job: PrintJob, progress: StreamSink<PrintStep>) -> Result<(), 
 /// render the app made before a recipe existed. Eight values are the eight
 /// controls in [`Tuning::KEYS`] order. Any other length, or a value that is not
 /// a finite number, is refused rather than applied to the wrong control.
-fn tuning_from(values: &[f64]) -> Result<Tuning, String> {
+pub(crate) fn tuning_from(values: &[f64]) -> Result<Tuning, String> {
     if values.is_empty() {
         return Ok(Tuning::default());
     }

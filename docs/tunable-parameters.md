@@ -233,7 +233,8 @@ prose fix and a new measurement all change it. A recipe beside a stock whose
 digest has moved is **stale**.
 
 **What stale does.** A stale recipe renders as if it did not exist: defaults are
-used, the print is the file's, and the interface shows a review. The review lists
+used, the print is the file's, the bench previews the file's rendering, and the
+interface shows a review. The review lists
 each override with its old grade, current grade and current control, and offers
 remove, reset, or — where the field is now measured — an explicit departure
 confirmation against the new digest. The model never silently applies or drops
@@ -273,6 +274,12 @@ The controls live on the stock's record, not on the bench: the shelf is still a
 shelf and the bench still holds one print, one time and one strip. The record is
 the sheet the `[measured]` table has always promised, opened from the stock in the
 shelf, and on a phone from the Details sheet.
+
+The bench's preview is a print, so it carries the recipe: a departure written on
+the record is on the easel when the record closes, and the frame is rendered
+again from the decoded photograph rather than read from the file. A print already
+on the test strip is a developed sheet and does not change; the next development
+is the recipe's.
 
 Each control shows its name and current scalar with the physical default beside
 it (`grain, ×0.6; the file's 0.62 / 0.51 / 0.07 per µm²`), the grade as a badge

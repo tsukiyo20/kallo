@@ -197,6 +197,7 @@ class FfiModel implements Model {
     required double tempC,
     required int width,
     bool spectral = false,
+    Tuning tuning = Tuning.identity,
   }) async {
     final preview_api.PreviewSession session =
         await preview_api.PreviewSession.open(
@@ -207,6 +208,9 @@ class FfiModel implements Model {
             tempC: tempC,
             width: width,
             spectral: spectral,
+            tuning: Float64List.fromList(
+              tuning.isIdentity ? const <double>[] : tuning.toList(),
+            ),
             frameMm: 36,
             grain: true,
             halation: true,
@@ -461,6 +465,18 @@ class _FfiPreviewSession implements PreviewSession {
       throw StateError('this preview session was closed');
     }
     await _session.setMaterials(film: film, paper: paper, tempC: tempC);
+  }
+
+  @override
+  Future<void> setTuning({required Tuning tuning}) async {
+    if (_closed) {
+      throw StateError('this preview session was closed');
+    }
+    await _session.setTuning(
+      tuning: Float64List.fromList(
+        tuning.isIdentity ? const <double>[] : tuning.toList(),
+      ),
+    );
   }
 
   @override

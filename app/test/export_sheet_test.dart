@@ -14,6 +14,7 @@ import 'package:kallo/lab/model.dart';
 import 'package:kallo/lab/print_request.dart';
 import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
+import 'package:kallo/lab/tuning.dart';
 import 'package:kallo/views/print_stage.dart';
 import 'package:kallo/widgets/border_tray.dart';
 import 'package:kallo/widgets/button.dart';
@@ -96,6 +97,7 @@ class _CardModel extends ProcessModel {
     required double tempC,
     required int width,
     bool spectral = false,
+    Tuning tuning = Tuning.identity,
   }) async => _CardPreview(card);
 }
 
@@ -119,6 +121,9 @@ class _CardPreview implements PreviewSession {
     required String paper,
     required double tempC,
   }) async {}
+
+  @override
+  Future<void> setTuning({required Tuning tuning}) async {}
 
   @override
   void dispose() {}
@@ -227,6 +232,7 @@ Future<Directory> _pumpBench(
     _window(
       PrintStage(
         strip: _strip(),
+        catalogue: Catalogue.carried,
         paperName: 'PORTRA ENDURA',
         exports: folder,
         filmName: 'KODAK ULTRA MAX 400',
