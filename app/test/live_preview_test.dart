@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kallo/design/scope.dart';
@@ -252,6 +253,61 @@ void main() {
       reason: 'the session opens on the recipe, not on the file',
     );
     expect(model.session!.tunings.last.grainStrength, 0.5);
+  });
+
+  testWidgets('the materials caption does not change under the pointer', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final _Model model = _Model(card);
+    Model.useLinked(model);
+
+    await tester.pumpWidget(
+      _window(
+        DevelopStage(
+          strip: const TestStrip(photo: '/photographs/uji.jpg'),
+          catalogue: _catalogue,
+          onChoosePhoto: () {},
+          onFilm: (Stock _) {},
+          onPaper: (Stock? _) {},
+          onTemperature: (double _) {},
+          onDevelop: (_, {onProgress}) async {},
+          onRemove: (_) async {},
+        ),
+      ),
+    );
+    await _settlePreview(tester);
+
+    final Finder film = find.byKey(const Key('materials-film'));
+    expect(film, findsOneWidget);
+    List<Text> texts() => tester
+        .widgetList<Text>(
+          find.descendant(of: film, matching: find.byType(Text)),
+        )
+        .toList();
+    final List<Color?> before = <Color?>[
+      for (final Text text in texts()) text.style?.color,
+    ];
+
+    final TestGesture pointer = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+    );
+    await pointer.addPointer(location: Offset.zero);
+    addTearDown(pointer.removePointer);
+    await pointer.moveTo(tester.getCenter(film));
+    await tester.pumpAndSettle();
+
+    final List<Color?> after = <Color?>[
+      for (final Text text in texts()) text.style?.color,
+    ];
+    expect(
+      after,
+      before,
+      reason: 'the caption is a fact before it is a control: no hover flash',
+    );
   });
 
   testWidgets('a departure written on the record is on the easel', (
