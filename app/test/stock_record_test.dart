@@ -178,7 +178,7 @@ void main() {
       // The current value and the file's own sit beside the control.
       expect(_readout(tester, 'grain.strength'), '×1.0');
       expect(
-        _inControl('grain.strength', find.text('file ×1.0')),
+        _inControl('grain.strength', find.text('original ×1.0')),
         findsOneWidget,
       );
     },
