@@ -250,7 +250,7 @@ void main() {
     final Finder measured = find.byKey(const Key('record-locked-curves'));
     expect(measured, findsOneWidget);
     expect(
-      find.descendant(of: measured, matching: find.text('measured')),
+      find.descendant(of: measured, matching: find.text('manufacturer')),
       findsOneWidget,
     );
     expect(
@@ -476,7 +476,7 @@ void main() {
     const KalloStrings zh = KalloStrings(true);
     // The catalogue's four words, as the record says them: the sheet's own
     // vocabulary, not a sentence about borrowing and measuring.
-    expect(zh.claim('measured'), '实测值');
+    expect(zh.claim('measured'), '原厂数据');
     expect(zh.claim('estimate'), '估算值');
     expect(zh.claim('borrowed'), '参照值');
     expect(zh.claim('placeholder'), '默认值');
@@ -488,7 +488,7 @@ void main() {
     expect(zh.controlName('contrast'), '对比度');
     expect(zh.controlName('black'), '黑位');
     expect(zh.field('print'), '冲印');
-    expect(zh.departedMeasured, '偏离实测数据');
+    expect(zh.departedMeasured, '偏离原厂数据');
   });
 
   testWidgets('the panel page reports a move before it commits it', (
