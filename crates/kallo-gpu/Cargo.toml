@@ -14,7 +14,7 @@ keywords = ["gpu", "wgpu", "film", "simulation", "rendering"]
 categories = ["graphics", "simulation"]
 
 [dependencies]
-kallo-core = { path = "../kallo-core", version = "0.3.2" }
+kallo-core = { path = "../kallo-core", version = "0.3.3" }
 wgpu = "26"
 pollster = "0.4"
 

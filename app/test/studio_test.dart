@@ -806,7 +806,7 @@ void main() {
     expect(find.text('抽屉'), findsNothing);
     expect(find.text('DRAWER'), findsNothing);
     expect(find.text('Kallo'), findsOneWidget);
-    expect(find.text('版本 0.3.2'), findsOneWidget);
+    expect(find.text('版本 0.3.3'), findsOneWidget);
     expect(find.text('GitHub'), findsOneWidget);
     expect(find.text('github.com/tsukiyo20/kallo'), findsOneWidget);
     // The app says what it is: open, free, and where to say something.
