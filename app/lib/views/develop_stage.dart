@@ -2469,10 +2469,11 @@ class _Quiet extends StatelessWidget {
 
 /// One handle on the materials line: the slot's name and what is in it.
 ///
-/// It is not a button: it is the caption under the print, made clickable. The
-/// pointer closes the ink and the shelf comes up under it, which is the whole
-/// of the affordance.
-class _MaterialHandle extends StatefulWidget {
+/// It is not a button: it is the caption under the print, made clickable, and
+/// the pointer is the whole of the affordance. The caption does not brighten
+/// under the pointer: a line of small text that flashes when the mouse crosses
+/// it reads as an animation, and this caption is a fact before it is a control.
+class _MaterialHandle extends StatelessWidget {
   const _MaterialHandle({
     super.key,
     required this.label,
@@ -2488,36 +2489,27 @@ class _MaterialHandle extends StatefulWidget {
   /// Whether this slot is the half the shelf has open.
   final bool open;
 
-  /// The caption's colour when nothing is happening.
+  /// The caption's colour when the slot is not the open one.
   final Color quiet;
 
   final VoidCallback onTap;
 
   @override
-  State<_MaterialHandle> createState() => _MaterialHandleState();
-}
-
-class _MaterialHandleState extends State<_MaterialHandle> {
-  bool _hover = false;
-
-  @override
   Widget build(BuildContext context) {
     final KalloColors colors = KalloScope.colorsOf(context);
-    final Color value = widget.open || _hover ? colors.ink : widget.quiet;
+    final Color valueColour = open ? colors.ink : quiet;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: onTap,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              widget.label,
+              label,
               style: KalloType.caption.copyWith(
-                color: widget.quiet,
+                color: quiet,
                 fontSize: 9.5,
                 letterSpacing: 0.7,
               ),
@@ -2525,10 +2517,10 @@ class _MaterialHandleState extends State<_MaterialHandle> {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                widget.value,
+                value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: KalloType.small.copyWith(color: value),
+                style: KalloType.small.copyWith(color: valueColour),
               ),
             ),
           ],
