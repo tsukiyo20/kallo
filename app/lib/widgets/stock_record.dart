@@ -639,7 +639,7 @@ class _StockRecordBodyState extends State<StockRecordBody> {
             ),
             const Spacer(),
             Text(
-              s.fileValue(_readout(control.value)),
+              s.originalValue(_readout(control.value)),
               style: KalloType.data.copyWith(color: colors.inkFaint),
             ),
             if (moved) ...<Widget>[

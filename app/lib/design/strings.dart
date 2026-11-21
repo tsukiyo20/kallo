@@ -412,13 +412,15 @@ class KalloStrings {
     _ => name,
   };
 
-  /// The file's number beside the control that may move it.
-  String fileValue(String value) => zh ? '文件值 ×$value' : "file ×$value";
+  /// The stock's own number beside the control that may move it: the value
+  /// before any move, which Reset puts back.
+  String originalValue(String value) =>
+      zh ? '原值 ×$value' : 'original ×$value';
 
   /// The current number, the one a print will use.
   String currentValue(String value) => '×$value';
 
-  /// Back to the file's own number, for one control or the whole record.
+  /// Back to the stock's own number, for one control or the whole record.
   String get recordReset => zh ? '还原' : 'Reset';
   String get recordResetAll => zh ? '全部还原' : 'Reset all';
 
