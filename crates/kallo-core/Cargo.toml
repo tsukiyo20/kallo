@@ -20,7 +20,7 @@ default = ["parallel"]
 parallel = ["dep:rayon"]
 
 [dependencies]
-kallo-spectral = { path = "../kallo-spectral", version = "0.3.2" }
+kallo-spectral = { path = "../kallo-spectral", version = "0.3.3" }
 rayon = { version = "1", optional = true }
 
 # The measurements, carried as files rather than compiled into this crate: the
@@ -28,7 +28,7 @@ rayon = { version = "1", optional = true }
 # dependency — nothing here links against it, and none of its bytes are in the
 # binary.
 [build-dependencies]
-kallo-data = { path = "../kallo-data", version = "0.3.2" }
+kallo-data = { path = "../kallo-data", version = "0.3.3" }
 
 [lints]
 workspace = true

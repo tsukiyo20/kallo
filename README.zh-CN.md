@@ -63,7 +63,7 @@ kallo contact photo.jpg -o proof.png --dev 3,6,9,12,15
 | Linux x86_64 | `.AppImage` 或 `.deb` | `.tar.gz` |
 | iOS 15+ | `kallo-ios-unsigned.ipa` | — |
 | Android 8+ | `kallo-android-universal.apk` | — |
-| CLI | `kallo-v0.3.2-<target>.tar.gz` | — |
+| CLI | `kallo-v0.3.3-<target>.tar.gz` | — |
 
 桌面版没有签名：macOS 是 ad-hoc 签名、未公证（第一次右键 → 打开），Windows 的 MSI 可能触发 SmartScreen。移动端用于侧载；项目没有 Apple 或 Play 的签名身份。
 
