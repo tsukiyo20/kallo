@@ -555,12 +555,12 @@ class _StockRecordBodyState extends State<StockRecordBody> {
     Measured field, {
     required bool inModel,
   }) {
+    // No rule between two controls: the fields are separated by the space the
+    // page already keeps, and a line would draw a table where the page is a
+    // list of things a person may move.
     return Container(
       key: Key('record-field-${inModel ? 'model' : 'stock'}-${field.field}'),
       padding: const EdgeInsets.symmetric(vertical: KalloSpace.step3),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.hairline)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

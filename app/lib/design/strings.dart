@@ -345,7 +345,7 @@ class KalloStrings {
   /// vocabulary has; an empty claim is a sentence the four cannot carry, and it
   /// is shown as it stands.
   String claim(String claim) => switch (claim) {
-    'measured' => zh ? '实测值' : 'measured',
+    'measured' => zh ? '原厂数据' : 'manufacturer',
     'estimate' => zh ? '估算值' : 'estimated',
     'borrowed' => zh ? '参照值' : 'reference',
     'placeholder' => zh ? '默认值' : 'default',
@@ -422,7 +422,8 @@ class KalloStrings {
   String get recordReset => zh ? '还原' : 'Reset';
   String get recordResetAll => zh ? '全部还原' : 'Reset all';
 
-  String get departedMeasured => zh ? '偏离实测数据' : 'departs from measured data';
+  String get departedMeasured =>
+      zh ? '偏离原厂数据' : 'departs from manufacturer data';
 
   /// A recipe written against another version of the packed file: the values
   /// are kept for review, and none of them is applied.
