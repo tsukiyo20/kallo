@@ -30,8 +30,6 @@ import 'lab/print_marker.dart';
 import 'lab/print_meta.dart';
 import 'lab/print_request.dart';
 import 'lab/recipe_store.dart';
-import 'lab/roll.dart';
-import 'lab/roll_store.dart';
 import 'lab/render_mode.dart';
 import 'lab/settings.dart';
 import 'lab/stock.dart';
@@ -155,8 +153,8 @@ class KalloApp extends StatefulWidget {
   /// or the Mac's own title bar gesture.
   final VoidCallback? onToggleMaximize;
 
-  /// A strip to open directly. The tests pass one; the app reads the strip on
-  /// disk, which is the one in the darkroom.
+  /// A strip to open directly. The tests and the goldens pass one; the app
+  /// starts on an empty bench and never opens the strip of the last window.
   final TestStrip? strip;
 
   /// The original photograph, already decoded. The tests pass it; the app
@@ -210,7 +208,13 @@ class _KalloAppState extends State<KalloApp> {
   Brightness? _pinned;
   late bool _spectral = widget.spectral;
   RenderMode _renderMode = RenderMode.gpu;
-  TestStrip? _strip;
+
+  /// The strip on the bench.
+  ///
+  /// The app opens with an empty one and never takes yesterday's back: the
+  /// darkroom starts on the bench, asking for a photograph, rather than on the
+  /// photograph the last window happened to have open.
+  late TestStrip _strip;
   ui.Image? _photograph;
   bool _ownsPhotograph = false;
   Catalogue? _catalogue;
@@ -264,7 +268,7 @@ class _KalloAppState extends State<KalloApp> {
     super.initState();
     _locale = widget.locale;
     _pinned = widget.appearance;
-    _strip = widget.strip;
+    _strip = widget.strip ?? const TestStrip();
     _photograph = widget.photograph;
     _catalogue = widget.catalogue;
     if (_catalogue == null) {
@@ -278,10 +282,8 @@ class _KalloAppState extends State<KalloApp> {
     } else {
       unawaited(_openExports());
     }
-    if (_strip == null) {
-      unawaited(_openStrip());
-    } else if (_photograph == null) {
-      unawaited(_openPhotograph(_strip!));
+    if (_photograph == null && _strip.photo != null) {
+      unawaited(_openPhotograph(_strip));
     }
   }
 
@@ -304,36 +306,11 @@ class _KalloAppState extends State<KalloApp> {
     }
   }
 
-  /// The strip you were making, or the photograph the last roll kept.
-  Future<void> _openStrip() async {
-    TestStrip? stored;
-    try {
-      stored = await StripStore.load();
-    } on Object catch (error) {
-      Model.log('the strip could not be read: $error');
-    }
-    if (stored == null) {
-      final Roll? roll = await RollStore.load();
-      if (roll != null) {
-        stored = TestStrip(
-          photo: roll.photo,
-          stockId: roll.stockId,
-          stockLabel: roll.stockLabel,
-          paperId: roll.paperId,
-          paperLabel: roll.paperLabel,
-          spectral: roll.spectral,
-        );
-        await StripStore.save(stored);
-      }
-    }
-    stored ??= const TestStrip();
-    if (!mounted) {
-      return;
-    }
-    setState(() => _strip = stored);
-    await _openPhotograph(stored);
-  }
-
+  /// The photograph a strip was given from outside.
+  ///
+  /// The app chooses its own photograph and decodes it in `_choosePhoto`; a
+  /// strip passed in whole — what the tests and the goldens do — arrives with
+  /// a path and no image.
   Future<void> _openPhotograph(TestStrip strip) async {
     final String? path = strip.photo;
     if (path == null) {
@@ -525,7 +502,7 @@ class _KalloAppState extends State<KalloApp> {
     }
     try {
       final File kept = await StripStore.keep(file);
-      final TestStrip current = _strip ?? const TestStrip();
+      final TestStrip current = _strip;
       if (current.photo == kept.path) {
         return;
       }
@@ -554,7 +531,6 @@ class _KalloAppState extends State<KalloApp> {
         WidgetsBinding.instance.addPostFrameCallback((_) => oldPhoto.dispose());
       }
       await StripStore.clear();
-      await StripStore.save(next);
     } on Object catch (error) {
       Model.log('the photograph could not be kept or read: $error');
     }
@@ -621,21 +597,20 @@ class _KalloAppState extends State<KalloApp> {
 
   /// Replace the strip and forget the prints the old one had.
   Future<void> _replaceStrip(TestStrip next) async {
-    final TestStrip? old = _strip;
+    final TestStrip old = _strip;
     setState(() => _strip = next);
-    for (final TestPrint print in old?.prints ?? const <TestPrint>[]) {
+    for (final TestPrint print in old.prints) {
       final ui.Image? picture = print.image;
       if (picture != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) => picture.dispose());
       }
     }
     await StripStore.clear();
-    await StripStore.save(next);
   }
 
   Future<void> _chooseFilm(Stock film) async {
     final Catalogue catalogue = _catalogue ?? Catalogue.carried;
-    final TestStrip strip = _strip ?? const TestStrip();
+    final TestStrip strip = _strip;
     final List<Stock> papers = catalogue.papersFor(film.process);
     Stock? paper;
     for (final Stock candidate in papers) {
@@ -659,7 +634,7 @@ class _KalloAppState extends State<KalloApp> {
   }
 
   Future<void> _choosePaper(Stock? paper) async {
-    final TestStrip strip = _strip ?? const TestStrip();
+    final TestStrip strip = _strip;
     await _replaceStrip(
       TestStrip(
         photo: strip.photo,
@@ -679,8 +654,8 @@ class _KalloAppState extends State<KalloApp> {
   /// a new strip: the old prints were made at a different temperature, and
   /// keeping them would be a strip that says two things at once.
   Future<void> _setTemperature(double tempC) async {
-    final TestStrip? strip = _strip;
-    if (strip == null || strip.tempC == tempC) {
+    final TestStrip strip = _strip;
+    if (strip.tempC == tempC) {
       return;
     }
     await _replaceStrip(strip.withTemperature(tempC));
@@ -688,10 +663,7 @@ class _KalloAppState extends State<KalloApp> {
 
   /// Forget the prints and keep the photograph and the materials.
   Future<void> _clearStrip() async {
-    final TestStrip? strip = _strip;
-    if (strip == null) {
-      return;
-    }
+    final TestStrip strip = _strip;
     await _replaceStrip(strip.withoutPrints());
   }
 
@@ -700,8 +672,8 @@ class _KalloAppState extends State<KalloApp> {
     double minutes, {
     void Function(double)? onProgress,
   }) async {
-    final TestStrip? strip = _strip;
-    if (strip == null || strip.photo == null) {
+    final TestStrip strip = _strip;
+    if (strip.photo == null) {
       return;
     }
     await StockRecipes.ensureLoaded();
@@ -731,10 +703,7 @@ class _KalloAppState extends State<KalloApp> {
 
   /// Take one print off the strip.
   Future<void> _remove(double minutes) async {
-    final TestStrip? strip = _strip;
-    if (strip == null) {
-      return;
-    }
+    final TestStrip strip = _strip;
     TestPrint? removed;
     for (final TestPrint print in strip.prints) {
       if (print.minutes == minutes) {
@@ -747,7 +716,6 @@ class _KalloAppState extends State<KalloApp> {
     }
     final TestStrip next = strip.without(minutes);
     setState(() => _strip = next);
-    await StripStore.save(next);
     final File? file = removed.file;
     if (file != null && file.existsSync()) {
       await file.delete();
@@ -763,9 +731,9 @@ class _KalloAppState extends State<KalloApp> {
     PrintRequest request, {
     void Function(double)? onProgress,
   }) async {
-    final TestStrip? strip = _strip;
+    final TestStrip strip = _strip;
     final PrintLibrary? library = _library;
-    if (strip == null || library == null || strip.photo == null) {
+    if (library == null || strip.photo == null) {
       return;
     }
     final Directory exports = library.workFolder;
@@ -837,10 +805,7 @@ class _KalloAppState extends State<KalloApp> {
   /// was — the picture without an edge is still the picture — so it is logged
   /// and the darkroom carries on.
   Future<void> _printBorder(File output, PrintRequest request) async {
-    final TestStrip? strip = _strip;
-    if (strip == null) {
-      return;
-    }
+    final TestStrip strip = _strip;
     try {
       await bakeBorder(
         print: output,
@@ -1391,60 +1356,43 @@ class _KalloAppState extends State<KalloApp> {
           ),
         );
       },
-      home: _strip == null
-          ? const _Boot()
-          : Studio(
-              strip: _strip!,
-              photograph: _photograph,
-              catalogue: _catalogue ?? Catalogue.carried,
-              prints: _prints,
-              exports: _library?.workFolder ?? _folder,
-              onChoosePhoto: () => unawaited(_choosePhoto()),
-              onFilm: (Stock film) => unawaited(_chooseFilm(film)),
-              onPaper: (Stock? paper) => unawaited(_choosePaper(paper)),
-              onTemperature: (double tempC) =>
-                  unawaited(_setTemperature(tempC)),
-              onDevelop: _develop,
-              onRemove: _remove,
-              onClearStrip: () => unawaited(_clearStrip()),
-              onPrint: _print,
-              onEnterExports: widget.prints == null
-                  ? () => unawaited(_ensurePrints())
-                  : null,
-              export: _exportSetting,
-              hanging: _hanging,
-              onHang: _hang,
-              onRehang: _rehang,
-              onImport:
-                  widget.onImport ??
-                  (_library == null ? null : () => unawaited(_importImages())),
-              locale: _locale,
-              onLocale: (Locale? next) => setState(() => _locale = next),
-              spectral: _spectral,
-              onSpectral: _setSpectral,
-              renderMode: _renderMode,
-              onRenderMode: _setRenderMode,
-              initiallyOpen: widget.drawerOpen,
-              initialChamber: widget.initialChamber,
-              initialStep: widget.initialStep,
-              chrome: widget.chrome,
-              onDragWindow: widget.onDragWindow,
-              onToggleMaximize: widget.onToggleMaximize,
-            ),
+      home: Studio(
+        strip: _strip,
+        photograph: _photograph,
+        catalogue: _catalogue ?? Catalogue.carried,
+        prints: _prints,
+        exports: _library?.workFolder ?? _folder,
+        onChoosePhoto: () => unawaited(_choosePhoto()),
+        onFilm: (Stock film) => unawaited(_chooseFilm(film)),
+        onPaper: (Stock? paper) => unawaited(_choosePaper(paper)),
+        onTemperature: (double tempC) => unawaited(_setTemperature(tempC)),
+        onDevelop: _develop,
+        onRemove: _remove,
+        onClearStrip: () => unawaited(_clearStrip()),
+        onPrint: _print,
+        onEnterExports: widget.prints == null
+            ? () => unawaited(_ensurePrints())
+            : null,
+        export: _exportSetting,
+        hanging: _hanging,
+        onHang: _hang,
+        onRehang: _rehang,
+        onImport:
+            widget.onImport ??
+            (_library == null ? null : () => unawaited(_importImages())),
+        locale: _locale,
+        onLocale: (Locale? next) => setState(() => _locale = next),
+        spectral: _spectral,
+        onSpectral: _setSpectral,
+        renderMode: _renderMode,
+        onRenderMode: _setRenderMode,
+        initiallyOpen: widget.drawerOpen,
+        initialChamber: widget.initialChamber,
+        initialStep: widget.initialStep,
+        chrome: widget.chrome,
+        onDragWindow: widget.onDragWindow,
+        onToggleMaximize: widget.onToggleMaximize,
+      ),
     );
   }
-}
-
-/// The frame between the launch screen and the room.
-///
-/// The app opens on a photograph, but the window's colours are decided before
-/// the library is read. This paints the ground and nothing else, in the
-/// appearance the app is about to be in, so the launch screen's colour is the
-/// colour of the first frame and the hand-off does not flash.
-class _Boot extends StatelessWidget {
-  const _Boot();
-
-  @override
-  Widget build(BuildContext context) =>
-      ColoredBox(color: KalloScope.colorsOf(context).ground);
 }

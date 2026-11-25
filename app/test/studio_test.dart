@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -10,6 +11,7 @@ import 'package:kallo/design/strings.dart';
 import 'package:kallo/design/tokens.dart';
 import 'package:kallo/lab/chart.dart';
 import 'package:kallo/lab/print.dart';
+import 'package:kallo/lab/settings.dart';
 import 'package:kallo/lab/stock.dart';
 import 'package:kallo/lab/strip.dart';
 import 'package:kallo/main.dart';
@@ -83,6 +85,49 @@ void main() {
     expect(find.text('观景台'), findsOneWidget);
     expect(find.text('原片'), findsOneWidget);
     expect(find.text('换一张'), findsOneWidget);
+  });
+
+  testWidgets('the app opens on an empty bench, not the strip it left', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // The folder an earlier window wrote its strip into. The app has to start
+    // without it: a fresh window asks for a photograph. The setup is real
+    // file I/O, so it runs outside the test's fake clock.
+    final Directory support = (await tester.runAsync(() async {
+      final Directory directory = await Directory.systemTemp.createTemp(
+        'kallo-studio-',
+      );
+      final Directory roll = Directory('${directory.path}/roll')
+        ..createSync(recursive: true);
+      File('${roll.path}/strip.json').writeAsStringSync(
+        '{"photo": "/photographs/uji.jpg", "stock": "fuji_nph400", '
+        '"label": "FUJICOLOR NPH 400 PROFESSIONAL (NPH)", '
+        '"temp_c": 29.0, "prints": []}',
+      );
+      return directory;
+    }))!;
+    Settings.useDirectory(support);
+    addTearDown(() {
+      Settings.useDirectory(null);
+      support.deleteSync(recursive: true);
+    });
+
+    await tester.pumpWidget(
+      KalloApp(
+        catalogue: Catalogue.carried,
+        prints: const <Print>[],
+        initialStep: DarkroomStep.develop,
+        locale: const Locale('en'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose a photograph…'), findsOneWidget);
+    expect(find.text('uji'), findsNothing);
   });
 
   testWidgets('a double click on the band fills the screen', (
