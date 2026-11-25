@@ -88,7 +88,6 @@ Future<TestStrip> developTestPrint({
       file: output,
     ),
   );
-  await StripStore.save(next, folder: target);
   onProgress?.call(1.0);
   return next;
 }
